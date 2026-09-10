@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Clock3,
   History as HistoryIcon,
-  Leaf,
   LockKeyhole,
   Pencil,
   Plus,
@@ -15,7 +14,6 @@ import {
   Settings2,
   ShieldCheck,
   Shuffle,
-  Sparkles,
   Trash2,
   Users,
   X,
@@ -300,10 +298,6 @@ export function App() {
             </>
           ) : (
             <>
-              <span className="header-note">
-                <LockKeyhole size={13} />
-                Your own little recipe collection
-              </span>
               <button className="nav-link" disabled={!ready} onClick={() => setModal('login')}>
                 Sign in <ArrowRight size={15} />
               </button>
@@ -315,10 +309,6 @@ export function App() {
         {isHome && (
           <>
             <section className="hero">
-              <div className="hero-label">
-                <span />
-                GOOD FOOD. SAFE KEEPING.
-              </div>
               <h1>
                 Your recipes.
                 <br />
@@ -337,10 +327,6 @@ export function App() {
                 </span>
                 .
               </h1>
-              <p className="hero-description">
-                The weeknight go-tos. The family favorites.
-                <br />A simple home for everything you love to cook.
-              </p>
               <div className="home-search">
                 {searchBox}
                 <div className="hero-actions">
@@ -356,16 +342,6 @@ export function App() {
                     Add a recipe
                   </button>
                 </div>
-                <p className="search-hint">
-                  A name on your mind? Ingredients in your fridge? Start there.
-                </p>
-              </div>
-              <div className="hero-doodle" aria-hidden="true">
-                <Leaf size={38} strokeWidth={1.2} />
-                <span>
-                  a little less searching,
-                  <br />a little more cooking
-                </span>
               </div>
             </section>
             <Notice error={error} />
@@ -387,41 +363,7 @@ export function App() {
                   ))}
                 </div>
               </section>
-            ) : (
-              <section className="home-bottom">
-                <div className="little-note">
-                  <div className="note-icon">
-                    <BookOpen size={23} strokeWidth={1.4} />
-                  </div>
-                  <div>
-                    <h3>
-                      {user
-                        ? 'Every collection starts with one good recipe.'
-                        : 'A recipe box, without the rummaging.'}
-                    </h3>
-                    <p>
-                      {user
-                        ? 'Add a favorite by hand, or connect an agent in your account settings.'
-                        : 'Keep the keepers. Find them in a moment. Make something good.'}
-                    </p>
-                  </div>
-                </div>
-                <div className="principles">
-                  <span>
-                    <LockKeyhole size={14} />
-                    Private by default
-                  </span>
-                  <span>
-                    <Sparkles size={15} />
-                    Agent friendly
-                  </span>
-                  <span>
-                    <Leaf size={15} />
-                    Made to be yours
-                  </span>
-                </div>
-              </section>
-            )}
+            ) : null}
           </>
         )}
         {!isHome && (
@@ -715,14 +657,6 @@ export function App() {
           </>
         )}
       </main>
-      <footer className="site-footer">
-        <span className="footer-brand">brownbag.</span>
-        <span>A little home for good food.</span>
-        <span className="footer-right">
-          <span className="status-dot" />
-          Yours to keep. Yours to host.
-        </span>
-      </footer>
       {modal === 'login' && (
         <Login
           close={() => setModal(null)}

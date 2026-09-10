@@ -25,7 +25,27 @@ docker compose up -d --build
 
 The app, API, MCP server, and SQLite database run in one container. Data lives in the `brownbag-data` volume, mounted at `/data`. The process runs as a non-root user. `/health` checks database availability. Compose binds to localhost by default; put an HTTPS reverse proxy in front for remote access. Set `TRUST_PROXY_HOPS=1` only if exactly one trusted proxy stands between clients and the app. Adapt the port binding for your network if necessary.
 
-Production requires SMTP and never logs login codes. Use port 465 with `SMTP_SECURE=true` for implicit TLS, or your provider's STARTTLS port (usually 587) with `SMTP_SECURE=false`. A local SMTP relay works too. HTTPS origins enable secure session cookies. All browser API origins must match `APP_ORIGIN`.
+Production requires SMTP and never logs login codes. Use port 465 with `SMTP_SECURE=true` for implicit TLS, or your provider's STARTTLS port (usually 587) with `SMTP_SECURE=false`. STARTTLS is required by default; set `SMTP_REQUIRE_TLS=false` only for a trusted local relay without TLS. HTTPS origins enable secure session cookies. All browser API origins must match `APP_ORIGIN`.
+
+### Send sign-in emails
+
+Copy `.env.example` to `.env` and enter your SMTP provider's settings:
+
+```dotenv
+SMTP_HOST=smtp.your-provider.example
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+SMTP_USER=your-smtp-username
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM="brownbag <login@your-domain.example>"
+```
+
+Use a sender address or domain verified with your provider. Some providers require an app password or a dedicated SMTP credential. Set both username and password, or leave both empty for an unauthenticated local relay. Credentials stay on the server.
+
+Run `npm run email:check` from your local checkout to check the SMTP connection, TLS, and authentication without sending a message. This check does not verify sender authorization or inbox delivery. Restart the app after changing settings, then request a sign-in code in the browser to send an actual email. Setting `SMTP_HOST` enables delivery in development too; leaving it empty keeps development codes in the terminal.
+
+The server validates SMTP settings at startup and uses bounded connection and delivery timeouts. If the SMTP server rejects a message or cannot be reached, sign-in returns an error and removes the undelivered code so you can retry immediately. An accepted message may still be filtered or bounced by the recipient's provider; check spam and your SMTP provider's delivery logs if it does not arrive.
 
 Accounts are created after email verification. Each account owns a completely private collection. No instance-wide roles, shared collections, public recipes, or billing are implemented yet.
 
@@ -119,6 +139,7 @@ React + Vite frontend; Express TypeScript server; official MCP TypeScript SDK; Z
 - `shared/schema.ts`: validated recipe and change contracts
 - `server/store.ts`: ownership, schema initialization, search, transactions, review, history
 - `server/auth.ts`: verification, sessions, API keys, user settings
+- `server/mail.ts`: SMTP configuration and sign-in email delivery
 - `server/mcp.ts`: MCP tool definitions
 - `server/app.ts`: browser API and request protections
 - `src/`: responsive interface

@@ -8,10 +8,10 @@ import {
 } from 'node:crypto';
 import type { Express, Request, Response, NextFunction } from 'express';
 import { rateLimit } from 'express-rate-limit';
-import nodemailer from 'nodemailer';
 import { z } from 'zod';
 import { AppError, Store } from './store.js';
 import type { User } from '../shared/schema.js';
+import { createSmtpMailer, readSmtpConfig, type SmtpConfig } from './mail.js';
 
 declare global {
   namespace Express {
@@ -26,6 +26,7 @@ export type AuthConfig = {
   origin: string;
   production: boolean;
   mailMode: 'smtp' | 'console';
+  smtp?: SmtpConfig;
   sendCode?: (email: string, code: string) => Promise<void>;
 };
 
@@ -45,31 +46,13 @@ export function setupAuth(app: Express, store: Store, config: AuthConfig) {
   const cookie = { httpOnly: true, sameSite: 'lax' as const, secure, path: '/' };
   if (config.production && config.mailMode === 'console')
     throw new Error('Console login codes are development-only. Configure SMTP for production.');
-  const transport =
-    config.mailMode === 'smtp'
-      ? nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: Number(process.env.SMTP_PORT || 587),
-          secure: process.env.SMTP_SECURE === 'true',
-          auth: process.env.SMTP_USER
-            ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD }
-            : undefined,
-          disableFileAccess: true,
-          disableUrlAccess: true,
-        })
-      : null;
   const sendCode =
-    config.sendCode ||
-    (async (email: string, code: string) => {
-      if (transport)
-        await transport.sendMail({
-          from: process.env.SMTP_FROM || 'brownbag <brownbag@localhost>',
-          to: email,
-          subject: 'Your brownbag sign-in code',
-          text: `Your brownbag sign-in code is ${code}. It expires in 10 minutes. If you didn't request this, ignore this email.`,
+    config.sendCode ??
+    (config.mailMode === 'smtp'
+      ? createSmtpMailer(config.smtp ?? readSmtpConfig()).sendCode
+      : async (email: string, code: string) => {
+          console.info(`[development email] To: ${email} | Sign-in code: ${code}`);
         });
-      else console.info(`[development email] To: ${email} | Sign-in code: ${code}`);
-    });
   const emailSchema = z
     .string()
     .trim()
