@@ -67,18 +67,18 @@ Use **Streamable HTTP**. Example configuration (the exact wrapper varies by clie
 }
 ```
 
-| Tool | Purpose |
-| --- | --- |
-| `search_recipes` | Paginated fuzzy search; optional tag |
-| `get_recipe` | Full content and current version |
-| `random_recipe` | Random recipe, optionally filtered |
-| `create_recipe` | Create or propose a new recipe |
-| `update_recipe` | Replace full recipe content at `baseVersion` |
-| `delete_recipe` | Soft-delete at `baseVersion` |
-| `find_duplicates` | Fuzzy-title candidates with ingredient overlap |
-| `merge_recipes` | Retain combined target, soft-delete source atomically |
-| `list_changes` | Inspect pending and reviewed proposals |
-| `get_recipe_history` | Read revisions, including deleted recipes |
+| Tool                 | Purpose                                               |
+| -------------------- | ----------------------------------------------------- |
+| `search_recipes`     | Paginated fuzzy search; optional tag                  |
+| `get_recipe`         | Full content and current version                      |
+| `random_recipe`      | Random recipe, optionally filtered                    |
+| `create_recipe`      | Create or propose a new recipe                        |
+| `update_recipe`      | Replace full recipe content at `baseVersion`          |
+| `delete_recipe`      | Soft-delete at `baseVersion`                          |
+| `find_duplicates`    | Fuzzy-title candidates with ingredient overlap        |
+| `merge_recipes`      | Retain combined target, soft-delete source atomically |
+| `list_changes`       | Inspect pending and reviewed proposals                |
+| `get_recipe_history` | Read revisions, including deleted recipes             |
 
 Mutations return `{ "status": "pending", "changeId": "…" }` or `{ "status": "applied", "recipe": { ... } }`. Pending does not mean saved. Read a recipe before editing and supply its version. Updates replace content; preserve fields you aren't changing, including metadata. Merges require both recipes' current versions and explicitly combined recipe data. Duplicate detection is advisory and never merges automatically.
 
