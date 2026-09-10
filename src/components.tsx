@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { X, Plus, Trash2, ArrowRight } from 'lucide-react';
 import { api, post } from './api';
 import { recipeSchema, type Recipe, type RecipeInput, type User } from '../shared/schema';
@@ -36,6 +36,7 @@ export function Modal({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
@@ -44,6 +45,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       className={wide ? 'modal wide' : 'modal'}
       onCancel={close}
       onClick={(e) => {
@@ -51,7 +53,7 @@ export function Modal({
       }}
     >
       <div className="modal-head">
-        <h2>{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <button className="icon-button" onClick={close} aria-label="Close dialog">
           <X size={21} />
         </button>

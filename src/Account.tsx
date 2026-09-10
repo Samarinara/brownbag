@@ -203,13 +203,13 @@ export function Account({
               <code>{token}</code>
               <button
                 className="text-button"
-                onClick={() => {
-                  navigator.clipboard
-                    .writeText(token)
-                    .then(() => setCopied(true))
-                    .catch(() =>
-                      setError('Copy unavailable. Select the key and copy it manually.'),
-                    );
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(token);
+                    setCopied(true);
+                  } catch {
+                    setError('Copy unavailable. Select the key and copy it manually.');
+                  }
                 }}
               >
                 {copied ? <Check size={16} /> : <Copy size={16} />} {copied ? 'Copied' : 'Copy key'}
