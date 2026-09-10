@@ -106,6 +106,13 @@ test('agent proposals require review, enforce ownership and detect stale edits',
     assert.equal(store.get(alice.id, approved.id).title, 'Human version');
     store.review(alice.id, edit.changeId, false);
     assert.equal(store.changes(alice.id).find((c) => c.id === edit.changeId)?.status, 'rejected');
+    const next = store.mutate(alice.id, { action: 'create', data: recipe }, 'agent', true);
+    assert.equal(store.pendingCount(alice.id), 1);
+    assert.equal(store.changes(alice.id, 1)[0].status, 'pending');
+    assert.equal(store.changes(alice.id, 1, 1).length, 1);
+    assert.equal(store.changes(alice.id, 1, 3).length, 0);
+    if (next.status === 'pending') store.review(alice.id, next.changeId, false);
+    assert.equal(store.pendingCount(alice.id), 0);
   } finally {
     store.db.close();
   }

@@ -192,7 +192,7 @@ export function mountMcp(app: Express, store: Store, authenticate: RequestHandle
         inputSchema: { ...pagination },
         annotations: read,
       },
-      ({ offset, limit }) => result(() => store.changes(userId).slice(offset, offset + limit)),
+      ({ offset, limit }) => result(() => store.changes(userId, limit, offset)),
     );
     server.registerTool(
       'get_recipe_history',

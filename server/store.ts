@@ -260,11 +260,20 @@ export class Store {
       return { status: 'applied' as const, recipe: this.apply(userId, input, actor) };
     })();
   }
-  changes(userId: string): Change[] {
+  pendingCount(userId: string): number {
     return (
       this.db
-        .prepare('SELECT * FROM changes WHERE user_id=? ORDER BY created_at DESC LIMIT 500')
-        .all(userId) as any[]
+        .prepare("SELECT count(*) AS count FROM changes WHERE user_id=? AND status='pending'")
+        .get(userId) as { count: number }
+    ).count;
+  }
+  changes(userId: string, limit = 500, offset = 0): Change[] {
+    return (
+      this.db
+        .prepare(
+          "SELECT * FROM changes WHERE user_id=? ORDER BY (status='pending') DESC, created_at DESC, rowid DESC LIMIT ? OFFSET ?",
+        )
+        .all(userId, limit, offset) as any[]
     ).map((r) => ({
       recipeId: null,
       baseVersion: null,

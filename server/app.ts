@@ -75,7 +75,7 @@ export function createApp(store: Store, config: AuthConfig) {
     res.json({
       recipes: all.length,
       tags: [...new Set(all.flatMap((r) => r.tags))].sort(),
-      pending: store.changes(req.user.id).filter((c) => c.status === 'pending').length,
+      pending: store.pendingCount(req.user.id),
     });
   });
   app.get('/api/recipes/random', (req, res) => {
