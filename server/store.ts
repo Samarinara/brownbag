@@ -135,10 +135,24 @@ export class Store {
           : [];
         const byId = new Map(index.recipes.map((r) => [r.id, r]));
         const seen = new Set<string>();
+        // Match each ingredient term separately so typos still work across
+        // different ingredient rows (for example "spagheti lemmon").
+        const ingredientMatches = words.map((word) => index.full.search(word));
+        const ingredientScores = ingredientMatches.map(
+          (matches) => new Map(matches.map((match) => [match.item.id, match.score ?? 1])),
+        );
+        const fuzzyIngredients = (ingredientMatches[0] || [])
+          .filter((match) => ingredientScores.every((scores) => scores.has(match.item.id)))
+          .map((match) => ({
+            recipe: match.item,
+            score: ingredientScores.reduce((sum, scores) => sum + scores.get(match.item.id)!, 0),
+          }))
+          .sort((a, b) => a.score - b.score)
+          .map((match) => match.recipe);
         recipes = [
           ...title,
           ...fts.map((r) => byId.get(r.id)).filter((r): r is Recipe => !!r),
-          ...index.full.search(q).map((r) => r.item),
+          ...fuzzyIngredients,
         ].filter((r) => !seen.has(r.id) && !!seen.add(r.id));
       }
     }

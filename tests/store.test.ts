@@ -21,6 +21,8 @@ test('private collections, fuzzy ingredients, title-first ranking, tags and inde
     assert.equal(created.status, 'applied');
     if (created.status !== 'applied') return;
     assert.equal(store.search(alice.id, 'spagheti')[0].title, 'Lemon pasta');
+    assert.equal(store.search(alice.id, 'spagheti lemmon')[0].title, 'Lemon pasta');
+    assert.equal(store.search(alice.id, 'spagheti mushrooms').length, 0);
     assert.equal(store.search(alice.id, 'spagheti', true).length, 0);
     assert.equal(store.search(alice.id, '', false, 'Weeknight').length, 1);
     store.mutate(

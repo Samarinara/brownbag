@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { createServer as createHttpServer } from 'node:http';
 import { createApp } from './app.js';
 import { Store } from './store.js';
 
@@ -16,12 +17,16 @@ const app = createApp(store, {
   production,
   mailMode: process.env.SMTP_HOST ? 'smtp' : 'console',
 });
+const server = createHttpServer(app);
 if (production) {
   app.use(express.static(resolve('dist/client'), { index: false }));
   app.get('/{*path}', (_req, res) => res.sendFile(resolve('dist/client/index.html')));
 } else {
   const { createServer } = await import('vite');
-  const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+  const vite = await createServer({
+    server: { middlewareMode: true, hmr: { server } },
+    appType: 'custom',
+  });
   app.use(vite.middlewares);
   app.get('/{*path}', async (req, res, next) => {
     try {
@@ -38,7 +43,7 @@ if (production) {
     }
   });
 }
-const server = app.listen(port, '0.0.0.0', () =>
+server.listen(port, '0.0.0.0', () =>
   console.info(
     `brownbag is ready at ${origin}${production ? '' : '\nDevelopment mode: email codes appear in this terminal.'}`,
   ),
