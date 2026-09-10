@@ -230,6 +230,9 @@ nav {
   text-align: center;
   padding: 72px 0 66px;
 }
+.home-main .hero h1 {
+  animation: home-rise-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 .hero h1 {
   font-size: 82px;
   line-height: 1.08;
@@ -252,6 +255,7 @@ nav {
 .home-search {
   max-width: 594px;
   margin: 0 auto;
+  animation: home-rise-in 560ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .search-form {
   position: relative;
@@ -269,10 +273,15 @@ nav {
   box-shadow: 0 4px 14px #35432d05;
   height: 64px;
   color: #858b7a;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
 }
 .search-input-wrap:focus-within {
   border-color: #849a76;
   box-shadow: 0 0 0 3px #7d956410;
+  transform: translateY(-1px);
 }
 .search-input-wrap input {
   border: 0;
@@ -296,6 +305,12 @@ nav {
   justify-content: center;
   gap: 12px;
   margin-top: 18px;
+}
+.home-main .hero-actions .button {
+  animation: home-rise-in 500ms 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.home-main .hero-actions .button:nth-child(2) {
+  animation-delay: 230ms;
 }
 .button {
   border: 1px solid transparent;
@@ -332,6 +347,9 @@ nav {
 }
 .hero-actions .button {
   min-width: 173px;
+}
+.home-main .button:active {
+  transform: translateY(1px) scale(0.985);
 }
 .inner-main {
   width: 100%;
@@ -422,10 +440,26 @@ nav {
   flex-direction: column;
   min-height: 218px;
 }
+.home-main .recipe-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
 .recipe-card:hover {
   border-color: #adb99c;
   background: var(--white);
   transform: translateY(-3px);
+}
+.home-main .recipe-card:hover {
+  box-shadow: 0 8px 20px #35432d0d;
+}
+.home-main .recipe-card .card-icon {
+  transition: transform 180ms ease;
+}
+.home-main .recipe-card:hover .card-icon {
+  transform: rotate(-6deg);
 }
 .card-top {
   display: flex;
@@ -501,6 +535,9 @@ nav {
   border-radius: 9px;
   box-shadow: 0 10px 24px #24371a14;
 }
+.home-main .suggestions {
+  animation: home-suggestion-in 150ms ease-out both;
+}
 .suggestions .eyebrow {
   padding: 0 12px;
   display: block;
@@ -529,6 +566,26 @@ nav {
   color: var(--muted);
   padding: 12px;
   border-top: 1px solid var(--line);
+}
+@keyframes home-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes home-suggestion-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .empty-state {
   text-align: center;
@@ -1332,6 +1389,7 @@ nav {
 }
 @media (prefers-reduced-motion: reduce) {
   * {
+    animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
   }

@@ -314,7 +314,7 @@ export function App() {
                 <br />
                 All in one{' '}
                 <span className="bag-word">
-                  bag
+                  bag.
                   <svg viewBox="0 0 210 14" preserveAspectRatio="none" aria-hidden="true">
                     <path
                       d="M3 10C55 0 142 1 204 8M11 12C70 6 141 6 196 11"
@@ -325,7 +325,6 @@ export function App() {
                     />
                   </svg>
                 </span>
-                .
               </h1>
               <div className="home-search">
                 {searchBox}
