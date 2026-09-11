@@ -2,7 +2,7 @@ services:
   brownbag:
     build: .
     ports:
-      - '127.0.0.1:${HOST_PORT}:${PORT:-3000}'
+      - '${BIND_ADDR:-127.0.0.1}:${HOST_PORT}:${PORT:-3000}'
     environment:
       PORT: ${PORT:-3000}
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:${PORT:-3000}}

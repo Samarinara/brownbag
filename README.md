@@ -37,7 +37,7 @@ Open **http://localhost:3000**. Use `docker compose logs -f` or `podman-compose 
 
 If port 3000 (the default `HOST_PORT`) is in use, set `HOST_PORT` in `.env` to another localhost port and update `APP_ORIGIN` to match your browser URL. The container listens on `PORT` internally (default 3000); `HOST_PORT` is the published localhost port.
 
-The app, API, MCP server, and SQLite database run in one container. Data lives in the `brownbag-data` volume, mounted at `/data`. The process runs as a non-root user. `/health` checks database availability. Compose binds to localhost by default; put an HTTPS reverse proxy in front for remote access. Set `TRUST_PROXY_HOPS=1` only if exactly one trusted proxy stands between clients and the app. Adapt the port binding for your network if necessary.
+The app, API, MCP server, and SQLite database run in one container. Data lives in the `brownbag-data` volume, mounted at `/data`. The process runs as a non-root user. `/health` checks database availability. Compose binds to localhost by default; to reach the app over Tailscale or your LAN, set `BIND_ADDR=0.0.0.0` in `.env`, put an HTTPS reverse proxy in front for remote access. Set `TRUST_PROXY_HOPS=1` only if exactly one trusted proxy stands between clients and the app. Adapt the port binding for your network if necessary.
 
 Production requires SMTP when `EMAIL_AUTH=true` and never logs login codes. Use port 465 with `SMTP_SECURE=true` for implicit TLS, or your provider's STARTTLS port (usually 587) with `SMTP_SECURE=false`. STARTTLS is required by default; set `SMTP_REQUIRE_TLS=false` only for a trusted local relay without TLS. HTTPS origins enable secure session cookies. All browser API origins must match `APP_ORIGIN`.
 
