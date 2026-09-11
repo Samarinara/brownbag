@@ -35,7 +35,7 @@ Install `podman-compose` separately if your Podman installation does not include
 
 Open **http://localhost:3000**. Use `docker compose logs -f` or `podman-compose logs -f` to view logs, and `docker compose down` or `podman-compose down` to stop the app. The named database volume survives `down`; adding `--volumes` deletes it. Docker and Podman maintain separate volumes, so switching engines requires backing up and restoring your data.
 
-If port 3000 is in use, set `HOST_PORT` in `.env` and update `APP_ORIGIN` to match your browser URL. The container still listens on port 3000 internally.
+If port 3000 (the default `HOST_PORT`) is in use, set `HOST_PORT` in `.env` to another localhost port and update `APP_ORIGIN` to match your browser URL. The container listens on `PORT` internally (default 3000); `HOST_PORT` is the published localhost port.
 
 The app, API, MCP server, and SQLite database run in one container. Data lives in the `brownbag-data` volume, mounted at `/data`. The process runs as a non-root user. `/health` checks database availability. Compose binds to localhost by default; put an HTTPS reverse proxy in front for remote access. Set `TRUST_PROXY_HOPS=1` only if exactly one trusted proxy stands between clients and the app. Adapt the port binding for your network if necessary.
 
