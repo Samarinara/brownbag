@@ -9,13 +9,18 @@ import { Store } from './store.js';
 const production = process.env.NODE_ENV === 'production';
 const port = Number(process.env.PORT || 3000);
 const origin = process.env.APP_ORIGIN || `http://localhost:${port}`;
+const emailAuthSetting = process.env.EMAIL_AUTH?.trim().toLowerCase();
+if (emailAuthSetting && !['true', 'false'].includes(emailAuthSetting))
+  throw new Error('EMAIL_AUTH must be true or false.');
+const emailAuth = emailAuthSetting !== 'false';
 const mailMode = process.env.SMTP_HOST?.trim() ? 'smtp' : 'console';
-if (production && mailMode === 'console')
+if (emailAuth && production && mailMode === 'console')
   throw new Error('SMTP_HOST is required in production. See .env.example.');
 const store = new Store(process.env.DATABASE_PATH || './data/brownbag.sqlite');
 const app = createApp(store, {
   origin,
   production,
+  emailAuth,
   mailMode,
 });
 const server = createHttpServer(app);
@@ -46,7 +51,7 @@ if (production) {
 }
 server.listen(port, '0.0.0.0', () =>
   console.info(
-    `brownbag is ready at ${origin}\n${mailMode === 'smtp' ? 'Sign-in codes are sent by email using SMTP.' : 'Development mode: email codes appear in this terminal.'}`,
+    `brownbag is ready at ${origin}\n${emailAuth ? (mailMode === 'smtp' ? 'Sign-in codes are sent by email using SMTP.' : 'Development mode: email codes appear in this terminal.') : 'Email authentication is disabled; users sign in with passwords.'}`,
   ),
 );
 const shutdown = () => {
