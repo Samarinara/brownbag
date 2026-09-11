@@ -72,21 +72,27 @@ export function Notice({ error }: { error: string }) {
 export function Login({ done, close }: { done: (user: User) => void; close: () => void }) {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [emailAuth, setEmailAuth] = useState<boolean | null>(null);
   const [consoleMail, setConsoleMail] = useState(false);
   useEffect(() => {
-    api<{ mailMode: string }>('/auth/config')
-      .then((c) => setConsoleMail(c.mailMode === 'console'))
-      .catch(() => {});
+    api<{ emailAuth: boolean; mailMode?: string }>('/auth/config')
+      .then((c) => {
+        setEmailAuth(c.emailAuth);
+        setConsoleMail(c.emailAuth && c.mailMode === 'console');
+      })
+      .catch((e) => setError((e as Error).message));
   }, []);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      if (sent) done(await post<User>('/auth/verify', { email, code }));
+      if (emailAuth === false) done(await post<User>('/auth/password', { email, password }));
+      else if (sent) done(await post<User>('/auth/verify', { email, code }));
       else {
         await post('/auth/code', { email });
         setSent(true);
@@ -97,17 +103,29 @@ export function Login({ done, close }: { done: (user: User) => void; close: () =
       setBusy(false);
     }
   }
+  if (emailAuth === null)
+    return (
+      <Modal title="A little space for your recipes" close={close}>
+        <p className="muted">Loading sign-in…</p>
+        <Notice error={error} />
+      </Modal>
+    );
   return (
-    <Modal title={sent ? 'Check your inbox' : 'A little space for your recipes'} close={close}>
+    <Modal
+      title={emailAuth && sent ? 'Check your inbox' : 'A little space for your recipes'}
+      close={close}
+    >
       <p className="muted">
-        {sent
-          ? `We sent an 8-digit sign-in code to ${email}. It expires in 10 minutes.`
-          : 'Sign in or create your private collection with just your email. No password to remember.'}
+        {!emailAuth
+          ? 'Sign in with your email and password. If this email is new, we’ll create your private collection.'
+          : sent
+            ? `We sent an 8-digit sign-in code to ${email}. It expires in 10 minutes.`
+            : 'Sign in or create your private collection with just your email. No password to remember.'}
       </p>
       <form onSubmit={submit} className="stack">
         <label>
-          {sent ? 'Verification code' : 'Email address'}
-          {sent ? (
+          {emailAuth && sent ? 'Verification code' : 'Email address'}
+          {emailAuth && sent ? (
             <input
               autoFocus
               key="code"
@@ -132,12 +150,27 @@ export function Login({ done, close }: { done: (user: User) => void; close: () =
             />
           )}
         </label>
+        {!emailAuth && (
+          <label>
+            Password
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              minLength={12}
+              maxLength={128}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 12 characters"
+            />
+          </label>
+        )}
         <Notice error={error} />
         <button className="button primary" disabled={busy}>
-          {busy ? 'One moment…' : sent ? 'Open my brownbag' : 'Send me a code'}
+          {busy ? 'One moment…' : !emailAuth || sent ? 'Open my brownbag' : 'Send me a code'}
           <ArrowRight size={17} />
         </button>
-        {sent && (
+        {emailAuth && sent && (
           <button
             type="button"
             className="text-button"

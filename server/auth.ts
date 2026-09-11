@@ -4,8 +4,10 @@ import {
   randomBytes,
   randomInt,
   randomUUID,
+  scrypt,
   timingSafeEqual,
 } from 'node:crypto';
+import { promisify } from 'node:util';
 import type { Express, Request, Response, NextFunction } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
@@ -22,9 +24,11 @@ declare global {
   }
 }
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+const derivePassword = promisify(scrypt);
 export type AuthConfig = {
   origin: string;
   production: boolean;
+  emailAuth?: boolean;
   mailMode: 'smtp' | 'console';
   smtp?: SmtpConfig;
   sendCode?: (email: string, code: string) => Promise<void>;
@@ -32,6 +36,7 @@ export type AuthConfig = {
 
 export function setupAuth(app: Express, store: Store, config: AuthConfig) {
   const db = store.db;
+  const emailAuth = config.emailAuth !== false;
   db.exec('CREATE TABLE IF NOT EXISTS secrets (name TEXT PRIMARY KEY, value TEXT NOT NULL)');
   db.prepare('INSERT OR IGNORE INTO secrets VALUES (?,?)').run(
     'code_hmac',
@@ -44,15 +49,16 @@ export function setupAuth(app: Express, store: Store, config: AuthConfig) {
     createHmac('sha256', secret).update(`${email}:${code}`).digest('hex');
   const secure = config.origin.startsWith('https:');
   const cookie = { httpOnly: true, sameSite: 'lax' as const, secure, path: '/' };
-  if (config.production && config.mailMode === 'console')
+  if (emailAuth && config.production && config.mailMode === 'console')
     throw new Error('Console login codes are development-only. Configure SMTP for production.');
-  const sendCode =
-    config.sendCode ??
-    (config.mailMode === 'smtp'
-      ? createSmtpMailer(config.smtp ?? readSmtpConfig()).sendCode
-      : async (email: string, code: string) => {
-          console.info(`[development email] To: ${email} | Sign-in code: ${code}`);
-        });
+  const sendCode = emailAuth
+    ? (config.sendCode ??
+      (config.mailMode === 'smtp'
+        ? createSmtpMailer(config.smtp ?? readSmtpConfig()).sendCode
+        : async (email: string, code: string) => {
+            console.info(`[development email] To: ${email} | Sign-in code: ${code}`);
+          }))
+    : undefined;
   const emailSchema = z
     .string()
     .trim()
@@ -66,8 +72,39 @@ export function setupAuth(app: Express, store: Store, config: AuthConfig) {
     legacyHeaders: false,
     message: { error: 'Too many sign-in attempts. Try again in 15 minutes.' },
   });
-  app.get('/api/auth/config', (_req, res) => res.json({ mailMode: config.mailMode }));
+  const passwordSchema = z.string().min(12).max(128);
+  const createPasswordHash = async (password: string) => {
+    const salt = randomBytes(16);
+    const derived = (await derivePassword(password, salt, 64)) as Buffer;
+    return `scrypt$${salt.toString('base64url')}$${derived.toString('base64url')}`;
+  };
+  const passwordMatches = async (password: string, stored: string) => {
+    const [algorithm, saltText, hashText] = stored.split('$');
+    if (algorithm !== 'scrypt' || !saltText || !hashText) return false;
+    const expected = Buffer.from(hashText, 'base64url');
+    const derived = (await derivePassword(
+      password,
+      Buffer.from(saltText, 'base64url'),
+      64,
+    )) as Buffer;
+    return expected.length === derived.length && timingSafeEqual(expected, derived);
+  };
+  const issueSession = (user: User, res: Response) => {
+    const token = randomBytes(32).toString('base64url');
+    db.prepare('DELETE FROM sessions WHERE expires_at<?').run(Date.now());
+    db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(
+      hash(token),
+      user.id,
+      Date.now() + 30 * 86400_000,
+    );
+    store.audit(user.id, 'account.login', {});
+    res.cookie('brownbag_session', token, { ...cookie, maxAge: 30 * 86400_000 }).json(user);
+  };
+  app.get('/api/auth/config', (_req, res) =>
+    res.json({ emailAuth, mailMode: emailAuth ? config.mailMode : undefined }),
+  );
   app.post('/api/auth/code', limit, async (req, res) => {
+    if (!emailAuth) throw new AppError(404, 'Email sign-in is disabled.');
     const email = emailSchema.parse(req.body.email);
     const old = db.prepare('SELECT sent_at FROM login_codes WHERE email=?').get(email) as
       { sent_at: number } | undefined;
@@ -78,7 +115,7 @@ export function setupAuth(app: Express, store: Store, config: AuthConfig) {
       'INSERT INTO login_codes VALUES (?,?,?,0,?) ON CONFLICT(email) DO UPDATE SET hash=excluded.hash, expires_at=excluded.expires_at, attempts=0, sent_at=excluded.sent_at',
     ).run(email, codeHash(email, code), Date.now() + 600_000, Date.now());
     try {
-      await sendCode(email, code);
+      await sendCode!(email, code);
     } catch (error) {
       db.prepare('DELETE FROM login_codes WHERE email=? AND hash=?').run(
         email,
@@ -93,6 +130,7 @@ export function setupAuth(app: Express, store: Store, config: AuthConfig) {
     res.json({ ok: true });
   });
   app.post('/api/auth/verify', limit, (req, res) => {
+    if (!emailAuth) throw new AppError(404, 'Email sign-in is disabled.');
     const email = emailSchema.parse(req.body.email);
     const code = z
       .string()
@@ -105,20 +143,40 @@ export function setupAuth(app: Express, store: Store, config: AuthConfig) {
     db.prepare('UPDATE login_codes SET attempts=attempts+1 WHERE email=?').run(email);
     if (!timingSafeEqual(Buffer.from(row.hash, 'hex'), Buffer.from(codeHash(email, code), 'hex')))
       throw new AppError(400, 'Code invalid or expired.');
-    const token = randomBytes(32).toString('base64url');
     const user = db.transaction(() => {
       db.prepare('DELETE FROM login_codes WHERE email=?').run(email);
-      db.prepare('DELETE FROM sessions WHERE expires_at<?').run(Date.now());
+      return store.ensureUser(email);
+    })();
+    issueSession(user, res);
+  });
+  app.post('/api/auth/password', limit, async (req, res) => {
+    if (emailAuth) throw new AppError(404, 'Password sign-in is disabled.');
+    const { email, password } = z
+      .object({ email: emailSchema, password: passwordSchema })
+      .strict()
+      .parse(req.body);
+    const existing = db.prepare('SELECT id FROM users WHERE email=?').get(email) as
+      { id: string } | undefined;
+    if (existing) {
+      const credential = db
+        .prepare('SELECT hash FROM password_credentials WHERE user_id=?')
+        .get(existing.id) as { hash: string } | undefined;
+      if (!credential || !(await passwordMatches(password, credential.hash)))
+        throw new AppError(401, 'Email or password is incorrect.');
+      issueSession(store.user(existing.id), res);
+      return;
+    }
+    const passwordHash = await createPasswordHash(password);
+    const user = db.transaction(() => {
       const user = store.ensureUser(email);
-      db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(
-        hash(token),
+      db.prepare('INSERT INTO password_credentials(user_id,hash) VALUES (?,?)').run(
         user.id,
-        Date.now() + 30 * 86400_000,
+        passwordHash,
       );
-      store.audit(user.id, 'account.login', {});
+      store.audit(user.id, 'account.created', { auth: 'password' });
       return user;
     })();
-    res.cookie('brownbag_session', token, { ...cookie, maxAge: 30 * 86400_000 }).json(user);
+    issueSession(user, res);
   });
   const session = (req: Request, _res: Response, next: NextFunction) => {
     const token = req.cookies?.brownbag_session;

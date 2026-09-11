@@ -17,7 +17,7 @@ Copy `.env.example` to `.env` to customize settings. Development loads `.env` au
 
 ## Self-host with one container
 
-Copy `.env.example` to `.env` and configure `APP_ORIGIN`, `SMTP_HOST`, `SMTP_FROM`, and your mail credentials. Use either Docker with the Compose plugin or Podman with `podman-compose`; both use the same `compose.yaml` and `Dockerfile`.
+Copy `.env.example` to `.env` and configure `APP_ORIGIN` plus either email or password authentication as described below. Use either Docker with the Compose plugin or Podman with `podman-compose`; both use the same `compose.yaml` and `Dockerfile`.
 
 With Docker:
 
@@ -39,7 +39,13 @@ If port 3000 is in use, set `HOST_PORT` in `.env` and update `APP_ORIGIN` to mat
 
 The app, API, MCP server, and SQLite database run in one container. Data lives in the `brownbag-data` volume, mounted at `/data`. The process runs as a non-root user. `/health` checks database availability. Compose binds to localhost by default; put an HTTPS reverse proxy in front for remote access. Set `TRUST_PROXY_HOPS=1` only if exactly one trusted proxy stands between clients and the app. Adapt the port binding for your network if necessary.
 
-Production requires SMTP and never logs login codes. Use port 465 with `SMTP_SECURE=true` for implicit TLS, or your provider's STARTTLS port (usually 587) with `SMTP_SECURE=false`. STARTTLS is required by default; set `SMTP_REQUIRE_TLS=false` only for a trusted local relay without TLS. HTTPS origins enable secure session cookies. All browser API origins must match `APP_ORIGIN`.
+Production requires SMTP when `EMAIL_AUTH=true` and never logs login codes. Use port 465 with `SMTP_SECURE=true` for implicit TLS, or your provider's STARTTLS port (usually 587) with `SMTP_SECURE=false`. STARTTLS is required by default; set `SMTP_REQUIRE_TLS=false` only for a trusted local relay without TLS. HTTPS origins enable secure session cookies. All browser API origins must match `APP_ORIGIN`.
+
+### Use passwords instead of email
+
+Set `EMAIL_AUTH=false` in `.env` and restart the app. SMTP is not required in this mode. The sign-in dialog asks for an email and a password of at least 12 characters. The first successful submission for an email creates its account; later submissions sign in to that account. Passwords are salted and hashed with scrypt before storage.
+
+An account created previously with email authentication has no password and cannot be claimed in password mode. Choose the authentication mode before creating accounts; switching an existing deployment requires a separate account migration.
 
 ### Send sign-in emails
 
@@ -69,7 +75,7 @@ Back up the full `/data` volume while the container is stopped, or use SQLite's 
 
 ## What works
 
-- Email-code accounts: single-use 8-digit codes, 10-minute expiry, five guesses, resend cooldown, request limits, and 30-day HTTP-only sessions.
+- Configurable authentication: email codes by default, or user-created passwords with `EMAIL_AUTH=false`; request limits and 30-day HTTP-only sessions apply to both modes.
 - Structured ingredients (quantity, unit, name, note) displayed as formatted text; ordered instructions; title, short and long descriptions; tags; servings; prep/cook times; source URL; notes; extensible JSON metadata.
 - Live fuzzy title suggestions. Enter searches titles and ingredients, with title matches first. SQLite FTS5 covers token/prefix search; cached, account-scoped Fuse indexes tolerate typos. No ingredient synonym mapping.
 - Random selection from the entire private collection on the home page; random selection from current query/tag results on the search page.

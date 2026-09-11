@@ -7,12 +7,13 @@ import { Store } from '../server/store.js';
 import { createApp } from '../server/app.js';
 import { recipeSchema } from '../shared/schema.js';
 
-async function fixture() {
+async function fixture(emailAuth = true, production = false) {
   const store = new Store(':memory:');
   const codes = new Map<string, string>();
   const app = createApp(store, {
     origin: 'http://localhost:3000',
-    production: false,
+    production,
+    emailAuth,
     mailMode: 'console',
     sendCode: async (email, code) => {
       codes.set(email, code);
@@ -49,6 +50,50 @@ async function fixture() {
   };
   return { store, codes, url, request, login, close };
 }
+test('password mode creates accounts without SMTP, stores hashes and disables email codes', async () => {
+  const f = await fixture(false, true);
+  try {
+    const config = await (await f.request('/api/auth/config')).json();
+    assert.deepEqual(config, { emailAuth: false });
+    assert.equal((await f.request('/api/auth/code', { email: 'reader@example.com' })).status, 404);
+    assert.equal(
+      (await f.request('/api/auth/verify', { email: 'reader@example.com', code: '12345678' }))
+        .status,
+      404,
+    );
+
+    const email = 'Reader@Example.com';
+    const password = 'a long recipe password';
+    const created = await f.request('/api/auth/password', { email, password });
+    assert.equal(created.status, 200);
+    assert.match(created.headers.get('set-cookie')!, /HttpOnly/);
+    assert.equal((await created.json()).email, email.toLowerCase());
+    const stored = f.store.db
+      .prepare(
+        'SELECT password_credentials.hash FROM password_credentials JOIN users ON users.id=password_credentials.user_id WHERE users.email=?',
+      )
+      .get(email.toLowerCase()) as { hash: string };
+    assert.match(stored.hash, /^scrypt\$/);
+    assert.ok(!stored.hash.includes(password));
+
+    assert.equal(
+      (await f.request('/api/auth/password', { email, password: 'the wrong password!' })).status,
+      401,
+    );
+    assert.equal((await f.request('/api/auth/password', { email, password })).status, 200);
+    assert.equal(
+      (
+        await f.request('/api/auth/password', {
+          email: 'short@example.com',
+          password: 'too-short',
+        })
+      ).status,
+      400,
+    );
+  } finally {
+    await f.close();
+  }
+});
 test('email codes are one-use, expire, limit guesses and never leak to HTTP', async () => {
   const f = await fixture();
   try {
