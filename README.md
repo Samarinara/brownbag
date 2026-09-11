@@ -17,11 +17,25 @@ Copy `.env.example` to `.env` to customize settings. Development loads `.env` au
 
 ## Self-host with one container
 
-Configure `.env` with your `APP_ORIGIN`, `SMTP_HOST`, and mail credentials, then run:
+Copy `.env.example` to `.env` and configure `APP_ORIGIN`, `SMTP_HOST`, `SMTP_FROM`, and your mail credentials. Use either Docker with the Compose plugin or Podman with `podman-compose`; both use the same `compose.yaml` and `Dockerfile`.
+
+With Docker:
 
 ```sh
 docker compose up -d --build
 ```
+
+With Podman (rootless is supported):
+
+```sh
+podman-compose up -d --build
+```
+
+Install `podman-compose` separately if your Podman installation does not include it. You can also use `PODMAN_COMPOSE_PROVIDER=podman-compose podman compose up -d --build`. On macOS or Windows, start your Podman machine first with `podman machine start`.
+
+Open **http://localhost:3000**. Use `docker compose logs -f` or `podman-compose logs -f` to view logs, and `docker compose down` or `podman-compose down` to stop the app. The named database volume survives `down`; adding `--volumes` deletes it. Docker and Podman maintain separate volumes, so switching engines requires backing up and restoring your data.
+
+If port 3000 is in use, set `HOST_PORT` in `.env` and update `APP_ORIGIN` to match your browser URL. The container still listens on port 3000 internally.
 
 The app, API, MCP server, and SQLite database run in one container. Data lives in the `brownbag-data` volume, mounted at `/data`. The process runs as a non-root user. `/health` checks database availability. Compose binds to localhost by default; put an HTTPS reverse proxy in front for remote access. Set `TRUST_PROXY_HOPS=1` only if exactly one trusted proxy stands between clients and the app. Adapt the port binding for your network if necessary.
 
@@ -133,6 +147,15 @@ npm run check
 npm run build
 npm run format:check
 ```
+
+Container deployment checks build and start the app, verify its health check and non-root database access, and confirm data survives container recreation. Run either command (requires the corresponding engine and Compose installed):
+
+```sh
+bash scripts/smoke-compose.sh docker
+bash scripts/smoke-compose.sh podman
+```
+
+These checks use disposable volumes and localhost port 3000; set `HOST_PORT=3001` before the command if needed. CI runs both engines.
 
 React + Vite frontend; Express TypeScript server; official MCP TypeScript SDK; Zod contracts; SQLite via better-sqlite3. Both HTTP APIs use the same transactional recipe service. FTS5 is paired with account-scoped fuzzy indexes (up to 100 accounts cached). No external fonts, image services, AI providers, or frontend CDNs are needed.
 
