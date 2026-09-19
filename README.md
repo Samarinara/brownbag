@@ -1,187 +1,91 @@
 # brownbag
 
-A private recipe collection for people and their AI agents. One search box, a random recipe button, and a place to save the keepers.
+A shared recipe platform at **brownbag.polli.page**. This branch replaces the self-hosted account model with existing AT Protocol accounts, a Neon-backed recipe index, and a serverless-ready web app. This is an initial implementation, not a production launch.
 
-## Run locally
+## What works in this slice
 
-Requires Node.js 22.12+ and npm. Native SQLite installation may require Python, Make, and a C++ compiler if a prebuilt binary isn't available.
+- Public discovery and PostgreSQL full-text search; personal, saved, and followed-cook feeds.
+- Existing-account OAuth, encrypted server-side credentials, durable refresh locks, and cookie sessions. No passwords, email signup, or hosted accounts.
+- Private drafts and bookmarks; public recipe publishing, optimistic-concurrency edits/deletes, and attributed adaptations.
+- Public follow records and profile ingestion. The recipe editor uses ordinary cooking language, not protocol jargon.
+- Revocable assistant keys, stateless MCP, and mandatory human approval before any agent-proposed publication.
+- Filtered Jetstream ingestion with durable cursors, idempotent revision guards, tombstones, invalid-event storage, and bounded account reconciliation.
+
+## Architecture and storage
+
+The browser calls a same-origin Node API on Vercel. The API authenticates with the cook’s existing account provider and writes public records to their Personal Data Server (PDS). One **Neon PostgreSQL database** stores the queryable public index and private application state. No Redis, second database, or hosted PDS is needed for this slice.
+
+The live indexer is a **separate persistent Node worker**, not a request handler. It subscribes to the three Brownbag collections and uses the same Neon database. Deploy it on a service that supports continuously running processes. Ordinary [Vercel Functions have bounded invocation lifetimes](https://vercel.com/docs/functions/limitations), so this worker is intentionally outside the Vercel function entrypoint.
+
+Public recipe data is portable; private drafts, bookmarks, assistant keys, and review history currently are not. Back up PostgreSQL: rebuilding the public index does not restore private data or credentials. Public records can be copied by others and deletion cannot recall those copies.
+
+### Records
+
+| Collection                    | Key                        | Contents                                                                                                                                                                                                                                                                                     |
+| ----------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `page.polli.brownbag.recipe`  | TID                        | Title, summary, story, structured ingredients (string quantity/unit/name/preparation/group), ordered steps and groups, yield, prep/cook minutes, tags, language, source URL/name, image blob references, creation/update times, and optional original recipe URI + CID with adaptation note. |
+| `page.polli.brownbag.profile` | `self`                     | Brownbag display name, biography, avatar, and creation/update times; schema and ingestion are included, profile editing is not yet exposed.                                                                                                                                                  |
+| `page.polli.brownbag.follow`  | Stable hash in this client | Target account DID and creation time. Other clients may use other valid record keys.                                                                                                                                                                                                         |
+
+Exact field names, limits, and optionality live in [shared/atproto.ts](shared/atproto.ts) and [lexicons](lexicons). Public records reject extra private fields. Drafts permit unfinished content; publishing requires complete valid content. Neither likes, comments, ratings, nor public recipe collections are implemented yet.
+
+Profiles also allow a banner, cuisine and dietary-interest lists, and a website. Before publishing these schemas as a stable ecosystem contract, finalize their versions and configure lexicon authority/discovery for the `page.polli.brownbag` namespace. This repository does not modify your DNS or publish schema records on your behalf.
+
+## Local setup
+
+Requires Node 22.12+ and npm. Legacy SQLite tests still require native build tools if a prebuilt binary is unavailable.
 
 ```sh
 npm ci
+cp .env.example .env
+npm run keys:generate
+```
+
+Save the generated values privately in `.env`; do not commit or share them. Configure:
+
+- `APP_ORIGIN=http://127.0.0.1:3000` locally. Use this exact browser host, not `localhost`, for OAuth’s loopback callback.
+- `DATABASE_URL`: Neon **pooled** connection URL with TLS enabled.
+- `DATABASE_URL_UNPOOLED`: direct URL for migrations, if available.
+- `OAUTH_ENCRYPTION_KEY`: generated encryption secret; keep stable across deployments.
+- `OAUTH_PRIVATE_KEY_JWK`: generated signing key; required for HTTPS deployments and must remain stable.
+
+```sh
+npm run db:migrate
 npm run dev
+# In a second terminal:
+npm run indexer
 ```
 
-Open **http://localhost:3000**. Choose **Sign in**, enter an email, and find the 8-digit code in the server terminal. Development mode does not send mail unless SMTP is configured. There are no shared demo accounts or seeded recipes.
+Open http://127.0.0.1:3000. Without credentials the app shows a setup screen, not fake recipes or a bypass login. Migrations are explicit and serialized with a PostgreSQL advisory lock; they do not run on every request or during the frontend build.
 
-Copy `.env.example` to `.env` to customize settings. Development loads `.env` automatically. Use `APP_ORIGIN` matching the browser URL, including its port.
+## Vercel and worker deployment
 
-## Self-host with one container
+1. Create a Neon project and run the migration against it. Place the API and worker near the database region. Use separate preview database branches and OAuth secrets; never point untrusted previews at production.
+2. Configure the variables above in Vercel, with `APP_ORIGIN=https://brownbag.polli.page`, Node 22, and the custom domain. `vercel.json` builds the static client and routes API/OAuth/MCP requests to `api/index.ts`.
+3. Make `/oauth-client-metadata.json`, `/jwks.json`, and `/api/auth/callback` publicly reachable. Deployment protection must not block OAuth metadata. Verify callback routing on a real preview before launch.
+4. Deploy the same commit as a worker using `npm ci && npm run build`, then `node dist/indexer.js`. The worker needs `DATABASE_URL` and optionally `JETSTREAM_URL`; it does not need OAuth secrets.
+5. Smoke-test real sign-in, publish/edit/delete, a second-account follow, and worker restart/replay. These require your deployment/accounts and are not covered by the local mocks.
 
-Copy `.env.example` to `.env` and configure `APP_ORIGIN` plus either email or password authentication as described below. Use either Docker with the Compose plugin or Podman with `podman-compose`; both use the same `compose.yaml` and `Dockerfile`.
+For a container deployment, build the provided Dockerfile, run `node dist/migrate.js` once with database configuration, then run the app and indexer commands as separate services. `compose.yaml` provides both against the external database. It does not provision Neon or migrate automatically.
 
-With Docker:
+## Cost and reliability boundaries
 
-```sh
-docker compose up -d --build
-```
+The API uses small reusable connection pools (two connections per warm instance), with prepared statements disabled for pooler compatibility. Database-backed sessions, refresh locks, and rate limits work across instances. The public feed has short caching; private responses are not cacheable.
 
-With Podman (rootless is supported):
+Neon’s free plan is useful for development, but the worker and queries still consume compute. It ignores unknown account-lifecycle events and checkpoints idle streams sparingly; **busy usage can prevent autosuspend**. The worker host is an additional service and may have its own cost. Watch compute, storage, connections, and egress rather than assuming a permanently free production system.
 
-```sh
-podman-compose up -d --build
-```
+The [Jetstream feed](https://github.com/bluesky-social/jetstream) is trusted infrastructure, not cryptographic verification of every repository commit. Cursor replay is not a full historical archive guarantee. Account → Refresh cookbook reconciles a bounded stable PDS snapshot (up to 1,000 records); larger backfills, automated gap repair, identity refresh, replay tooling, and operator alerts still need production hardening. Run one indexer initially.
 
-Install `podman-compose` separately if your Podman installation does not include it. You can also use `PODMAN_COMPOSE_PROVIDER=podman-compose podman compose up -d --build`. On macOS or Windows, start your Podman machine first with `podman machine start`.
+Before opening unrestricted public signup, add reporting/moderation/blocking, retention/cleanup jobs for expired sessions and rate limits, operational recovery for proposals stuck in `applying`, and load/security testing. The `hidden` recipe flag supports operator-side suppression but there is no moderation UI. Image record support exists, but upload/rendering and profile editing are deferred. Search uses PostgreSQL full text, not the old fuzzy-search implementation. Social previews and legacy imports are also deferred.
 
-Open **http://localhost:3000**. Use `docker compose logs -f` or `podman-compose logs -f` to view logs, and `docker compose down` or `podman-compose down` to stop the app. The named database volume survives `down`; adding `--volumes` deletes it. Docker and Podman maintain separate volumes, so switching engines requires backing up and restoring your data.
-
-If port 3000 is in use, set `HOST_PORT` in `.env` and update `APP_ORIGIN` to match your browser URL. The container still listens on port 3000 internally.
-
-The app, API, MCP server, and SQLite database run in one container. Data lives in the `brownbag-data` volume, mounted at `/data`. The process runs as a non-root user. `/health` checks database availability. Compose binds to localhost by default; put an HTTPS reverse proxy in front for remote access. Set `TRUST_PROXY_HOPS=1` only if exactly one trusted proxy stands between clients and the app. Adapt the port binding for your network if necessary.
-
-Production requires SMTP when `EMAIL_AUTH=true` and never logs login codes. Use port 465 with `SMTP_SECURE=true` for implicit TLS, or your provider's STARTTLS port (usually 587) with `SMTP_SECURE=false`. STARTTLS is required by default; set `SMTP_REQUIRE_TLS=false` only for a trusted local relay without TLS. HTTPS origins enable secure session cookies. All browser API origins must match `APP_ORIGIN`.
-
-### Use passwords instead of email
-
-Set `EMAIL_AUTH=false` in `.env` and restart the app. SMTP is not required in this mode. The sign-in dialog asks for an email and a password of at least 12 characters. The first successful submission for an email creates its account; later submissions sign in to that account. Passwords are salted and hashed with scrypt before storage.
-
-An account created previously with email authentication has no password and cannot be claimed in password mode. Choose the authentication mode before creating accounts; switching an existing deployment requires a separate account migration.
-
-### Send sign-in emails
-
-Copy `.env.example` to `.env` and enter your SMTP provider's settings:
-
-```dotenv
-SMTP_HOST=smtp.your-provider.example
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_REQUIRE_TLS=true
-SMTP_USER=your-smtp-username
-SMTP_PASSWORD=your-smtp-password
-SMTP_FROM="brownbag <login@your-domain.example>"
-```
-
-Use a sender address or domain verified with your provider. Some providers require an app password or a dedicated SMTP credential. Set both username and password, or leave both empty for an unauthenticated local relay. Credentials stay on the server.
-
-Run `npm run email:check` from your local checkout to check the SMTP connection, TLS, and authentication without sending a message. This check does not verify sender authorization or inbox delivery. Restart the app after changing settings, then request a sign-in code in the browser to send an actual email. Setting `SMTP_HOST` enables delivery in development too; leaving it empty keeps development codes in the terminal.
-
-The server validates SMTP settings at startup and uses bounded connection and delivery timeouts. If the SMTP server rejects a message or cannot be reached, sign-in returns an error and removes the undelivered code so you can retry immediately. An accepted message may still be filtered or bounced by the recipient's provider; check spam and your SMTP provider's delivery logs if it does not arrive.
-
-Accounts are created after email verification. Each account owns a completely private collection. No instance-wide roles, shared collections, public recipes, or billing are implemented yet.
-
-### Backups
-
-Back up the full `/data` volume while the container is stopped, or use SQLite's online backup API. Do **not** copy only the live `.sqlite` file: committed data can still be in the WAL file. Restore a backup into the same volume while the app is stopped. Keep the entire database: it includes sessions, API key hashes, recipes, proposals, revision history, and audit logs. Treat backups as private data.
-
-## What works
-
-- Configurable authentication: email codes by default, or user-created passwords with `EMAIL_AUTH=false`; request limits and 30-day HTTP-only sessions apply to both modes.
-- Structured ingredients (quantity, unit, name, note) displayed as formatted text; ordered instructions; title, short and long descriptions; tags; servings; prep/cook times; source URL; notes; extensible JSON metadata.
-- Live fuzzy title suggestions. Enter searches titles and ingredients, with title matches first. SQLite FTS5 covers token/prefix search; cached, account-scoped Fuse indexes tolerate typos. No ingredient synonym mapping.
-- Random selection from the entire private collection on the home page; random selection from current query/tag results on the search page.
-- Human recipe creation/editing, cooking checkboxes, version history and restore, soft deletion and recovery.
-- Agent changes wait for human review by default. **Per-user YOLO** allows all that user's keys to write immediately. Existing pending proposals still need review.
-- Full before/after proposal inspection. Version checks reject stale edits and merges; merge updates and source deletion happen in one transaction.
-- Named, revocable API keys, shown once and stored as hashes. Account activity and immutable application-level recipe revisions.
-
-## Connect an MCP client
-
-Sign in → account avatar → **Agents & API keys** → create a named key. Connect to:
-
-```text
-POST https://your-brownbag.example/mcp
-Authorization: Bearer bb_YOUR_KEY
-```
-
-Use **Streamable HTTP**. Example configuration (the exact wrapper varies by client):
-
-```json
-{
-  "mcpServers": {
-    "brownbag": {
-      "type": "http",
-      "url": "https://your-brownbag.example/mcp",
-      "headers": { "Authorization": "Bearer bb_YOUR_KEY" }
-    }
-  }
-}
-```
-
-| Tool                 | Purpose                                               |
-| -------------------- | ----------------------------------------------------- |
-| `search_recipes`     | Paginated fuzzy search; optional tag                  |
-| `get_recipe`         | Full content and current version                      |
-| `random_recipe`      | Random recipe, optionally filtered                    |
-| `create_recipe`      | Create or propose a new recipe                        |
-| `update_recipe`      | Replace full recipe content at `baseVersion`          |
-| `delete_recipe`      | Soft-delete at `baseVersion`                          |
-| `find_duplicates`    | Fuzzy-title candidates with ingredient overlap        |
-| `merge_recipes`      | Retain combined target, soft-delete source atomically |
-| `list_changes`       | Inspect pending and reviewed proposals                |
-| `get_recipe_history` | Read revisions, including deleted recipes             |
-
-Mutations return `{ "status": "pending", "changeId": "…" }` or `{ "status": "applied", "recipe": { ... } }`. Pending does not mean saved. Read a recipe before editing and supply its version. Updates replace content; preserve fields you aren't changing, including metadata. Merges require both recipes' current versions and explicitly combined recipe data. Duplicate detection is advisory and never merges automatically.
-
-API keys cannot approve proposals, change YOLO, manage keys, or sign in to the browser API. Those actions require a human browser session. Recipe content and metadata should be treated as untrusted data by agents.
-
-### Minimal create payload
-
-```json
-{
-  "recipe": {
-    "title": "Lemon pasta",
-    "shortDescription": "A bright, quick weeknight dinner.",
-    "ingredients": [
-      { "quantity": 200, "unit": "g", "ingredient": "spaghetti" },
-      { "quantity": 1, "unit": "", "ingredient": "lemon", "note": "zested and juiced" }
-    ],
-    "steps": [
-      { "text": "Cook the spaghetti in salted water." },
-      { "text": "Toss with lemon zest, juice, and a little pasta water." }
-    ],
-    "tags": ["Weeknight"],
-    "servings": 2
-  }
-}
-```
-
-## Development and architecture
+## Verification and legacy code
 
 ```sh
 npm test
-npm run check
 npm run build
 npm run format:check
 ```
 
-Container deployment checks build and start the app, verify its health check and non-root database access, and confirm data survives container recreation. Run either command (requires the corresponding engine and Compose installed):
+New integration tests run PostgreSQL semantics in PGlite and mock remote account writes. They check privacy, owner isolation, stale writes, stream replay, encrypted credentials, and agent approval races. They do not prove Neon networking, production OAuth, or Vercel routing. Existing SQLite tests remain as regression coverage for archived modules; those modules are not mounted by the new server. [Old self-hosting documentation](docs/legacy-self-hosted.md) and the old Compose smoke script are historical only. No old private recipes are automatically made public.
 
-```sh
-bash scripts/smoke-compose.sh docker
-bash scripts/smoke-compose.sh podman
-```
-
-These checks use disposable volumes and localhost port 3000; set `HOST_PORT=3001` before the command if needed. CI runs both engines.
-
-React + Vite frontend; Express TypeScript server; official MCP TypeScript SDK; Zod contracts; SQLite via better-sqlite3. Both HTTP APIs use the same transactional recipe service. FTS5 is paired with account-scoped fuzzy indexes (up to 100 accounts cached). No external fonts, image services, AI providers, or frontend CDNs are needed.
-
-- `shared/schema.ts`: validated recipe and change contracts
-- `server/store.ts`: ownership, schema initialization, search, transactions, review, history
-- `server/auth.ts`: verification, sessions, API keys, user settings
-- `server/mail.ts`: SMTP configuration and sign-in email delivery
-- `server/mcp.ts`: MCP tool definitions
-- `server/app.ts`: browser API and request protections
-- `src/`: responsive interface
-- `tests/`: database behavior and real HTTP/MCP client integration
-
-SQLite uses WAL mode. Schema version 1 is recorded in `migrations`; future schema changes need sequential migrations. Recipe metadata provides an extension point without adding columns for every optional field.
-
-### Deployment scope and next steps
-
-This is a working first version for a single application process. SQLite and in-process rate limits/search caches are deliberately simple; don't point multiple app replicas at the same database. A large hosted service will need a PostgreSQL storage implementation, shared rate limits, load testing, account lifecycle controls, and operational monitoring. These are not claimed to be implemented by this MVP.
-
-"Offline" here means a locally hosted app without required SaaS services. It is **not** an offline browser/PWA with synchronization. Email sign-in needs access to an SMTP server, although existing local sessions and recipe operations don't need an internet connection.
-
-Imports, sharing/social features, favorites, meal planning, shopping lists, and billing are deferred. Duplicate detection currently uses title similarity with ingredient-overlap information, not semantic inference. History and audit events persist indefinitely; the UI displays the latest 200 audit events and up to 500 recent proposals.
-
-Choose a project license before publishing or accepting contributions; no license choice has been assumed for you.
+For an explicitly simulated, local-only browser preview after building, run `npx tsx tests/support/preview.ts` and open `http://127.0.0.1:3001`. It uses an in-memory test database, a synthetic account, and mocked publications, binds only to loopback, and is never imported by production code. Do not deploy that fixture.

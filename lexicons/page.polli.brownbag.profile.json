@@ -1,0 +1,65 @@
+{
+  "lexicon": 1,
+  "id": "page.polli.brownbag.profile",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["createdAt"],
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "avatar": {
+            "type": "blob",
+            "accept": ["image/jpeg", "image/png", "image/webp", "image/avif"],
+            "maxSize": 5000000
+          },
+          "banner": {
+            "type": "blob",
+            "accept": ["image/jpeg", "image/png", "image/webp", "image/avif"],
+            "maxSize": 5000000
+          },
+          "cuisines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 1
+            },
+            "maxLength": 30
+          },
+          "dietaryInterests": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 1
+            },
+            "maxLength": 30
+          },
+          "website": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

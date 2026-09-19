@@ -1,0 +1,106 @@
+{
+  "lexicon": 1,
+  "id": "page.polli.brownbag.defs",
+  "defs": {
+    "ingredient": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "quantity": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 300,
+          "minLength": 1
+        },
+        "preparation": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "group": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "instruction": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 10000,
+          "minLength": 1
+        },
+        "group": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "recipeImage": {
+      "type": "object",
+      "required": ["image", "alt"],
+      "properties": {
+        "image": {
+          "type": "blob",
+          "accept": ["image/jpeg", "image/png", "image/webp", "image/avif"],
+          "maxSize": 5000000
+        },
+        "alt": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        }
+      }
+    },
+    "recipeYield": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "quantity": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "display": {
+          "type": "string",
+          "maxLength": 300
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2000
+        }
+      }
+    }
+  }
+}

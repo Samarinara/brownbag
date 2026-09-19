@@ -13,19 +13,9 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
-  compose:
+  container:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        engine: [docker, podman]
     steps:
       - uses: actions/checkout@v4
-      - name: Install Podman Compose
-        if: matrix.engine == 'podman'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y podman
-          pipx install podman-compose==1.6.0
-      - name: Build and exercise Compose deployment
-        run: bash scripts/smoke-compose.sh ${{ matrix.engine }}
+      - name: Build app and indexer image
+        run: docker build -t brownbag:test .
