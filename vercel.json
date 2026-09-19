@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/client",
+  "functions": { "api/index.ts": { "maxDuration": 60 } },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api" },
+    { "source": "/mcp", "destination": "/api" },
+    { "source": "/health", "destination": "/api" },
+    { "source": "/oauth-client-metadata.json", "destination": "/api" },
+    { "source": "/jwks.json", "destination": "/api" },
+    { "source": "/((?!assets/|favicon.svg).*)", "destination": "/index.html" }
+  ]
+}

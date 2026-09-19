@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo 'This archived SQLite smoke test does not apply to the decentralized branch. See README.md for PostgreSQL setup and verification.' >&2
+exit 2
+
 # Uses a disposable project/volume and a configurable localhost port.
 engine=${1:?Usage: bash scripts/smoke-compose.sh docker|podman}
 case "$engine" in

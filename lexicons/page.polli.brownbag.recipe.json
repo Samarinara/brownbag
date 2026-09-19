@@ -1,0 +1,103 @@
+{
+  "lexicon": 1,
+  "id": "page.polli.brownbag.recipe",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["title", "ingredients", "instructions", "createdAt"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "page.polli.brownbag.defs#ingredient"
+            },
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "instructions": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "page.polli.brownbag.defs#instruction"
+            },
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "yield": {
+            "type": "ref",
+            "ref": "page.polli.brownbag.defs#recipeYield"
+          },
+          "prepMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "cookMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 50,
+              "minLength": 1
+            },
+            "maxLength": 30
+          },
+          "language": {
+            "type": "string",
+            "format": "language",
+            "maxLength": 100
+          },
+          "source": {
+            "type": "ref",
+            "ref": "page.polli.brownbag.defs#source"
+          },
+          "derivedFrom": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef"
+          },
+          "adaptationNote": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "page.polli.brownbag.defs#recipeImage"
+            },
+            "maxLength": 8
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}
