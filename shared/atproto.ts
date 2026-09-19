@@ -136,6 +136,17 @@ export const followRecordSchema = z
   .object({ $type: z.literal(FOLLOW_COLLECTION), subject: didSchema, createdAt: timestamp })
   .strict();
 export type RecipeInput = z.infer<typeof recipeInputSchema>;
+// Drafts may be incomplete. They never enter a public repository until the
+// stricter recipeInputSchema succeeds at publication.
+export const draftInputSchema = recipeInputSchema.extend({
+  title: z.string().max(200),
+  ingredients: z
+    .array(recipeInputSchema.shape.ingredients.element.extend({ name: z.string().max(300) }))
+    .max(64),
+  instructions: z
+    .array(recipeInputSchema.shape.instructions.element.extend({ text: z.string().max(10000) }))
+    .max(64),
+});
 export type RecipeRecord = z.infer<typeof recipeRecordSchema>;
 export type RecipeView = {
   uri: string;
