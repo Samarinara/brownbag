@@ -2,64 +2,32 @@ import 'dotenv/config';
 import express from 'express';
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { createServer as createHttpServer } from 'node:http';
-import { createApp } from './app.js';
-import { Store } from './store.js';
+import { createServer } from 'node:http';
+import { initializeApp } from './runtime.js';
 
-const production = process.env.NODE_ENV === 'production';
-const port = Number(process.env.PORT || 3000);
-const origin = process.env.APP_ORIGIN || `http://localhost:${port}`;
-const emailAuthSetting = process.env.EMAIL_AUTH?.trim().toLowerCase();
-if (emailAuthSetting && !['true', 'false'].includes(emailAuthSetting))
-  throw new Error('EMAIL_AUTH must be true or false.');
-const emailAuth = emailAuthSetting !== 'false';
-const mailMode = process.env.SMTP_HOST?.trim() ? 'smtp' : 'console';
-if (emailAuth && production && mailMode === 'console')
-  throw new Error('SMTP_HOST is required in production. See .env.example.');
-const store = new Store(process.env.DATABASE_PATH || './data/brownbag.sqlite');
-const app = createApp(store, {
-  origin,
-  production,
-  emailAuth,
-  mailMode,
-});
-const server = createHttpServer(app);
-if (production) {
+const app = await initializeApp();
+const server = createServer(app);
+if (process.env.NODE_ENV === 'production') {
   app.use(express.static(resolve('dist/client'), { index: false }));
-  app.get('/{*path}', (_req, res) => res.sendFile(resolve('dist/client/index.html')));
+  app.get('/{*path}', (_req, res) => res.sendFile('index.html', { root: resolve('dist/client') }));
 } else {
-  const { createServer } = await import('vite');
-  const vite = await createServer({
+  const { createServer: createViteServer } = await import('vite');
+  const vite = await createViteServer({
     server: { middlewareMode: true, hmr: { server } },
     appType: 'custom',
   });
   app.use(vite.middlewares);
-  app.get('/{*path}', async (req, res, next) => {
-    try {
-      res
-        .type('html')
-        .send(
-          await vite.transformIndexHtml(
-            req.originalUrl,
-            await readFile(resolve('index.html'), 'utf8'),
-          ),
-        );
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.get('/{*path}', async (req, res) =>
+    res
+      .type('html')
+      .send(
+        await vite.transformIndexHtml(
+          req.originalUrl,
+          await readFile(resolve('index.html'), 'utf8'),
+        ),
+      ),
+  );
 }
-server.listen(port, '0.0.0.0', () =>
-  console.info(
-    `brownbag is ready at ${origin}\n${emailAuth ? (mailMode === 'smtp' ? 'Sign-in codes are sent by email using SMTP.' : 'Development mode: email codes appear in this terminal.') : 'Email authentication is disabled; users sign in with passwords.'}`,
-  ),
+server.listen(Number(process.env.PORT || 3000), '0.0.0.0', () =>
+  console.info(`Brownbag ready at ${process.env.APP_ORIGIN || 'http://127.0.0.1:3000'}`),
 );
-const shutdown = () => {
-  server.close(() => {
-    store.db.close();
-    process.exit(0);
-  });
-  setTimeout(() => process.exit(1), 10000).unref();
-};
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);

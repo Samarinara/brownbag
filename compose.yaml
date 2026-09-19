@@ -2,21 +2,11 @@ services:
   brownbag:
     build: .
     ports:
-      - '127.0.0.1:${HOST_PORT}:${PORT:-3000}'
+      - '127.0.0.1:${HOST_PORT:-3000}:${PORT:-3000}'
+    env_file: .env
     environment:
       PORT: ${PORT:-3000}
-      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:${PORT:-3000}}
-      DATABASE_PATH: /data/brownbag.sqlite
-      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in .env}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
-      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM: ${SMTP_FROM:?Set SMTP_FROM to your verified sender address in .env}
-      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-}
-    volumes:
-      - brownbag-data:/data
+      APP_ORIGIN: ${APP_ORIGIN:-http://127.0.0.1:${PORT:-3000}}
     # Keep the health check when Podman builds an OCI image.
     healthcheck:
       test:
@@ -33,5 +23,11 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-volumes:
-  brownbag-data:
+  indexer:
+    build: .
+    env_file: .env
+    command: ['node', 'dist/indexer.js']
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+    init: true
