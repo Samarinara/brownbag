@@ -9,13 +9,20 @@ try {
     await tx.query(
       'CREATE TABLE IF NOT EXISTS schema_migrations(version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
     );
-    const done = await tx.query('SELECT version FROM schema_migrations WHERE version=1');
-    if (!done.length) {
+    let applied = false;
+    for (const migration of ['001_network.sql', '002_normalize_jsonb.sql']) {
+      const version = Number(migration.slice(0, 3));
+      const done = await tx.query('SELECT version FROM schema_migrations WHERE version=$1', [
+        version,
+      ]);
+      if (done.length) continue;
       await tx.query(
-        await readFile(new URL('../migrations/001_network.sql', import.meta.url), 'utf8'),
+        await readFile(new URL(`../migrations/${migration}`, import.meta.url), 'utf8'),
       );
-      console.info('Applied migration 001_network.');
-    } else console.info('Database is up to date.');
+      console.info(`Applied migration ${migration.replace('.sql', '')}.`);
+      applied = true;
+    }
+    if (!applied) console.info('Database is up to date.');
   });
 } finally {
   await sql.end();
