@@ -103,7 +103,7 @@ export async function ingestEvent(
 async function deadLetter(db: Database, source: string, event: unknown, reason: string) {
   const parsed = envelopeSchema.safeParse(event);
   await db.query(
-    'INSERT INTO indexing_failures(source,time_us,event,reason) VALUES ($1,$2,$3::jsonb,$4)',
+    'INSERT INTO indexing_failures(source,time_us,event,reason) VALUES ($1,$2,$3::text::jsonb,$4)',
     [
       source,
       parsed.success ? parsed.data.time_us : null,

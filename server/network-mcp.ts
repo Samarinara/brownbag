@@ -121,11 +121,11 @@ export function mountNetworkMcp(
     }
     await store.db.transaction(async (tx) => {
       await tx.query(
-        "UPDATE proposals SET status='approved',result=$3::jsonb WHERE id=$1 AND did=$2 AND status='applying'",
+        "UPDATE proposals SET status='approved',result=$3::text::jsonb WHERE id=$1 AND did=$2 AND status='applying'",
         [id, did, JSON.stringify(recipe || { deleted: true })],
       );
       await tx.query(
-        "INSERT INTO audit_events(did,event,detail) VALUES ($1,'proposal.approved',$2::jsonb)",
+        "INSERT INTO audit_events(did,event,detail) VALUES ($1,'proposal.approved',$2::text::jsonb)",
         [did, JSON.stringify({ id, action: payload.action })],
       );
     });
@@ -197,7 +197,7 @@ export function mountNetworkMcp(
       }
       const id = randomUUID();
       await store.db.query(
-        'INSERT INTO proposals(id,did,key_id,payload) VALUES ($1,$2,$3,$4::jsonb)',
+        'INSERT INTO proposals(id,did,key_id,payload) VALUES ($1,$2,$3,$4::text::jsonb)',
         [id, did, keyId, JSON.stringify(payload)],
       );
       return {
