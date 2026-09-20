@@ -228,7 +228,7 @@ export function createNetworkApp(config: {
     if (draftId) {
       // A concurrently edited draft should never be silently discarded after publication.
       try {
-        await store.db.query('DELETE FROM drafts WHERE id=$1 AND did=$2 AND data=$3::jsonb', [
+        await store.db.query('DELETE FROM drafts WHERE id=$1 AND did=$2 AND data=$3::text::jsonb', [
           draftId,
           res.locals.user.did,
           JSON.stringify(recipe),

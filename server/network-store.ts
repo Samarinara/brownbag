@@ -60,7 +60,7 @@ export class NetworkStore {
       await tx.query('INSERT INTO actors(did) VALUES ($1) ON CONFLICT DO NOTHING', [did]);
       const changed = await tx.query(
         `INSERT INTO network_records(uri,did,collection,rkey,cid,record,repo_rev,deleted)
-        VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8)
+        VALUES ($1,$2,$3,$4,$5,$6::text::jsonb,$7,$8)
         ON CONFLICT(uri) DO UPDATE SET cid=excluded.cid,record=excluded.record,repo_rev=excluded.repo_rev,deleted=excluded.deleted,indexed_at=now()
         WHERE network_records.repo_rev <= excluded.repo_rev RETURNING uri`,
         [
@@ -81,7 +81,7 @@ export class NetworkStore {
           const ingredients = record.ingredients.map((i: any) => i.name).join(' ');
           await tx.query(
             `INSERT INTO public_recipes(uri,did,cid,record,title,ingredient_text,search_document,created_at)
-            VALUES ($1,$2,$3,$4::jsonb,$5,$6,setweight(to_tsvector('simple',$5),'A') || setweight(to_tsvector('simple',$6),'B'),$7)
+            VALUES ($1,$2,$3,$4::text::jsonb,$5,$6,setweight(to_tsvector('simple',$5),'A') || setweight(to_tsvector('simple',$6),'B'),$7)
             ON CONFLICT(uri) DO UPDATE SET cid=excluded.cid,record=excluded.record,title=excluded.title,ingredient_text=excluded.ingredient_text,search_document=excluded.search_document`,
             [uri, did, cid, JSON.stringify(record), record.title, ingredients, record.createdAt],
           );
@@ -95,7 +95,7 @@ export class NetworkStore {
           );
       } else if (rkey === 'self') {
         await tx.query(
-          'UPDATE actors SET profile=$2::jsonb,profile_rev=$3,updated_at=now() WHERE did=$1 AND profile_rev <= $3',
+          'UPDATE actors SET profile=$2::text::jsonb,profile_rev=$3,updated_at=now() WHERE did=$1 AND profile_rev <= $3',
           [did, record ? JSON.stringify(record) : null, rev],
         );
       }
@@ -103,12 +103,16 @@ export class NetworkStore {
   }
 
   private view(row: any): RecipeView {
+    // postgres.js serializes parameters according to their inferred database type. Older
+    // deployments passed an already-stringified value directly to jsonb, which stored a JSON
+    // string scalar. Keep reads compatible until migration 002 has normalized every row.
+    const record = typeof row.record === 'string' ? JSON.parse(row.record) : row.record;
     return {
       uri: row.uri,
       cid: row.cid,
       authorDid: row.did,
       ...(row.handle ? { authorHandle: row.handle } : {}),
-      record: row.record,
+      record,
     };
   }
 
@@ -179,14 +183,14 @@ export class NetworkStore {
     const data = draftInputSchema.parse(raw);
     if (id) {
       const [draft] = await this.db.query(
-        'UPDATE drafts SET data=$3::jsonb,updated_at=now() WHERE id=$1 AND did=$2 RETURNING id,data,updated_at AS "updatedAt"',
+        'UPDATE drafts SET data=$3::text::jsonb,updated_at=now() WHERE id=$1 AND did=$2 RETURNING id,data,updated_at AS "updatedAt"',
         [id, did, JSON.stringify(data)],
       );
       if (!draft) throw new HttpError(404, 'Draft not found.');
       return draft;
     }
     const [draft] = await this.db.query(
-      'INSERT INTO drafts(id,did,data) VALUES ($1,$2,$3::jsonb) RETURNING id,data,updated_at AS "updatedAt"',
+      'INSERT INTO drafts(id,did,data) VALUES ($1,$2,$3::text::jsonb) RETURNING id,data,updated_at AS "updatedAt"',
       [randomUUID(), did, JSON.stringify(data)],
     );
     return draft;
@@ -201,10 +205,9 @@ export class NetworkStore {
     if (row.count > limit) throw new HttpError(429, 'Too many requests. Please try again shortly.');
   }
   async audit(did: string, event: string, detail: unknown) {
-    await this.db.query('INSERT INTO audit_events(did,event,detail) VALUES ($1,$2,$3::jsonb)', [
-      did,
-      event,
-      JSON.stringify(detail),
-    ]);
+    await this.db.query(
+      'INSERT INTO audit_events(did,event,detail) VALUES ($1,$2,$3::text::jsonb)',
+      [did, event, JSON.stringify(detail)],
+    );
   }
 }
