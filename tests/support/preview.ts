@@ -17,6 +17,9 @@ const adapt = (p: any): Database => ({
   query: async (sql, params = []) => (await p.query(sql, params)).rows,
   transaction: (fn) => p.transaction((tx: any) => fn(adapt(tx))),
 });
+await pg.exec(
+  await readFile(new URL('../../migrations/003_cookbook.sql', import.meta.url), 'utf8'),
+);
 const store = new NetworkStore(adapt(pg));
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa';
 const cid = 'bafyre' + 'a'.repeat(53);
@@ -70,6 +73,7 @@ const agent = {
     },
   },
 };
+const port = Number(process.env.PREVIEW_PORT || 3001);
 const app = express();
 app.use((_req, res, next) => {
   res.cookie('brownbag_session', 'local-preview-only', { httpOnly: true, sameSite: 'lax' });
@@ -77,13 +81,13 @@ app.use((_req, res, next) => {
 });
 app.use(
   createNetworkApp({
-    origin: 'http://127.0.0.1:3001',
+    origin: `http://127.0.0.1:${port}`,
     store,
     oauth: { agent: async () => agent } as any,
   }),
 );
 app.use(express.static(resolve('dist/client')));
 app.get('/{*path}', (_req, res) => res.sendFile('index.html', { root: resolve('dist/client') }));
-app.listen(3001, '127.0.0.1', () =>
-  console.info('Local mock-account preview: http://127.0.0.1:3001'),
+app.listen(port, '127.0.0.1', () =>
+  console.info(`Local mock-account preview: http://127.0.0.1:${port}`),
 );

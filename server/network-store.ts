@@ -113,13 +113,26 @@ export class NetworkStore {
       authorDid: row.did,
       ...(row.handle ? { authorHandle: row.handle } : {}),
       record,
+      ...(row.cookbook_tags !== undefined
+        ? {
+            cookbookAddedAt: new Date(row.cookbook_date).toISOString(),
+            cookbookTags: row.cookbook_tags || [],
+          }
+        : {}),
     };
   }
 
   async recipes(
-    options: { q?: string; feed?: string; did?: string; limit?: number; cursor?: string } = {},
+    options: {
+      q?: string;
+      feed?: string;
+      did?: string;
+      limit?: number;
+      cursor?: string;
+      tag?: string;
+    } = {},
   ) {
-    const { q = '', feed = 'discover', did, limit = 24, cursor } = options;
+    const { q = '', feed = 'discover', did, limit = 24, cursor, tag } = options;
     const params: any[] = [];
     const bind = (v: any) => {
       params.push(v);
@@ -133,9 +146,18 @@ export class NetworkStore {
       );
     }
     if (feed !== 'discover' && !did) throw new HttpError(401, 'Sign in to see your cookbook.');
+    const cookbook = feed === 'cookbook';
+    const join = cookbook ? `LEFT JOIN bookmarks b ON b.uri=r.uri AND b.did=${bind(did)}` : '';
+    const date = cookbook ? 'COALESCE(b.created_at,r.created_at)' : 'r.created_at';
+    if (cookbook) {
+      where.push(`(r.did=${bind(did)} OR b.uri IS NOT NULL) AND NOT COALESCE(b.removed,false)`);
+      if (tag) where.push(`COALESCE(b.tags,'[]'::jsonb) ? ${bind(tag)}`);
+    }
     if (feed === 'mine') where.push(`r.did=${bind(did)}`);
     if (feed === 'saved')
-      where.push(`EXISTS(SELECT 1 FROM bookmarks b WHERE b.uri=r.uri AND b.did=${bind(did)})`);
+      where.push(
+        `EXISTS(SELECT 1 FROM bookmarks b WHERE b.uri=r.uri AND b.did=${bind(did)} AND NOT b.removed)`,
+      );
     if (feed === 'following')
       where.push(`EXISTS(SELECT 1 FROM follows f WHERE f.subject=r.did AND f.did=${bind(did)})`);
     if (cursor) {
@@ -143,13 +165,13 @@ export class NetworkStore {
         const value = JSON.parse(Buffer.from(cursor, 'base64url').toString());
         if (typeof value.uri !== 'string' || !Number.isFinite(Date.parse(value.date)))
           throw new Error();
-        where.push(`(r.created_at,r.uri)<(${bind(value.date)}::timestamptz,${bind(value.uri)})`);
+        where.push(`(${date},r.uri)<(${bind(value.date)}::timestamptz,${bind(value.uri)})`);
       } catch {
         throw new HttpError(400, 'Invalid page cursor.');
       }
     }
     const rows = await this.db.query(
-      `SELECT r.*,a.handle FROM public_recipes r JOIN actors a ON a.did=r.did WHERE ${where.join(' AND ')} ORDER BY r.created_at DESC,r.uri DESC LIMIT ${bind(limit + 1)}`,
+      `SELECT r.*,a.handle,${date} AS cookbook_date${cookbook ? ',b.tags AS cookbook_tags' : ''} FROM public_recipes r JOIN actors a ON a.did=r.did ${join} WHERE ${where.join(' AND ')} ORDER BY ${date} DESC,r.uri DESC LIMIT ${bind(limit + 1)}`,
       params,
     );
     const page = rows.slice(0, limit);
@@ -159,7 +181,7 @@ export class NetworkStore {
       ...(rows.length > limit && last
         ? {
             nextCursor: Buffer.from(
-              JSON.stringify({ date: new Date(last.created_at).toISOString(), uri: last.uri }),
+              JSON.stringify({ date: new Date(last.cookbook_date).toISOString(), uri: last.uri }),
             ).toString('base64url'),
           }
         : {}),
@@ -172,6 +194,44 @@ export class NetworkStore {
     );
     if (!row) throw new HttpError(404, 'Recipe not found.');
     return this.view(row);
+  }
+  async cookbookEntry(did: string, uri: string) {
+    const recipe = await this.recipe(uri);
+    const [entry] = await this.db.query(
+      'SELECT removed,tags FROM bookmarks WHERE did=$1 AND uri=$2',
+      [did, uri],
+    );
+    return { saved: entry ? !entry.removed : recipe.authorDid === did, tags: entry?.tags || [] };
+  }
+  async saveCookbook(did: string, uri: string, tags?: string[]) {
+    const recipe = await this.recipe(uri);
+    await this.db.transaction(async (db) => {
+      await db.query(
+        `INSERT INTO bookmarks(did,uri,tags,created_at) VALUES ($1,$2,$3::text::jsonb,$4)
+        ON CONFLICT(did,uri) DO UPDATE SET removed=false,
+        created_at=CASE WHEN bookmarks.removed THEN now() ELSE bookmarks.created_at END,
+        tags=CASE WHEN $5 THEN EXCLUDED.tags ELSE bookmarks.tags END`,
+        [
+          did,
+          uri,
+          JSON.stringify(tags || []),
+          recipe.authorDid === did ? recipe.record.createdAt : new Date().toISOString(),
+          tags !== undefined,
+        ],
+      );
+      for (const tag of tags || [])
+        await db.query(
+          'INSERT INTO cookbook_tags(did,name) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+          [did, tag],
+        );
+    });
+  }
+  async removeCookbook(did: string, uri: string) {
+    await this.db.query(
+      `INSERT INTO bookmarks(did,uri,removed) VALUES ($1,$2,true)
+      ON CONFLICT(did,uri) DO UPDATE SET removed=true,tags='[]'::jsonb`,
+      [did, uri],
+    );
   }
   async drafts(did: string) {
     return this.db.query(
