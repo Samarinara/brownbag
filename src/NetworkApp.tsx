@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Bookmark, Check, Clock3, Plus, Search } from 'lucide-react';
+import { ArrowLeft, BookOpen, Bookmark, Check, Clock3, Plus, Search, Shuffle } from 'lucide-react';
 import { api, ApiError, post } from './api';
 import { Bag, Modal, Notice } from './components';
 import { type RecipeInput, type RecipeView, type SessionUser } from '../shared/atproto';
@@ -165,51 +165,29 @@ export function App() {
           }}
         >
           <Bag small />
-          brownbag<span>good food, shared.</span>
+          <span>
+            brownbag<span className="brand-period">.</span>
+          </span>
         </a>
         <div className="network-actions">
-          {user && (
-            <button className="button secondary" onClick={() => setAccount(true)}>
-              Account
-            </button>
-          )}
           {user ? (
-            <>
-              <span className="network-handle" title={user.did}>
-                {user.handle ? `@${user.handle}` : 'Your cookbook'}
-              </span>
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() => {
-                  void action(async () => {
-                    await post('/auth/logout', {});
-                    setUser(null);
-                    setFeed('discover');
-                    go(null);
-                  }, 'Signed out');
-                }}
-              >
-                Sign out
-              </button>
-            </>
+            <button
+              className="network-account-button"
+              onClick={() => setAccount(true)}
+              aria-label="Open account settings"
+              title={user.handle ? `@${user.handle}` : 'Account'}
+            >
+              {(user.handle?.replace(/^@/, '')[0] || 'A').toUpperCase()}
+            </button>
           ) : (
             <button
-              className="button secondary"
+              className="network-sign-in"
               disabled={!ready || configured !== true}
               onClick={() => setLogin(true)}
             >
               Sign in
             </button>
           )}
-          <button
-            className="button primary"
-            disabled={configured !== true}
-            onClick={() => edit({ data: blank() })}
-          >
-            <Plus size={17} />
-            Add a recipe
-          </button>
         </div>
       </header>
       <main className="network-main">
@@ -428,16 +406,64 @@ export function App() {
         ) : (
           <>
             <section className="network-hero">
-              <p className="eyebrow">YOUR NEXT GOOD MEAL STARTS HERE</p>
               <h1>
-                Recipes worth
+                Your recipes.
                 <br />
-                <em>passing around.</em>
+                All in one{' '}
+                <span className="network-bag-word">
+                  bag.
+                  <svg viewBox="0 0 210 14" preserveAspectRatio="none" aria-hidden="true">
+                    <path
+                      d="M3 10C55 0 142 1 204 8M11 12C70 6 141 6 196 11"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
               </h1>
-              <p>
-                A cookbook made by all of us. Find something delicious,
-                <br className="network-desktop" /> share a family favourite, and make it your own.
-              </p>
+              <div className="network-home-search">
+                <form
+                  className="network-search"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setSearch(query);
+                  }}
+                >
+                  <Search size={22} strokeWidth={1.7} />
+                  <input
+                    aria-label="Search recipes"
+                    placeholder="Find a recipe, or start with an ingredient…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  <button className="network-search-submit" aria-label="Search" type="submit">
+                    ↵
+                  </button>
+                </form>
+                <div className="network-hero-actions">
+                  <button
+                    className="button primary"
+                    disabled={loading || recipes.length === 0}
+                    onClick={() => {
+                      const item = recipes[Math.floor(Math.random() * recipes.length)];
+                      if (item) go(item.uri);
+                    }}
+                  >
+                    <Shuffle size={18} />
+                    Surprise me
+                  </button>
+                  <button
+                    className="button secondary"
+                    disabled={configured !== true}
+                    onClick={() => edit({ data: blank() })}
+                  >
+                    <Plus size={18} />
+                    Add a recipe
+                  </button>
+                </div>
+              </div>
             </section>
             <div className="network-toolbar">
               <nav aria-label="Recipe feeds">
@@ -459,24 +485,6 @@ export function App() {
                   </button>
                 ))}
               </nav>
-              <form
-                className="network-search"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setSearch(query);
-                }}
-              >
-                <Search size={18} />
-                <input
-                  aria-label="Search recipes"
-                  placeholder="Find your next favourite…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                <button className="icon-button" aria-label="Search" type="submit">
-                  →
-                </button>
-              </form>
             </div>
             {loading ? (
               <p className="network-loading" role="status">
@@ -528,26 +536,22 @@ export function App() {
                             go(item.uri);
                           }}
                         >
-                          <div className="network-card-art">
-                            <BookOpen size={42} strokeWidth={1} />
-                            <span>{item.record.tags?.[0] || 'FROM THE COMMUNITY'}</span>
-                          </div>
                           <div className="network-card-body">
-                            <p className="eyebrow">
-                              {item.authorHandle ? `@${item.authorHandle}` : 'A COMMUNITY COOK'}
-                            </p>
+                            <div className="network-card-top">
+                              <BookOpen size={22} strokeWidth={1.5} />
+                              {(item.record.prepMinutes || 0) + (item.record.cookMinutes || 0) >
+                                0 && (
+                                <span>
+                                  {(item.record.prepMinutes || 0) + (item.record.cookMinutes || 0)}{' '}
+                                  min
+                                </span>
+                              )}
+                            </div>
                             <h2>{item.record.title}</h2>
-                            <p>
-                              {item.record.summary ||
-                                `${item.record.ingredients.length} ingredients. A little inspiration for your kitchen.`}
-                            </p>
+                            {item.record.summary && <p>{item.record.summary}</p>}
                             <div className="network-card-meta">
-                              <span>
-                                {(item.record.prepMinutes || 0) + (item.record.cookMinutes || 0)
-                                  ? `${(item.record.prepMinutes || 0) + (item.record.cookMinutes || 0)} min`
-                                  : 'Made to share'}
-                              </span>
-                              <span>View recipe ↗</span>
+                              <span>{item.record.tags?.[0] || ''}</span>
+                              <span>View recipe →</span>
                             </div>
                           </div>
                         </a>
@@ -629,11 +633,6 @@ export function App() {
           </>
         )}
       </main>
-      <footer className="network-footer">
-        <Bag small />
-        <span>A little inspiration. A lot of good food.</span>
-        <span>Recipes belong to their cooks.</span>
-      </footer>
       {toast && (
         <div className="network-toast" role="status">
           <Check size={17} />
@@ -643,6 +642,14 @@ export function App() {
       {login && <LoginDialog close={() => setLogin(false)} />}
       {account && (
         <NetworkAccount
+          onSignOut={async () => {
+            await post('/auth/logout', {});
+            setUser(null);
+            setAccount(false);
+            setFeed('discover');
+            go(null);
+            setToast('Signed out');
+          }}
           close={() => {
             setAccount(false);
             refresh();
