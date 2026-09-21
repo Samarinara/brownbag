@@ -8,7 +8,13 @@ type Proposal = {
   status: string;
   payload: { action: string; recipe?: { title: string }; uri?: string };
 };
-export function NetworkAccount({ close }: { close: () => void }) {
+export function NetworkAccount({
+  close,
+  onSignOut,
+}: {
+  close: () => void;
+  onSignOut: () => Promise<void>;
+}) {
   const [keys, setKeys] = useState<Key[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [name, setName] = useState('');
@@ -170,6 +176,22 @@ export function NetworkAccount({ close }: { close: () => void }) {
               )}
             </article>
           ))}
+        </section>
+        <section className="network-account-signout">
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError('');
+              void onSignOut().catch((e) => {
+                setError(e instanceof Error ? e.message : 'Please try again.');
+                setBusy(false);
+              });
+            }}
+          >
+            Sign out
+          </button>
         </section>
       </div>
     </Modal>
