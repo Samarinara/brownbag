@@ -15,12 +15,29 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
+  color-scheme: light;
+}
+:root[data-resolved-theme='dark'] {
+  --paper: #20241f;
+  --ink: #e7e8df;
+  --muted: #a9afa3;
+  --green: #a3bb96;
+  --green-dark: #7f9c73;
+  --line: #3c443a;
+  --orange: #dd9564;
+  --white: #292e28;
+  --soft: #2c322b;
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
+  background: var(--paper);
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
 }
 button,
 input,
@@ -1393,4 +1410,81 @@ nav {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* A low-contrast, warm dark palette that keeps the paper-and-ink character. */
+:root[data-resolved-theme='dark'] .account-button,
+:root[data-resolved-theme='dark'] .avatar,
+:root[data-resolved-theme='dark'] .network-account-button {
+  background: #30382e;
+  border-color: #495446;
+}
+:root[data-resolved-theme='dark'] input::placeholder,
+:root[data-resolved-theme='dark'] textarea::placeholder {
+  color: #777f74;
+}
+:root[data-resolved-theme='dark'] .secondary {
+  border-color: var(--line);
+}
+:root[data-resolved-theme='dark'] .primary,
+:root[data-resolved-theme='dark'] .network-toolbar nav button.active,
+:root[data-resolved-theme='dark'] .network-tag-chits button.active {
+  color: #f3f4ed;
+  background: #566f50;
+  border-color: #566f50;
+}
+:root[data-resolved-theme='dark'] .primary:hover {
+  background: #637d5b;
+  border-color: #637d5b;
+}
+:root[data-resolved-theme='dark'] .secondary:hover,
+:root[data-resolved-theme='dark'] .icon-button:hover {
+  background: #32382f;
+  border-color: #525e4d;
+}
+:root[data-resolved-theme='dark'] .recipe-card,
+:root[data-resolved-theme='dark'] .network-card,
+:root[data-resolved-theme='dark'] .network-editor input,
+:root[data-resolved-theme='dark'] .network-editor textarea {
+  background: #292e28b8;
+}
+:root[data-resolved-theme='dark'] .recipe-card:hover,
+:root[data-resolved-theme='dark'] .network-card:hover,
+:root[data-resolved-theme='dark'] .network-cookbook-list .network-card:hover {
+  border-color: #596652;
+  background: var(--white);
+  box-shadow: 0 10px 24px #090d082e;
+}
+:root[data-resolved-theme='dark'] .tag-filters button.active,
+:root[data-resolved-theme='dark'] .step-editor > span,
+:root[data-resolved-theme='dark'] .badge,
+:root[data-resolved-theme='dark'] .yolo-panel {
+  background: #30382e;
+  border-color: #465140;
+  color: var(--green);
+}
+:root[data-resolved-theme='dark'] .yolo-panel.enabled {
+  background: #392f27;
+  border-color: #604a39;
+}
+:root[data-resolved-theme='dark'] .error {
+  background: #3a2923;
+  border-color: #654639;
+  color: #e6a17c;
+}
+:root[data-resolved-theme='dark'] .modal {
+  box-shadow: 0 24px 100px #080b087a;
+}
+:root[data-resolved-theme='dark'] .modal::backdrop {
+  background: #111510a8;
+}
+:root[data-resolved-theme='dark'] .search-input-wrap,
+:root[data-resolved-theme='dark'] .network-search {
+  border-color: var(--line);
+  box-shadow: 0 5px 18px #090d0824;
+}
+:root[data-resolved-theme='dark'] .network-toast {
+  color: #f4f4ed;
+  background: #42563d;
+  box-shadow: 0 5px 22px #090d085c;
 }
