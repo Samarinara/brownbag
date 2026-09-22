@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowLeft,
   BookOpen,
@@ -83,6 +83,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [nextCursor, setNextCursor] = useState<string>();
   const pageRequest = useRef(0);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
   const refresh = () => setRevision((value) => value + 1);
   const go = (next: string | null, destination = feed) => {
     if (!leaveGuard.current()) return;
@@ -267,6 +268,13 @@ export function App() {
     setTag('');
     go(null, next);
   };
+  const browseAnnouncement = loading
+    ? 'Loading recipes.'
+    : uri
+      ? recipe
+        ? `Opened ${recipe.record.title}.`
+        : 'Recipe loading complete.'
+      : `Showing ${recipes.length} recipe${recipes.length === 1 ? '' : 's'}${search ? ` for ${search}` : ''}${tag ? ` tagged ${tag}` : ''}.`;
   const edit = (data: Editing) => {
     if (!user) {
       setLogin(true);
@@ -288,7 +296,10 @@ export function App() {
   };
   return (
     <div className="network-shell">
-      <header className="network-header">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+      <header className="network-header" aria-label="Site header">
         <a
           href="/"
           className="network-brand"
@@ -317,6 +328,7 @@ export function App() {
           {user ? (
             <div className="account-menu-wrap">
               <button
+                ref={accountButtonRef}
                 className="network-account-button"
                 onClick={() => setAccountMenu((open) => !open)}
                 aria-label="Open account menu"
@@ -331,7 +343,11 @@ export function App() {
                   user={user}
                   theme={theme}
                   setTheme={setTheme}
-                  close={() => setAccountMenu(false)}
+                  close={(restoreFocus = true) => {
+                    setAccountMenu(false);
+                    if (restoreFocus)
+                      requestAnimationFrame(() => accountButtonRef.current?.focus());
+                  }}
                   manage={() => {
                     setAccountMenu(false);
                     setAccount(true);
@@ -361,7 +377,10 @@ export function App() {
           )}
         </div>
       </header>
-      <main className="network-main">
+      <main id="main-content" className="network-main" tabIndex={-1} aria-label="Recipe content">
+        <p className="sr-only" role="status" aria-atomic="true">
+          {browseAnnouncement}
+        </p>
         <Notice error={error} />
         {configured === false ? (
           <section className="empty-state">
@@ -485,8 +504,7 @@ export function App() {
                     >
                       Make it your own
                     </button>
-                    <details className="recipe-more-actions">
-                      <summary>More options</summary>
+                    <FloatingDetails className="recipe-more-actions" summary="More options">
                       <div className="stack">
                         {user?.did === recipe.authorDid ? (
                           <>
@@ -552,7 +570,7 @@ export function App() {
                           </>
                         )}
                       </div>
-                    </details>
+                    </FloatingDetails>
                   </div>
                   {recipe.record.derivedFrom && (
                     <p className="network-attribution">
@@ -733,6 +751,7 @@ export function App() {
                     key={value}
                     className={tag === value ? 'active' : ''}
                     aria-pressed={tag === value}
+                    aria-label={`${tag === value ? 'Selected: ' : 'Filter by '}${value || 'all recipes'}`}
                     onClick={() => setTag(value)}
                   >
                     {value || 'All'}
@@ -937,10 +956,48 @@ export function App() {
           close={() => {
             setAccount(false);
             refresh();
+            requestAnimationFrame(() => accountButtonRef.current?.focus());
           }}
         />
       )}
     </div>
+  );
+}
+
+function FloatingDetails({
+  className,
+  summary,
+  children,
+}: {
+  className: string;
+  summary: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const closeOutside = (event: MouseEvent) => {
+      if (ref.current?.open && event.target instanceof Node && !ref.current.contains(event.target))
+        ref.current.open = false;
+    };
+    const closeEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && ref.current?.open) {
+        event.preventDefault();
+        ref.current.open = false;
+        ref.current.querySelector<HTMLElement>('summary')?.focus();
+      }
+    };
+    document.addEventListener('mousedown', closeOutside);
+    document.addEventListener('keydown', closeEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOutside);
+      document.removeEventListener('keydown', closeEscape);
+    };
+  }, []);
+  return (
+    <details className={className} ref={ref}>
+      <summary>{summary}</summary>
+      {children}
+    </details>
   );
 }
 
@@ -955,7 +1012,7 @@ function AccountMenu({
   user: SessionUser;
   theme: ThemePreference;
   setTheme: (theme: ThemePreference) => void;
-  close: () => void;
+  close: (restoreFocus?: boolean) => void;
   manage: () => void;
   signOut: () => Promise<void>;
 }) {
@@ -964,8 +1021,13 @@ function AccountMenu({
   const [error, setError] = useState('');
   useEffect(() => {
     const dismiss = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!ref.current?.contains(target) && !target.closest('.network-account-button')) close();
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        !ref.current?.contains(target) &&
+        !target.closest('.network-account-button')
+      )
+        close(false);
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
@@ -977,8 +1039,30 @@ function AccountMenu({
       document.removeEventListener('keydown', escape);
     };
   }, [close]);
+  const moveMenuFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const items = Array.from(
+      ref.current?.querySelectorAll<HTMLElement>('button:not([disabled])') || [],
+    );
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    if (!items.length) return;
+    event.preventDefault();
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? items.length - 1
+          : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  };
   return (
-    <div className="account-menu" role="menu" ref={ref}>
+    <div
+      className="account-menu"
+      role="menu"
+      ref={ref}
+      onKeyDown={moveMenuFocus}
+      aria-label="Account menu"
+    >
       <div className="account-menu-profile">
         <span className="account-menu-avatar">
           {(user.handle?.replace(/^@/, '')[0] || 'A').toUpperCase()}

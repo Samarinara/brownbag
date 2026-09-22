@@ -34,8 +34,8 @@
   flex-wrap: wrap;
 }
 .network-account-button {
-  width: 35px;
-  height: 35px;
+  width: 44px;
+  height: 44px;
   border: 1px solid #cbd3bd;
   background: #e8eddf;
   border-radius: 50%;
@@ -75,7 +75,7 @@
   color: var(--green);
   background: var(--soft);
   border: 1px solid var(--line);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 .account-menu-profile div {
@@ -94,7 +94,7 @@
 }
 .account-menu-profile div span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
 }
 .theme-picker {
   display: grid;
@@ -110,12 +110,13 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 44px;
   padding: 8px 5px;
   color: var(--muted);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .theme-picker button:hover {
   color: var(--ink);
@@ -138,13 +139,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
   padding: 10px;
   color: var(--ink);
   background: transparent;
   border: 0;
   border-radius: 8px;
   text-align: left;
-  font-size: 12px;
+  font-size: 14px;
 }
 .account-menu-actions button:hover {
   background: var(--soft);
@@ -155,7 +157,7 @@
 .account-menu-error {
   margin: 5px 8px 3px;
   color: var(--orange);
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.45;
 }
 @keyframes account-menu-in {
@@ -171,8 +173,9 @@
 .network-sign-in {
   border: 0;
   background: none;
-  padding: 8px 0;
-  font-size: 13px;
+  min-height: 44px;
+  padding: 8px;
+  font-size: 14px;
 }
 .network-main {
   width: min(1150px, calc(100% - 76px));
@@ -240,6 +243,9 @@
 .network-toolbar nav button.active {
   background: var(--green);
   color: white;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
 }
 .network-search {
   display: flex;
@@ -265,6 +271,8 @@
   border: 1px solid var(--line);
   border-radius: 4px;
   background: transparent;
+  min-width: 44px;
+  min-height: 44px;
   padding: 3px 6px;
   color: #9a9e91;
 }
@@ -295,6 +303,13 @@
   transform: translateY(-3px);
   box-shadow: 0 8px 20px #35432d0d;
 }
+.network-card:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 40%, transparent);
+}
+.network-card > a:focus-visible {
+  outline: 0;
+}
 .network-card-body {
   padding: 23px;
   min-height: 218px;
@@ -308,7 +323,7 @@
 }
 .network-card-body > p:not(.eyebrow) {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -323,14 +338,14 @@
 }
 .network-card-top span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 14px;
 }
 .network-card-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 14px;
   margin-top: auto;
   padding-top: 10px;
 }
@@ -425,6 +440,11 @@
 .network-ingredients .is-checked span {
   text-decoration: line-through;
   opacity: 0.5;
+}
+.network-ingredients .is-checked span::after {
+  content: ' (completed)';
+  font-size: 0.875em;
+  text-decoration: none;
 }
 .network-steps {
   padding-left: 25px;
@@ -635,7 +655,7 @@
 }
 .recipe-section-heading > span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 .network-editor label {
   line-height: 1.5;
@@ -681,8 +701,8 @@
   gap: 2px;
 }
 .recipe-row-actions .icon-button {
-  min-width: 36px;
-  min-height: 36px;
+  min-width: 44px;
+  min-height: 44px;
   color: var(--muted);
 }
 .recipe-disclosure > summary {
@@ -708,7 +728,7 @@
 }
 .recipe-disclosure > summary small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   margin-left: auto;
 }
 .recipe-disclosure[open] > summary {
@@ -718,7 +738,7 @@
   padding: 0 0 16px 22px;
 }
 .recipe-row-bottom .recipe-disclosure > summary {
-  font-size: 12px;
+  font-size: 14px;
   padding: 8px 0;
 }
 .recipe-method-row {
@@ -788,7 +808,7 @@
 }
 .recipe-editor-footer > span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 .recipe-validation:empty {
   display: none;
@@ -1038,6 +1058,7 @@
   border: 1px solid var(--line);
   border-radius: 24px;
   background: transparent;
+  min-height: 44px;
   padding: 8px 14px;
   overflow-wrap: anywhere;
 }
@@ -1045,6 +1066,10 @@
   background: var(--green);
   border-color: var(--green);
   color: white;
+}
+.network-tag-chits button[aria-pressed='true']::before {
+  content: '✓ ';
+  font-weight: 700;
 }
 .network-cookbook-list {
   max-width: 760px;
