@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowLeft,
   BookOpen,
   Bookmark,
   Check,
-  Clock3,
   Link2,
   LogOut,
   Monitor,
@@ -33,6 +32,14 @@ import { type RecipeInput, type RecipeView, type SessionUser } from '../shared/a
 import { NetworkEditorPage } from './NetworkEditor';
 import { NetworkAccount } from './NetworkAccount';
 import './network.css';
+import {
+  CardFacts,
+  RecipeFacts,
+  RecipeImage,
+  RecipeStory,
+  RecipeTags,
+  ingredientSections,
+} from './RecipePresentation';
 
 type Feed = 'discover' | 'following' | 'cookbook';
 type ThemePreference = 'system' | 'light' | 'dark';
@@ -98,6 +105,7 @@ export function App() {
   const [pendingDraft, setPendingDraft] = useState<Draft | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const pageRequest = useRef(0);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
   const refresh = () => setRevision((value) => value + 1);
   const go = (next: string | null, destination = feed) => {
     if (!leaveGuard.current()) return;
@@ -285,6 +293,13 @@ export function App() {
     setTag('');
     go(null, next);
   };
+  const browseAnnouncement = loading
+    ? 'Loading recipes.'
+    : uri
+      ? recipe
+        ? `Opened ${recipe.record.title}.`
+        : 'Recipe loading complete.'
+      : `Showing ${recipes.length} recipe${recipes.length === 1 ? '' : 's'}${search ? ` for ${search}` : ''}${tag ? ` tagged ${tag}` : ''}.`;
   const edit = (data: Editing) => {
     if (!user) {
       setLogin(true);
@@ -306,7 +321,10 @@ export function App() {
   };
   return (
     <div className="network-shell">
-      <header className="network-header">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+      <header className="network-header" aria-label="Site header">
         <a
           href="/"
           className="network-brand"
@@ -335,6 +353,7 @@ export function App() {
           {user ? (
             <div className="account-menu-wrap">
               <button
+                ref={accountButtonRef}
                 className="network-account-button"
                 onClick={() => setAccountMenu((open) => !open)}
                 aria-label="Open account menu"
@@ -349,7 +368,11 @@ export function App() {
                   user={user}
                   theme={theme}
                   setTheme={setTheme}
-                  close={() => setAccountMenu(false)}
+                  close={(restoreFocus = true) => {
+                    setAccountMenu(false);
+                    if (restoreFocus)
+                      requestAnimationFrame(() => accountButtonRef.current?.focus());
+                  }}
                   manage={() => {
                     setAccountMenu(false);
                     setAccount(true);
@@ -386,7 +409,10 @@ export function App() {
           )}
         </div>
       </header>
-      <main className="network-main">
+      <main id="main-content" className="network-main" tabIndex={-1} aria-label="Recipe content">
+        <p className="sr-only" role="status" aria-atomic="true">
+          {browseAnnouncement}
+        </p>
         <Notice error={error} />
         {configured === false ? (
           <section className="empty-state">
@@ -459,21 +485,12 @@ export function App() {
                   </p>
                   <h1>{recipe.record.title}</h1>
                   <p className="network-summary">{recipe.record.summary}</p>
-                  <div className="recipe-facts">
-                    {recipe.record.prepMinutes || recipe.record.cookMinutes ? (
-                      <span>
-                        <Clock3 size={16} />{' '}
-                        {(recipe.record.prepMinutes || 0) + (recipe.record.cookMinutes || 0)} min
-                      </span>
-                    ) : null}
-                    {recipe.record.yield && (
-                      <span>
-                        {recipe.record.yield.display ||
-                          `${recipe.record.yield.quantity || ''} ${recipe.record.yield.unit || ''}`}
-                      </span>
-                    )}
-                  </div>
-                  <div className="network-actions network-detail-actions">
+                  <RecipeFacts record={recipe.record} />
+                  <div
+                    className="network-actions network-detail-actions"
+                    role="group"
+                    aria-label="Recipe actions"
+                  >
                     <span
                       className="disabled-hint"
                       title={
@@ -630,8 +647,7 @@ export function App() {
                         <Share2 size={17} />
                       </button>
                     </div>
-                    <details className="recipe-more-actions">
-                      <summary>More options</summary>
+                    <FloatingDetails className="recipe-more-actions" summary="More options">
                       <div className="stack">
                         {user?.did === recipe.authorDid ? (
                           <>
@@ -685,7 +701,7 @@ export function App() {
                           </>
                         )}
                       </div>
-                    </details>
+                    </FloatingDetails>
                   </div>
                   {recipe.record.derivedFrom && (
                     <p className="network-attribution">
@@ -702,32 +718,7 @@ export function App() {
                       . {recipe.record.adaptationNote}
                     </p>
                   )}
-                  {recipe.record.source && (
-                    <p>
-                      Source:{' '}
-                      {recipe.record.source.url &&
-                      /^https?:\/\//i.test(recipe.record.source.url) ? (
-                        <a href={recipe.record.source.url} target="_blank" rel="noreferrer">
-                          {recipe.record.source.name || recipe.record.source.url}
-                        </a>
-                      ) : (
-                        recipe.record.source.name
-                      )}
-                    </p>
-                  )}
-                  {recipe.record.description && (
-                    <details className="recipe-disclosure recipe-story">
-                      <summary>Story & cooking notes</summary>
-                      <p className="network-prose">{recipe.record.description}</p>
-                    </details>
-                  )}
-                  {!!recipe.record.tags?.length && (
-                    <div className="recipe-tags">
-                      {recipe.record.tags.map((tag, i) => (
-                        <span key={i}>{tag}</span>
-                      ))}
-                    </div>
-                  )}
+                  <RecipeStory key={recipe.uri} description={recipe.record.description} />
                   {!!recipe.record.images?.length && (
                     <div className="recipe-gallery">
                       {recipe.record.images.map((photo, index) => (
@@ -747,33 +738,41 @@ export function App() {
                     <section>
                       <h2>Ingredients</h2>
                       <p className="muted">Tap each ingredient as you go.</p>
-                      <ul className="network-ingredients">
-                        {recipe.record.ingredients.map((ingredient, index) => (
-                          <li key={index}>
-                            <label className={checked.has(index) ? 'is-checked' : ''}>
-                              <input
-                                type="checkbox"
-                                checked={checked.has(index)}
-                                onChange={() =>
-                                  setChecked((previous) => {
-                                    const next = new Set(previous);
-                                    if (next.has(index)) next.delete(index);
-                                    else next.add(index);
-                                    return next;
-                                  })
-                                }
-                              />
-                              <span>
-                                {ingredient.group && <small>{ingredient.group} · </small>}
-                                {[ingredient.quantity, ingredient.unit, ingredient.name]
-                                  .filter(Boolean)
-                                  .join(' ')}
-                                {ingredient.preparation && `, ${ingredient.preparation}`}
-                              </span>
-                            </label>
-                          </li>
-                        ))}
-                      </ul>
+                      {ingredientSections(recipe.record.ingredients).map(
+                        (section, sectionIndex) => (
+                          <div className="network-ingredient-section" key={sectionIndex}>
+                            {(section.name || sectionIndex > 0) && (
+                              <h3>{section.name || 'Other ingredients'}</h3>
+                            )}
+                            <ul className="network-ingredients">
+                              {section.items.map(({ ingredient, index }) => (
+                                <li key={index}>
+                                  <label className={checked.has(index) ? 'is-checked' : ''}>
+                                    <input
+                                      type="checkbox"
+                                      checked={checked.has(index)}
+                                      onChange={() =>
+                                        setChecked((previous) => {
+                                          const next = new Set(previous);
+                                          if (next.has(index)) next.delete(index);
+                                          else next.add(index);
+                                          return next;
+                                        })
+                                      }
+                                    />
+                                    <span>
+                                      {[ingredient.quantity, ingredient.unit, ingredient.name]
+                                        .filter(Boolean)
+                                        .join(' ')}
+                                      {ingredient.preparation && `, ${ingredient.preparation}`}
+                                    </span>
+                                  </label>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ),
+                      )}
                     </section>
                     <section>
                       <h2>Let’s cook</h2>
@@ -915,6 +914,7 @@ export function App() {
                     className={tag === value ? 'active' : ''}
                     aria-pressed={tag === value}
                     title={value ? `Show recipes tagged ${value}` : 'Show all recipes'}
+                    aria-label={`${tag === value ? 'Selected: ' : 'Filter by '}${value || 'all recipes'}`}
                     onClick={() => setTag(value)}
                   >
                     {value || 'All'}
@@ -1018,25 +1018,22 @@ export function App() {
                             go(item.uri);
                           }}
                         >
+                          <RecipeImage recipe={item} />
                           <div className="network-card-body">
-                            <div className="network-card-top">
-                              <BookOpen size={22} strokeWidth={1.5} />
-                              {(item.record.prepMinutes || 0) + (item.record.cookMinutes || 0) >
-                                0 && (
-                                <span>
-                                  {(item.record.prepMinutes || 0) + (item.record.cookMinutes || 0)}{' '}
-                                  min
-                                </span>
-                              )}
-                            </div>
+                            <p className="network-card-author">
+                              By {item.authorHandle ? `@${item.authorHandle}` : 'a community cook'}
+                            </p>
                             <h2>{item.record.title}</h2>
-                            {item.record.summary && <p>{item.record.summary}</p>}
+                            {item.record.summary && (
+                              <p className="network-card-summary">{item.record.summary}</p>
+                            )}
+                            <CardFacts record={item.record} />
+                            <RecipeTags
+                              tags={feed === 'cookbook' ? item.cookbookTags : item.record.tags}
+                              limit={3}
+                            />
                             <div className="network-card-meta">
-                              <span>
-                                {feed === 'cookbook'
-                                  ? item.cookbookTags?.join(' · ')
-                                  : item.record.tags?.[0] || ''}
-                              </span>
+                              <span>View recipe</span>
                               <span>
                                 {feed === 'cookbook' && item.cookbookAddedAt
                                   ? new Date(item.cookbookAddedAt).toLocaleDateString(undefined, {
@@ -1044,7 +1041,7 @@ export function App() {
                                       day: 'numeric',
                                       year: 'numeric',
                                     })
-                                  : 'View recipe →'}
+                                  : '→'}
                               </span>
                             </div>
                           </div>
@@ -1276,10 +1273,48 @@ export function App() {
           close={() => {
             setAccount(false);
             refresh();
+            requestAnimationFrame(() => accountButtonRef.current?.focus());
           }}
         />
       )}
     </div>
+  );
+}
+
+function FloatingDetails({
+  className,
+  summary,
+  children,
+}: {
+  className: string;
+  summary: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const closeOutside = (event: MouseEvent) => {
+      if (ref.current?.open && event.target instanceof Node && !ref.current.contains(event.target))
+        ref.current.open = false;
+    };
+    const closeEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && ref.current?.open) {
+        event.preventDefault();
+        ref.current.open = false;
+        ref.current.querySelector<HTMLElement>('summary')?.focus();
+      }
+    };
+    document.addEventListener('mousedown', closeOutside);
+    document.addEventListener('keydown', closeEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOutside);
+      document.removeEventListener('keydown', closeEscape);
+    };
+  }, []);
+  return (
+    <details className={className} ref={ref}>
+      <summary>{summary}</summary>
+      {children}
+    </details>
   );
 }
 
@@ -1294,7 +1329,7 @@ function AccountMenu({
   user: SessionUser;
   theme: ThemePreference;
   setTheme: (theme: ThemePreference) => void;
-  close: () => void;
+  close: (restoreFocus?: boolean) => void;
   manage: () => void;
   signOut: () => Promise<void>;
 }) {
@@ -1303,8 +1338,13 @@ function AccountMenu({
   const [error, setError] = useState('');
   useEffect(() => {
     const dismiss = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!ref.current?.contains(target) && !target.closest('.network-account-button')) close();
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        !ref.current?.contains(target) &&
+        !target.closest('.network-account-button')
+      )
+        close(false);
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
@@ -1316,8 +1356,30 @@ function AccountMenu({
       document.removeEventListener('keydown', escape);
     };
   }, [close]);
+  const moveMenuFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const items = Array.from(
+      ref.current?.querySelectorAll<HTMLElement>('button:not([disabled])') || [],
+    );
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    if (!items.length) return;
+    event.preventDefault();
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? items.length - 1
+          : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  };
   return (
-    <div className="account-menu" role="menu" ref={ref}>
+    <div
+      className="account-menu"
+      role="menu"
+      ref={ref}
+      onKeyDown={moveMenuFocus}
+      aria-label="Account menu"
+    >
       <div className="account-menu-profile">
         <span className="account-menu-avatar">
           {(user.handle?.replace(/^@/, '')[0] || 'A').toUpperCase()}
