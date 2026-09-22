@@ -4,7 +4,6 @@ import {
   BookOpen,
   Bookmark,
   Check,
-  Clock3,
   LogOut,
   Monitor,
   Moon,
@@ -21,6 +20,14 @@ import { type RecipeInput, type RecipeView, type SessionUser } from '../shared/a
 import { NetworkEditorPage } from './NetworkEditor';
 import { NetworkAccount } from './NetworkAccount';
 import './network.css';
+import {
+  CardFacts,
+  RecipeFacts,
+  RecipeImage,
+  RecipeStory,
+  RecipeTags,
+  ingredientSections,
+} from './RecipePresentation';
 
 type Feed = 'discover' | 'following' | 'cookbook';
 type ThemePreference = 'system' | 'light' | 'dark';
@@ -441,21 +448,12 @@ export function App() {
                   </p>
                   <h1>{recipe.record.title}</h1>
                   <p className="network-summary">{recipe.record.summary}</p>
-                  <div className="recipe-facts">
-                    {recipe.record.prepMinutes || recipe.record.cookMinutes ? (
-                      <span>
-                        <Clock3 size={16} />{' '}
-                        {(recipe.record.prepMinutes || 0) + (recipe.record.cookMinutes || 0)} min
-                      </span>
-                    ) : null}
-                    {recipe.record.yield && (
-                      <span>
-                        {recipe.record.yield.display ||
-                          `${recipe.record.yield.quantity || ''} ${recipe.record.yield.unit || ''}`}
-                      </span>
-                    )}
-                  </div>
-                  <div className="network-actions network-detail-actions">
+                  <RecipeFacts record={recipe.record} />
+                  <div
+                    className="network-actions network-detail-actions"
+                    role="group"
+                    aria-label="Recipe actions"
+                  >
                     <button
                       className="button primary"
                       disabled={busy || (!!user && !entry)}
@@ -587,32 +585,7 @@ export function App() {
                       . {recipe.record.adaptationNote}
                     </p>
                   )}
-                  {recipe.record.source && (
-                    <p>
-                      Source:{' '}
-                      {recipe.record.source.url &&
-                      /^https?:\/\//i.test(recipe.record.source.url) ? (
-                        <a href={recipe.record.source.url} target="_blank" rel="noreferrer">
-                          {recipe.record.source.name || recipe.record.source.url}
-                        </a>
-                      ) : (
-                        recipe.record.source.name
-                      )}
-                    </p>
-                  )}
-                  {recipe.record.description && (
-                    <details className="recipe-disclosure recipe-story">
-                      <summary>Story & cooking notes</summary>
-                      <p className="network-prose">{recipe.record.description}</p>
-                    </details>
-                  )}
-                  {!!recipe.record.tags?.length && (
-                    <div className="recipe-tags">
-                      {recipe.record.tags.map((tag, i) => (
-                        <span key={i}>{tag}</span>
-                      ))}
-                    </div>
-                  )}
+                  <RecipeStory key={recipe.uri} description={recipe.record.description} />
                   {!!recipe.record.images?.length && (
                     <div className="recipe-gallery">
                       {recipe.record.images.map((photo, index) => (
@@ -632,33 +605,41 @@ export function App() {
                     <section>
                       <h2>Ingredients</h2>
                       <p className="muted">Tap each ingredient as you go.</p>
-                      <ul className="network-ingredients">
-                        {recipe.record.ingredients.map((ingredient, index) => (
-                          <li key={index}>
-                            <label className={checked.has(index) ? 'is-checked' : ''}>
-                              <input
-                                type="checkbox"
-                                checked={checked.has(index)}
-                                onChange={() =>
-                                  setChecked((previous) => {
-                                    const next = new Set(previous);
-                                    if (next.has(index)) next.delete(index);
-                                    else next.add(index);
-                                    return next;
-                                  })
-                                }
-                              />
-                              <span>
-                                {ingredient.group && <small>{ingredient.group} · </small>}
-                                {[ingredient.quantity, ingredient.unit, ingredient.name]
-                                  .filter(Boolean)
-                                  .join(' ')}
-                                {ingredient.preparation && `, ${ingredient.preparation}`}
-                              </span>
-                            </label>
-                          </li>
-                        ))}
-                      </ul>
+                      {ingredientSections(recipe.record.ingredients).map(
+                        (section, sectionIndex) => (
+                          <div className="network-ingredient-section" key={sectionIndex}>
+                            {(section.name || sectionIndex > 0) && (
+                              <h3>{section.name || 'Other ingredients'}</h3>
+                            )}
+                            <ul className="network-ingredients">
+                              {section.items.map(({ ingredient, index }) => (
+                                <li key={index}>
+                                  <label className={checked.has(index) ? 'is-checked' : ''}>
+                                    <input
+                                      type="checkbox"
+                                      checked={checked.has(index)}
+                                      onChange={() =>
+                                        setChecked((previous) => {
+                                          const next = new Set(previous);
+                                          if (next.has(index)) next.delete(index);
+                                          else next.add(index);
+                                          return next;
+                                        })
+                                      }
+                                    />
+                                    <span>
+                                      {[ingredient.quantity, ingredient.unit, ingredient.name]
+                                        .filter(Boolean)
+                                        .join(' ')}
+                                      {ingredient.preparation && `, ${ingredient.preparation}`}
+                                    </span>
+                                  </label>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ),
+                      )}
                     </section>
                     <section>
                       <h2>Let’s cook</h2>
@@ -830,25 +811,22 @@ export function App() {
                             go(item.uri);
                           }}
                         >
+                          <RecipeImage recipe={item} />
                           <div className="network-card-body">
-                            <div className="network-card-top">
-                              <BookOpen size={22} strokeWidth={1.5} />
-                              {(item.record.prepMinutes || 0) + (item.record.cookMinutes || 0) >
-                                0 && (
-                                <span>
-                                  {(item.record.prepMinutes || 0) + (item.record.cookMinutes || 0)}{' '}
-                                  min
-                                </span>
-                              )}
-                            </div>
+                            <p className="network-card-author">
+                              By {item.authorHandle ? `@${item.authorHandle}` : 'a community cook'}
+                            </p>
                             <h2>{item.record.title}</h2>
-                            {item.record.summary && <p>{item.record.summary}</p>}
+                            {item.record.summary && (
+                              <p className="network-card-summary">{item.record.summary}</p>
+                            )}
+                            <CardFacts record={item.record} />
+                            <RecipeTags
+                              tags={feed === 'cookbook' ? item.cookbookTags : item.record.tags}
+                              limit={3}
+                            />
                             <div className="network-card-meta">
-                              <span>
-                                {feed === 'cookbook'
-                                  ? item.cookbookTags?.join(' · ')
-                                  : item.record.tags?.[0] || ''}
-                              </span>
+                              <span>View recipe</span>
                               <span>
                                 {feed === 'cookbook' && item.cookbookAddedAt
                                   ? new Date(item.cookbookAddedAt).toLocaleDateString(undefined, {
@@ -856,7 +834,7 @@ export function App() {
                                       day: 'numeric',
                                       year: 'numeric',
                                     })
-                                  : 'View recipe →'}
+                                  : '→'}
                               </span>
                             </div>
                           </div>
