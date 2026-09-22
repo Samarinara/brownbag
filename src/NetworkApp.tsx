@@ -13,7 +13,7 @@ import {
 import { api, ApiError, post } from './api';
 import { Bag, Modal, Notice } from './components';
 import { type RecipeInput, type RecipeView, type SessionUser } from '../shared/atproto';
-import { NetworkEditor } from './NetworkEditor';
+import { NetworkEditorPage } from './NetworkEditor';
 import { NetworkAccount } from './NetworkAccount';
 import './network.css';
 
@@ -27,6 +27,10 @@ const blank = (): RecipeInput => ({
 });
 const recipeUrl = (uri: string) => `/recipe?uri=${encodeURIComponent(uri)}`;
 const currentUri = () => new URLSearchParams(location.search).get('uri');
+const currentEditorRoute = () =>
+  /^\/recipe\/(new|edit|adapt|draft)$/.test(location.pathname)
+    ? location.pathname + location.search
+    : null;
 export const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 
@@ -53,18 +57,20 @@ export function App() {
   const [toast, setToast] = useState('');
   const [login, setLogin] = useState(false);
   const [account, setAccount] = useState(false);
-  const [editing, setEditing] = useState<Editing | null>(null);
+  const [editorRoute, setEditorRoute] = useState(currentEditorRoute);
+  const leaveGuard = useRef<() => boolean>(() => true);
+  const activeUrl = useRef(location.pathname + location.search);
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [nextCursor, setNextCursor] = useState<string>();
   const pageRequest = useRef(0);
   const refresh = () => setRevision((value) => value + 1);
   const go = (next: string | null, destination = feed) => {
-    history.pushState(
-      null,
-      '',
-      next ? recipeUrl(next) : destination === 'cookbook' ? '/cookbook' : '/',
-    );
+    if (!leaveGuard.current()) return;
+    const url = next ? recipeUrl(next) : destination === 'cookbook' ? '/cookbook' : '/';
+    history.pushState(null, '', url);
+    activeUrl.current = url;
+    setEditorRoute(null);
     setUri(next);
     setError('');
     setChecked(new Set());
@@ -72,6 +78,12 @@ export function App() {
   };
   useEffect(() => {
     const pop = () => {
+      if (!leaveGuard.current()) {
+        history.pushState(null, '', activeUrl.current);
+        return;
+      }
+      activeUrl.current = location.pathname + location.search;
+      setEditorRoute(currentEditorRoute());
       setUri(currentUri());
       if (!currentUri()) setFeed(location.pathname === '/cookbook' ? 'cookbook' : 'discover');
       setChecked(new Set());
@@ -93,7 +105,7 @@ export function App() {
     return () => window.removeEventListener('popstate', pop);
   }, []);
   useEffect(() => {
-    if (!ready || configured === null) return;
+    if (!ready || configured === null || editorRoute) return;
     if (!configured) {
       setLoading(false);
       return;
@@ -106,7 +118,9 @@ export function App() {
     setEntry(null);
     if (uri) {
       Promise.all([
-        api<RecipeView>(`/recipe?uri=${encodeURIComponent(uri)}`),
+        api<RecipeView>(
+          `/recipe?uri=${encodeURIComponent(uri)}${user ? `&fresh=${Date.now()}` : ''}`,
+        ),
         user
           ? api<{ saved: boolean; tags: string[] }>(
               `/cookbook/entry?uri=${encodeURIComponent(uri)}`,
@@ -161,7 +175,14 @@ export function App() {
       alive = false;
       pageRequest.current += 1;
     };
-  }, [ready, configured, feed, search, uri, revision, user, tag]);
+  }, [ready, configured, feed, search, uri, revision, user, tag, editorRoute]);
+  useEffect(() => {
+    document.title = editorRoute
+      ? `${editorRoute.startsWith('/recipe/new') ? 'Add a recipe' : 'Edit recipe'} — brownbag`
+      : recipe && uri
+        ? `${recipe.record.title} — brownbag`
+        : 'brownbag — Your recipes. All in one bag.';
+  }, [editorRoute, recipe, uri]);
   useEffect(() => {
     if (!user) {
       setTags([]);
@@ -212,7 +233,25 @@ export function App() {
     setTag('');
     go(null, next);
   };
-  const edit = (data: Editing) => (user ? setEditing(data) : setLogin(true));
+  const edit = (data: Editing) => {
+    if (!user) {
+      setLogin(true);
+      return;
+    }
+    if (!leaveGuard.current()) return;
+    const url = data.original
+      ? `/recipe/edit?uri=${encodeURIComponent(data.original.uri)}`
+      : data.draftId
+        ? `/recipe/draft?id=${encodeURIComponent(data.draftId)}`
+        : data.data.derivedFrom
+          ? `/recipe/adapt?uri=${encodeURIComponent(data.data.derivedFrom.uri)}`
+          : '/recipe/new';
+    history.pushState(null, '', url);
+    activeUrl.current = url;
+    setEditorRoute(url);
+    setError('');
+    window.scrollTo(0, 0);
+  };
   return (
     <div className="network-shell">
       <header className="network-header">
@@ -272,9 +311,40 @@ export function App() {
               be available once setup is complete.
             </p>
           </section>
+        ) : editorRoute ? (
+          !ready ? (
+            <p className="network-loading" role="status">
+              Opening your cookbook…
+            </p>
+          ) : user ? (
+            <NetworkEditorPage
+              key={editorRoute}
+              route={editorRoute}
+              userDid={user.did}
+              leaveGuard={leaveGuard}
+              close={() => go(uri)}
+              done={(result) => {
+                setToast(result ? 'Recipe published' : 'Private draft saved');
+                refresh();
+                if (result) go(result.uri);
+                else {
+                  setFeed('cookbook');
+                  go(null, 'cookbook');
+                }
+              }}
+            />
+          ) : (
+            <section className="empty-state">
+              <h1>Your next good recipe.</h1>
+              <p>Sign in to create and edit your recipes.</p>
+              <button className="button primary" onClick={() => setLogin(true)}>
+                Sign in
+              </button>
+            </section>
+          )
         ) : uri ? (
           <>
-            <button className="button secondary" onClick={() => go(null)}>
+            <button className="text-button recipe-back" onClick={() => go(null)}>
               <ArrowLeft size={16} />
               {feed === 'cookbook' ? 'Back to cookbook' : 'Back to recipes'}
             </button>
@@ -284,14 +354,14 @@ export function App() {
               </p>
             ) : (
               recipe && (
-                <article className="network-detail">
+                <article className="network-detail" lang={recipe.record.language}>
                   <p className="eyebrow">
                     FROM THE KITCHEN OF{' '}
                     {recipe.authorHandle ? `@${recipe.authorHandle}` : 'A COMMUNITY COOK'}
                   </p>
                   <h1>{recipe.record.title}</h1>
                   <p className="network-summary">{recipe.record.summary}</p>
-                  <div className="network-actions network-detail-actions">
+                  <div className="recipe-facts">
                     {recipe.record.prepMinutes || recipe.record.cookMinutes ? (
                       <span>
                         <Clock3 size={16} />{' '}
@@ -304,8 +374,10 @@ export function App() {
                           `${recipe.record.yield.quantity || ''} ${recipe.record.yield.unit || ''}`}
                       </span>
                     )}
+                  </div>
+                  <div className="network-actions network-detail-actions">
                     <button
-                      className="button secondary"
+                      className="button primary"
                       disabled={busy || (!!user && !entry)}
                       aria-label={entry?.saved ? 'Remove from cookbook' : 'Save to cookbook'}
                       onClick={() => {
@@ -352,69 +424,74 @@ export function App() {
                     >
                       Make it your own
                     </button>
-                    {user?.did === recipe.authorDid ? (
-                      <>
-                        <button
-                          className="button secondary"
-                          onClick={() => edit({ data: recipe.record, original: recipe })}
-                        >
-                          Edit recipe
-                        </button>
-                        <button
-                          className="button secondary"
-                          disabled={busy}
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                'Delete this published recipe? Copies saved by other people may remain.',
-                              )
-                            )
-                              void action(async () => {
-                                await api('/recipe', {
-                                  method: 'DELETE',
-                                  body: JSON.stringify({ uri: recipe.uri, cid: recipe.cid }),
-                                });
-                                go(null);
-                              }, 'Recipe deleted');
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          className="button secondary"
-                          disabled={busy}
-                          onClick={() => {
-                            void action(
-                              () => post('/follows', { did: recipe.authorDid }),
-                              'Following this cook',
-                            );
-                          }}
-                        >
-                          Follow cook
-                        </button>
-                        {user && (
-                          <button
-                            className="button secondary"
-                            disabled={busy}
-                            onClick={() =>
-                              void action(
-                                () =>
-                                  api('/follows', {
-                                    method: 'DELETE',
-                                    body: JSON.stringify({ did: recipe.authorDid }),
-                                  }),
-                                'Stopped following this cook',
-                              )
-                            }
-                          >
-                            Stop following
-                          </button>
+                    <details className="recipe-more-actions">
+                      <summary>More options</summary>
+                      <div className="stack">
+                        {user?.did === recipe.authorDid ? (
+                          <>
+                            <button
+                              className="button secondary"
+                              onClick={() => edit({ data: recipe.record, original: recipe })}
+                            >
+                              Edit recipe
+                            </button>
+                            <button
+                              className="button secondary"
+                              disabled={busy}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    'Delete this published recipe? Copies saved by other people may remain.',
+                                  )
+                                )
+                                  void action(async () => {
+                                    await api('/recipe', {
+                                      method: 'DELETE',
+                                      body: JSON.stringify({ uri: recipe.uri, cid: recipe.cid }),
+                                    });
+                                    go(null);
+                                  }, 'Recipe deleted');
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="button secondary"
+                              disabled={busy}
+                              onClick={() => {
+                                void action(
+                                  () => post('/follows', { did: recipe.authorDid }),
+                                  'Following this cook',
+                                );
+                              }}
+                            >
+                              Follow cook
+                            </button>
+                            {user && (
+                              <button
+                                className="button secondary"
+                                disabled={busy}
+                                onClick={() =>
+                                  void action(
+                                    () =>
+                                      api('/follows', {
+                                        method: 'DELETE',
+                                        body: JSON.stringify({ did: recipe.authorDid }),
+                                      }),
+                                    'Stopped following this cook',
+                                  )
+                                }
+                              >
+                                Stop following
+                              </button>
+                            )}
+                          </>
                         )}
-                      </>
-                    )}
+                      </div>
+                    </details>
                   </div>
                   {recipe.record.derivedFrom && (
                     <p className="network-attribution">
@@ -445,7 +522,32 @@ export function App() {
                     </p>
                   )}
                   {recipe.record.description && (
-                    <p className="network-prose">{recipe.record.description}</p>
+                    <details className="recipe-disclosure recipe-story">
+                      <summary>Story & cooking notes</summary>
+                      <p className="network-prose">{recipe.record.description}</p>
+                    </details>
+                  )}
+                  {!!recipe.record.tags?.length && (
+                    <div className="recipe-tags">
+                      {recipe.record.tags.map((tag, i) => (
+                        <span key={i}>{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                  {!!recipe.record.images?.length && (
+                    <div className="recipe-gallery">
+                      {recipe.record.images.map((photo, index) => (
+                        <figure key={index}>
+                          <img
+                            src={`/api/recipe-image?${new URLSearchParams({ uri: recipe.uri, index: String(index) })}`}
+                            alt={photo.alt}
+                            loading="lazy"
+                            width={photo.width}
+                            height={photo.height}
+                          />
+                        </figure>
+                      ))}
+                    </div>
                   )}
                   <div className="network-cooking">
                     <section>
@@ -690,10 +792,10 @@ export function App() {
                         {search || tag
                           ? 'No recipes found'
                           : feed === 'following'
-                            ? 'Your table is waiting'
+                            ? 'Find your favourite cooks'
                             : feed === 'cookbook'
                               ? 'Every cookbook starts somewhere'
-                              : 'Be the first to pass something around'}
+                              : 'A good recipe starts with you'}
                       </h2>
                       <p>
                         {search || tag
@@ -761,7 +863,10 @@ export function App() {
       {account && (
         <NetworkAccount
           onSignOut={async () => {
+            if (!leaveGuard.current())
+              throw new Error('Finish or save your recipe before signing out.');
             await post('/auth/logout', {});
+            leaveGuard.current = () => true;
             setUser(null);
             setAccount(false);
             setFeed('discover');
@@ -774,22 +879,6 @@ export function App() {
           }}
         />
       )}
-      {editing && (
-        <NetworkEditor
-          editing={editing}
-          close={() => setEditing(null)}
-          done={(result) => {
-            setEditing(null);
-            setToast(result ? 'Recipe published' : 'Private draft saved');
-            refresh();
-            if (result) go(result.uri);
-            else {
-              setFeed('cookbook');
-              go(null, 'cookbook');
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -799,7 +888,7 @@ function LoginDialog({ close }: { close: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   return (
-    <Modal title="Welcome to the table" close={close}>
+    <Modal title="Your cookbook starts here" close={close}>
       <form
         className="stack"
         onSubmit={async (event) => {

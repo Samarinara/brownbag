@@ -8,6 +8,7 @@ export class ApiError extends Error {
 }
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
+    cache: 'no-store',
     ...options,
     headers: {
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),

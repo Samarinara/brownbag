@@ -193,6 +193,107 @@ test('HTTP routes allow public reads but reject foreign origins, private reads a
   }
 });
 
+test('photo uploads enforce sessions, origins, formats and size and serialize SDK blob references', async () => {
+  const { BlobRef } = await import('@atproto/lexicon');
+  const { jsonToIpld } = await import('@atproto/common-web');
+  const pg = new PGlite();
+  await pg.exec(await readFile(new URL('../migrations/001_network.sql', import.meta.url), 'utf8'));
+  const store = new NetworkStore(adapt(pg));
+  await store.actor(alice);
+  await store.db.query(
+    "INSERT INTO app_sessions(hash,did,expires_at) VALUES ($1,$2,now()+interval '1 day')",
+    [createHash('sha256').update('photo-session').digest('hex'), alice],
+  );
+  let uploads = 0;
+  const blob = {
+    $type: 'blob',
+    ref: { $link: 'bafkrei' + 'a'.repeat(52) },
+    mimeType: 'image/png',
+    size: 8,
+  };
+  const app = createNetworkApp({
+    origin: 'http://127.0.0.1',
+    store,
+    oauth: {
+      agent: async (did: string) => {
+        assert.equal(did, alice);
+        return {
+          uploadBlob: async (bytes: Buffer, options: { encoding: string }) => {
+            uploads++;
+            assert.equal(options.encoding, 'image/png');
+            assert.equal(bytes.length, 8);
+            return { data: { blob: BlobRef.fromJsonRef(jsonToIpld(blob) as any) } };
+          },
+        };
+      },
+    } as any,
+  });
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${(server.address() as any).port}`;
+  const headers = { 'Content-Type': 'image/png', cookie: 'brownbag_session=photo-session' };
+  const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  try {
+    assert.equal(
+      (
+        await fetch(`${base}/api/images`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'image/png' },
+          body: bytes,
+        })
+      ).status,
+      401,
+    );
+    assert.equal(
+      (
+        await fetch(`${base}/api/images`, {
+          method: 'POST',
+          headers: { ...headers, Origin: 'https://elsewhere.example' },
+          body: bytes,
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await fetch(`${base}/api/images`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'image/svg+xml' },
+          body: '<svg/>',
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await fetch(`${base}/api/images`, {
+          method: 'POST',
+          headers,
+          body: new Uint8Array(5_000_001),
+        })
+      ).status,
+      413,
+    );
+    const response = await fetch(`${base}/api/images`, { method: 'POST', headers, body: bytes });
+    assert.equal(response.status, 201);
+    assert.deepEqual(await response.json(), { image: blob });
+    assert.equal(uploads, 1);
+    const largeRecipe = {
+      ...input,
+      instructions: Array.from({ length: 64 }, () => ({ text: 'a'.repeat(10000) })),
+    };
+    const draft = await fetch(`${base}/api/drafts`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: largeRecipe }),
+    });
+    assert.equal(draft.status, 201, 'A lexicon-valid long recipe can be saved');
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await pg.close();
+  }
+});
+
 test('cookbook combines posts and saves, persists private tags, paginates and respects removals', async () => {
   const pg = new PGlite();
   try {

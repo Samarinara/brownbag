@@ -1,6 +1,7 @@
 // Local-only UI fixture. Never imported by production entrypoints.
 // Run after npm run build: npx tsx tests/support/preview.ts
 import { PGlite } from '@electric-sql/pglite';
+import { TID } from '@atproto/common-web';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
@@ -11,6 +12,8 @@ import { createRecipeRecord } from '../../server/atproto/records.js';
 import { RECIPE_COLLECTION } from '../../shared/atproto.js';
 import type { Database } from '../../server/db.js';
 
+const previewPort = Number(process.env.BROWNBAG_PREVIEW_PORT || 3001);
+const previewOrigin = `http://127.0.0.1:${previewPort}`;
 const pg = new PGlite();
 await pg.exec(await readFile(new URL('../../migrations/001_network.sql', import.meta.url), 'utf8'));
 const adapt = (p: any): Database => ({
@@ -44,15 +47,37 @@ await store.index({
   rkey: '3mabc234567ab',
   cid,
   record,
-  rev: '3mabc234567ac',
+  rev: TID.nextStr(),
 });
 await store.db.query(
   "INSERT INTO app_sessions(hash,did,expires_at) VALUES ($1,$2,now()+interval '1 hour')",
   [createHash('sha256').update('local-preview-only').digest('hex'), did],
 );
+const photos = new Map<string, { bytes: Uint8Array; type: string }>();
 const agent = {
+  uploadBlob: async (bytes: Uint8Array, options: { encoding: string }) => {
+    const cid = 'bafkrei' + 'a'.repeat(52);
+    photos.set(cid, { bytes, type: options.encoding });
+    return {
+      data: {
+        blob: {
+          $type: 'blob',
+          ref: { $link: cid },
+          mimeType: options.encoding,
+          size: bytes.length,
+        },
+      },
+    };
+  },
   com: {
     atproto: {
+      sync: {
+        getBlob: async ({ cid }: { cid: string }) => {
+          const photo = photos.get(cid);
+          if (!photo) throw new Error('Photo not found');
+          return { data: photo.bytes, headers: { 'content-type': photo.type } };
+        },
+      },
       repo: {
         getRecord: async ({ rkey }: any) => ({ data: { cid, value: records.get(rkey) } }),
         putRecord: async ({ rkey, record }: any) => {
@@ -61,33 +86,43 @@ const agent = {
             data: {
               uri: `at://${did}/${RECIPE_COLLECTION}/${rkey}`,
               cid,
-              commit: { rev: '3mabc234567az' },
+              commit: { rev: TID.nextStr() },
             },
           };
         },
         deleteRecord: async ({ rkey }: any) => {
           records.delete(rkey);
-          return { data: { commit: { rev: '3mabc234567zz' } } };
+          return { data: { commit: { rev: TID.nextStr() } } };
         },
       },
     },
   },
 };
-const port = Number(process.env.PREVIEW_PORT || 3001);
 const app = express();
 app.use((_req, res, next) => {
   res.cookie('brownbag_session', 'local-preview-only', { httpOnly: true, sameSite: 'lax' });
   next();
 });
+// Serve only the in-memory mock photos; production resolves the real account's PDS.
+app.get('/api/recipe-image', async (req, res) => {
+  const recipe = await store.recipe(String(req.query.uri));
+  const ref = recipe.record.images?.[Number(req.query.index)]?.image.ref.$link;
+  const photo = ref && photos.get(ref);
+  if (!photo) {
+    res.sendStatus(404);
+    return;
+  }
+  res.type(photo.type).send(Buffer.from(photo.bytes));
+});
 app.use(
   createNetworkApp({
-    origin: `http://127.0.0.1:${port}`,
+    origin: previewOrigin,
     store,
     oauth: { agent: async () => agent } as any,
   }),
 );
 app.use(express.static(resolve('dist/client')));
 app.get('/{*path}', (_req, res) => res.sendFile('index.html', { root: resolve('dist/client') }));
-app.listen(port, '127.0.0.1', () =>
-  console.info(`Local mock-account preview: http://127.0.0.1:${port}`),
+app.listen(previewPort, '127.0.0.1', () =>
+  console.info(`Local mock-account preview: ${previewOrigin}`),
 );
