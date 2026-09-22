@@ -449,7 +449,6 @@
   padding: 20px;
   min-width: 0;
 }
-
 .network-recipe-facts dt {
   font-size: 11px;
   text-transform: uppercase;
@@ -476,18 +475,6 @@
   padding: 20px 0;
   margin-bottom: 16px;
   gap: 12px;
-}
-.network-quiet-action {
-  border: 0;
-  background: transparent;
-  padding: 12px;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  font-size: 13px;
-}
-.network-delete-action {
-  color: #974434;
-  margin-left: auto;
 }
 .network-story {
   border-block: 1px solid var(--line);
@@ -770,9 +757,6 @@
   }
   .network-detail-actions > .button {
     flex: 1 1 auto;
-  }
-  .network-delete-action {
-    margin-left: 0;
   }
 }
 /* Recipe pages share the homepage's paper, typography and quiet controls. */
