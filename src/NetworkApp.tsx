@@ -5,18 +5,30 @@ import {
   Bookmark,
   Check,
   Clock3,
+  Link2,
   LogOut,
   Monitor,
   Moon,
   Plus,
   Search,
   Settings,
+  Share2,
   Shuffle,
   Sun,
   Tags,
+  X,
 } from 'lucide-react';
 import { api, ApiError, post } from './api';
-import { Bag, Modal, Notice } from './components';
+import {
+  Bag,
+  ConfirmDialog,
+  Modal,
+  Notice,
+  SkeletonCards,
+  SkeletonDetail,
+  Toast,
+  type ToastData,
+} from './components';
 import { type RecipeInput, type RecipeView, type SessionUser } from '../shared/atproto';
 import { NetworkEditorPage } from './NetworkEditor';
 import { NetworkAccount } from './NetworkAccount';
@@ -71,7 +83,7 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState('');
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState<ToastData | null>(null);
   const [login, setLogin] = useState(false);
   const [account, setAccount] = useState(false);
   const [accountMenu, setAccountMenu] = useState(false);
@@ -82,6 +94,9 @@ export function App() {
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [nextCursor, setNextCursor] = useState<string>();
+  const [confirmDeleteRecipe, setConfirmDeleteRecipe] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<Draft | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const pageRequest = useRef(0);
   const refresh = () => setRevision((value) => value + 1);
   const go = (next: string | null, destination = feed) => {
@@ -236,9 +251,10 @@ export function App() {
   }, [user, revision]);
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(''), 5000);
+    const timer = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(timer);
   }, [toast]);
+  const notify = (text: string, kind: ToastData['kind'] = 'success') => setToast({ kind, text });
   const action = async (work: () => Promise<unknown>, success: string) => {
     if (!user) {
       setLogin(true);
@@ -248,10 +264,12 @@ export function App() {
     setError('');
     try {
       await work();
-      setToast(success);
+      notify(success, 'success');
       refresh();
     } catch (e) {
-      setError(message(e));
+      const text = message(e);
+      setError(text);
+      setToast({ kind: 'error', text });
     } finally {
       setBusy(false);
     }
@@ -345,7 +363,7 @@ export function App() {
                     setAccountMenu(false);
                     setFeed('discover');
                     go(null, 'discover');
-                    setToast('Signed out');
+                    notify('Signed out');
                   }}
                 />
               )}
@@ -354,6 +372,13 @@ export function App() {
             <button
               className="network-sign-in"
               disabled={!ready || configured !== true}
+              title={
+                !ready
+                  ? 'Sign in is unavailable while the app loads.'
+                  : configured !== true
+                    ? 'Sign in is unavailable until setup is complete.'
+                    : 'Sign in to your cookbook'
+              }
               onClick={() => setLogin(true)}
             >
               Sign in
@@ -374,9 +399,16 @@ export function App() {
           </section>
         ) : editorRoute ? (
           !ready ? (
-            <p className="network-loading" role="status">
-              Opening your cookbook…
-            </p>
+            <>
+              <p className="sr-only" role="status">
+                Opening your cookbook…
+              </p>
+              <section className="network-editor-page" aria-hidden="true">
+                <div className="skeleton skeleton-line short" />
+                <div className="skeleton skeleton-line hero" />
+                <div className="skeleton skeleton-line" />
+              </section>
+            </>
           ) : user ? (
             <NetworkEditorPage
               key={editorRoute}
@@ -385,7 +417,7 @@ export function App() {
               leaveGuard={leaveGuard}
               close={() => go(uri)}
               done={(result) => {
-                setToast(result ? 'Recipe published' : 'Private draft saved');
+                notify(result ? 'Recipe published' : 'Private draft saved');
                 refresh();
                 if (result) go(result.uri);
                 else {
@@ -410,9 +442,14 @@ export function App() {
               {feed === 'cookbook' ? 'Back to cookbook' : 'Back to recipes'}
             </button>
             {loading ? (
-              <p role="status" className="network-loading">
-                Opening the cookbook…
-              </p>
+              <>
+                <p className="sr-only" role="status">
+                  Opening the cookbook…
+                </p>
+                <div aria-hidden="true">
+                  <SkeletonDetail />
+                </div>
+              </>
             ) : (
               recipe && (
                 <article className="network-detail" lang={recipe.record.language}>
@@ -437,30 +474,88 @@ export function App() {
                     )}
                   </div>
                   <div className="network-actions network-detail-actions">
-                    <button
-                      className="button primary"
-                      disabled={busy || (!!user && !entry)}
-                      aria-label={entry?.saved ? 'Remove from cookbook' : 'Save to cookbook'}
-                      onClick={() => {
-                        if (!user) {
-                          setLogin(true);
-                          return;
-                        }
-                        if (entry?.saved)
-                          void action(
-                            () =>
-                              api('/bookmarks', {
-                                method: 'DELETE',
-                                body: JSON.stringify({ uri: recipe.uri }),
-                              }),
-                            'Removed from your cookbook',
-                          );
-                        else setTagSelector(true);
-                      }}
+                    <span
+                      className="disabled-hint"
+                      title={
+                        busy
+                          ? 'Please wait while we finish the current action.'
+                          : user && !entry
+                            ? 'Checking whether this recipe is in your cookbook…'
+                            : entry?.saved
+                              ? 'Remove this recipe from your cookbook'
+                              : user
+                                ? 'Save this recipe to your cookbook'
+                                : 'Sign in to save this recipe to your cookbook'
+                      }
                     >
-                      {entry?.saved ? <Check size={15} /> : <Bookmark size={15} />}
-                      {entry?.saved ? 'Saved' : 'Save'}
-                    </button>
+                      <button
+                        className="button primary"
+                        disabled={busy || (!!user && !entry)}
+                        aria-label={entry?.saved ? 'Remove from cookbook' : 'Save to cookbook'}
+                        aria-describedby="save-hint"
+                        onClick={() => {
+                          if (!user) {
+                            setLogin(true);
+                            return;
+                          }
+                          if (entry?.saved) {
+                            const savedTags = entry.tags;
+                            const target = recipe.uri;
+                            void (async () => {
+                              if (!user) return;
+                              setBusy(true);
+                              setError('');
+                              try {
+                                await api('/bookmarks', {
+                                  method: 'DELETE',
+                                  body: JSON.stringify({ uri: target }),
+                                });
+                                setToast({
+                                  kind: 'success',
+                                  text: 'Removed from your cookbook',
+                                  actionLabel: 'Undo',
+                                  onAction: () => {
+                                    void (async () => {
+                                      try {
+                                        await post('/bookmarks', {
+                                          uri: target,
+                                          tags: savedTags,
+                                        });
+                                        notify('Restored to your cookbook');
+                                        refresh();
+                                      } catch (e) {
+                                        setError(message(e));
+                                        setToast({ kind: 'error', text: message(e) });
+                                      }
+                                    })();
+                                    setToast(null);
+                                  },
+                                });
+                                refresh();
+                              } catch (e) {
+                                const text = message(e);
+                                setError(text);
+                                setToast({ kind: 'error', text });
+                              } finally {
+                                setBusy(false);
+                              }
+                            })();
+                          } else setTagSelector(true);
+                        }}
+                      >
+                        {entry?.saved ? <Check size={15} /> : <Bookmark size={15} />}
+                        {entry?.saved ? 'Saved' : 'Save'}
+                      </button>
+                    </span>
+                    <span id="save-hint" className="sr-only">
+                      {busy
+                        ? 'Save is unavailable while another action is in progress.'
+                        : user && !entry
+                          ? 'Save is unavailable until we finish checking your cookbook.'
+                          : !user
+                            ? 'Choosing Save will ask you to sign in first.'
+                            : ''}
+                    </span>
                     {entry?.saved && (
                       <button
                         className="button secondary"
@@ -482,9 +577,59 @@ export function App() {
                           },
                         })
                       }
+                      title="Create your own copy of this recipe"
                     >
                       Make it your own
                     </button>
+                    <div className="detail-share-row" role="group" aria-label="Share this recipe">
+                      <button
+                        type="button"
+                        className="icon-button"
+                        title="Copy link to this recipe"
+                        aria-label="Copy link to this recipe"
+                        onClick={() => {
+                          const url = `${location.origin}${recipeUrl(recipe.uri)}`;
+                          const done = () => notify('Link copied to clipboard');
+                          if (navigator.clipboard?.writeText) {
+                            void navigator.clipboard
+                              .writeText(url)
+                              .then(done)
+                              .catch(() => {
+                                setToast({ kind: 'error', text: 'Could not copy the link.' });
+                              });
+                          } else {
+                            window.prompt('Copy this link:', url);
+                          }
+                        }}
+                      >
+                        <Link2 size={17} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        title="Share this recipe"
+                        aria-label="Share this recipe"
+                        onClick={() => {
+                          const url = `${location.origin}${recipeUrl(recipe.uri)}`;
+                          if (navigator.share) {
+                            void navigator
+                              .share({ title: recipe.record.title, url })
+                              .catch(() => {});
+                          } else if (navigator.clipboard?.writeText) {
+                            void navigator.clipboard
+                              .writeText(url)
+                              .then(() => notify('Link copied to clipboard'))
+                              .catch(() => {
+                                setToast({ kind: 'error', text: 'Could not share the link.' });
+                              });
+                          } else {
+                            window.prompt('Copy this link:', url);
+                          }
+                        }}
+                      >
+                        <Share2 size={17} />
+                      </button>
+                    </div>
                     <details className="recipe-more-actions">
                       <summary>More options</summary>
                       <div className="stack">
@@ -497,22 +642,10 @@ export function App() {
                               Edit recipe
                             </button>
                             <button
-                              className="button secondary"
+                              className="button secondary danger"
                               disabled={busy}
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    'Delete this published recipe? Copies saved by other people may remain.',
-                                  )
-                                )
-                                  void action(async () => {
-                                    await api('/recipe', {
-                                      method: 'DELETE',
-                                      body: JSON.stringify({ uri: recipe.uri, cid: recipe.cid }),
-                                    });
-                                    go(null);
-                                  }, 'Recipe deleted');
-                              }}
+                              title="Permanently delete this published recipe"
+                              onClick={() => setConfirmDeleteRecipe(true)}
                             >
                               Delete
                             </button>
@@ -685,45 +818,93 @@ export function App() {
               <div className="network-home-search">
                 <form
                   className="network-search"
+                  role="search"
                   onSubmit={(e) => {
                     e.preventDefault();
                     setSearch(query);
                   }}
                 >
-                  <Search size={22} strokeWidth={1.7} />
+                  <Search size={22} strokeWidth={1.7} aria-hidden="true" />
                   <input
                     aria-label="Search recipes"
                     placeholder="Find a recipe, or start with an ingredient…"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
-                  <button className="network-search-submit" aria-label="Search" type="submit">
+                  {query && (
+                    <button
+                      type="button"
+                      className="search-clear"
+                      aria-label="Clear search"
+                      title="Clear search"
+                      onClick={() => {
+                        setQuery('');
+                        setSearch('');
+                      }}
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                  <button
+                    className="network-search-submit"
+                    aria-label="Search"
+                    title="Search"
+                    type="submit"
+                  >
                     ↵
                   </button>
                 </form>
                 <div className="network-hero-actions">
                   {feed !== 'cookbook' && (
-                    <button
-                      className="button primary"
-                      disabled={loading || recipes.length === 0}
-                      onClick={() => {
-                        const item = recipes[Math.floor(Math.random() * recipes.length)];
-                        if (item) go(item.uri);
-                      }}
+                    <span
+                      className="disabled-hint"
+                      title={
+                        loading
+                          ? 'Surprise Me is unavailable while recipes are loading.'
+                          : recipes.length === 0
+                            ? 'Surprise Me needs at least one recipe to pick from.'
+                            : 'Open a random recipe'
+                      }
                     >
-                      <Shuffle size={18} />
-                      Surprise me
-                    </button>
+                      <button
+                        className="button primary"
+                        disabled={loading || recipes.length === 0}
+                        aria-describedby="surprise-hint"
+                        onClick={() => {
+                          const item = recipes[Math.floor(Math.random() * recipes.length)];
+                          if (item) go(item.uri);
+                        }}
+                      >
+                        <Shuffle size={18} />
+                        Surprise me
+                      </button>
+                    </span>
                   )}
-                  <button
-                    className="button secondary"
-                    disabled={configured !== true}
-                    onClick={() => edit({ data: blank() })}
+                  <span
+                    className="disabled-hint"
+                    title={
+                      configured !== true
+                        ? 'Adding recipes is unavailable until setup is complete.'
+                        : 'Add a new recipe'
+                    }
                   >
-                    <Plus size={18} />
-                    Add a recipe
-                  </button>
+                    <button
+                      className="button secondary"
+                      disabled={configured !== true}
+                      onClick={() => edit({ data: blank() })}
+                    >
+                      <Plus size={18} />
+                      Add a recipe
+                    </button>
+                  </span>
                 </div>
+                <span id="surprise-hint" className="sr-only">
+                  {loading
+                    ? 'Surprise Me is disabled while recipes are loading.'
+                    : recipes.length === 0
+                      ? 'Surprise Me is disabled because there are no recipes to choose from.'
+                      : ''}
+                </span>
               </div>
             </section>
             {feed === 'cookbook' && (
@@ -733,6 +914,7 @@ export function App() {
                     key={value}
                     className={tag === value ? 'active' : ''}
                     aria-pressed={tag === value}
+                    title={value ? `Show recipes tagged ${value}` : 'Show all recipes'}
                     onClick={() => setTag(value)}
                   >
                     {value || 'All'}
@@ -762,39 +944,64 @@ export function App() {
               </div>
             )}
             {loading ? (
-              <p className="network-loading" role="status">
-                Gathering recipes…
-              </p>
+              <>
+                <p className="sr-only" role="status">
+                  Gathering recipes…
+                </p>
+                <p className="skeleton-grid-label" aria-hidden="true">
+                  Gathering recipes…
+                </p>
+                <div aria-hidden="true">
+                  <SkeletonCards count={6} />
+                </div>
+              </>
             ) : (
               <>
+                {!loading && !error && (
+                  <div className="result-count-row" role="status" aria-live="polite">
+                    <span>
+                      {recipes.length === 1 ? '1 recipe' : `${recipes.length} recipes`}
+                      {search ? ` for “${search}”` : ''}
+                      {feed === 'cookbook' && tag ? ` tagged “${tag}”` : ''}
+                      {feed === 'following' && !search ? ' from cooks you follow' : ''}
+                      {nextCursor ? ' so far' : ''}
+                    </span>
+                    {(search || tag) && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => {
+                          setQuery('');
+                          setSearch('');
+                          setTag('');
+                        }}
+                      >
+                        Clear search & filters
+                      </button>
+                    )}
+                  </div>
+                )}
                 {feed === 'cookbook' && !search && !tag && drafts.length > 0 && (
-                  <section className="network-drafts">
+                  <section className="network-drafts" aria-label="Private drafts">
                     <h2>Private drafts</h2>
                     <p>Only you can see these. Publish when you’re ready to share.</p>
                     {drafts.map((draft) => (
                       <div key={draft.id}>
                         <button
                           className="button secondary"
+                          title={`Continue editing ${draft.data.title || 'untitled recipe'}`}
                           onClick={() => edit({ data: draft.data, draftId: draft.id })}
                         >
                           {draft.data.title || 'Untitled recipe'}
                         </button>
                         <button
-                          className="icon-button"
+                          className="icon-button danger"
                           disabled={busy}
-                          aria-label={`Delete draft ${draft.data.title}`}
-                          onClick={() => {
-                            if (window.confirm('Delete this private draft?'))
-                              void action(
-                                () =>
-                                  api(`/drafts/${encodeURIComponent(draft.id)}`, {
-                                    method: 'DELETE',
-                                  }),
-                                'Draft deleted',
-                              );
-                          }}
+                          aria-label={`Delete draft ${draft.data.title || 'untitled recipe'}`}
+                          title={`Delete draft ${draft.data.title || 'untitled recipe'}`}
+                          onClick={() => setPendingDraft(draft)}
                         >
-                          ×
+                          <X size={16} />
                         </button>
                       </div>
                     ))}
@@ -860,11 +1067,51 @@ export function App() {
                       </h2>
                       <p>
                         {search || tag
-                          ? 'Try another tag, ingredient or title.'
+                          ? 'Try another tag, ingredient or title — or clear the search to browse everything.'
                           : feed === 'following'
                             ? 'Follow a cook from their recipe to see what they share here.'
                             : 'Share a recipe you love, or start with a private draft.'}
                       </p>
+                      <div className="empty-actions">
+                        {search || tag ? (
+                          <button
+                            type="button"
+                            className="button secondary"
+                            onClick={() => {
+                              setQuery('');
+                              setSearch('');
+                              setTag('');
+                            }}
+                          >
+                            Clear search & filters
+                          </button>
+                        ) : null}
+                        {feed === 'following' && !search ? (
+                          <button
+                            type="button"
+                            className="button secondary"
+                            onClick={() => selectFeed('discover')}
+                          >
+                            Discover recipes
+                          </button>
+                        ) : null}
+                        {feed !== 'following' && !search && !tag ? (
+                          <button
+                            type="button"
+                            className="button primary"
+                            disabled={configured !== true}
+                            title={
+                              configured !== true
+                                ? 'Adding recipes is unavailable until setup is complete.'
+                                : 'Add your first recipe'
+                            }
+                            onClick={() => edit({ data: blank() })}
+                          >
+                            <Plus size={16} />
+                            Add a recipe
+                          </button>
+                        ) : null}
+                      </div>
                     </section>
                   )
                 )}
@@ -886,13 +1133,16 @@ export function App() {
                         ]);
                         setNextCursor(result.nextCursor);
                       } catch (e) {
-                        setError(message(e));
+                        const text = message(e);
+                        setError(text);
+                        setToast({ kind: 'error', text });
                       } finally {
                         setBusy(false);
                       }
                     }}
+                    title={busy ? 'Please wait while recipes load.' : 'Load more recipes'}
                   >
-                    More recipes
+                    {busy ? 'Loading…' : 'More recipes'}
                   </button>
                 )}
               </>
@@ -900,11 +1150,100 @@ export function App() {
           </>
         )}
       </main>
-      {toast && (
-        <div className="network-toast" role="status">
-          <Check size={17} />
-          {toast}
-        </div>
+      {toast && <Toast toast={toast} dismiss={() => setToast(null)} />}
+      {confirmDeleteRecipe && recipe && (
+        <ConfirmDialog
+          title="Delete this recipe?"
+          confirmLabel="Delete recipe"
+          danger
+          busy={confirmBusy}
+          close={() => {
+            if (!confirmBusy) setConfirmDeleteRecipe(false);
+          }}
+          confirm={() => {
+            setConfirmBusy(true);
+            void (async () => {
+              try {
+                await api('/recipe', {
+                  method: 'DELETE',
+                  body: JSON.stringify({ uri: recipe.uri, cid: recipe.cid }),
+                });
+                setConfirmDeleteRecipe(false);
+                notify('Recipe deleted');
+                go(null);
+                refresh();
+              } catch (e) {
+                const text = message(e);
+                setError(text);
+                setToast({ kind: 'error', text });
+              } finally {
+                setConfirmBusy(false);
+              }
+            })();
+          }}
+        >
+          <p>
+            <strong>{recipe.record.title}</strong> will be permanently removed from your public
+            account.
+          </p>
+          <p className="confirm-warning">
+            This cannot be undone. Copies already saved to other people’s cookbooks may remain.
+          </p>
+        </ConfirmDialog>
+      )}
+      {pendingDraft && (
+        <ConfirmDialog
+          title="Delete this draft?"
+          confirmLabel="Delete draft"
+          danger
+          busy={confirmBusy}
+          close={() => {
+            if (!confirmBusy) setPendingDraft(null);
+          }}
+          confirm={() => {
+            const target = pendingDraft;
+            setConfirmBusy(true);
+            void (async () => {
+              try {
+                await api(`/drafts/${encodeURIComponent(target.id)}`, { method: 'DELETE' });
+                setPendingDraft(null);
+                setToast({
+                  kind: 'success',
+                  text: 'Draft deleted',
+                  actionLabel: 'Undo',
+                  onAction: () => {
+                    void (async () => {
+                      try {
+                        await post('/drafts', { data: target.data });
+                        notify('Draft restored');
+                        refresh();
+                      } catch (e) {
+                        setError(message(e));
+                        setToast({ kind: 'error', text: message(e) });
+                      }
+                    })();
+                    setToast(null);
+                  },
+                });
+                refresh();
+              } catch (e) {
+                const text = message(e);
+                setError(text);
+                setToast({ kind: 'error', text });
+              } finally {
+                setConfirmBusy(false);
+              }
+            })();
+          }}
+        >
+          <p>
+            <strong>{pendingDraft.data.title || 'Untitled recipe'}</strong> will be permanently
+            removed. Only you can see this draft.
+          </p>
+          <p className="confirm-warning">
+            This cannot be undone, but you can restore it right away with Undo.
+          </p>
+        </ConfirmDialog>
       )}
       {tagSelector && recipe && (
         <TagDialog
@@ -915,7 +1254,7 @@ export function App() {
           done={async (selected) => {
             await post('/bookmarks', { uri: recipe.uri, tags: selected });
             setTagSelector(false);
-            setToast(entry?.saved ? 'Tags updated' : 'Saved to your cookbook');
+            notify(entry?.saved ? 'Tags updated' : 'Saved to your cookbook');
             refresh();
           }}
         />
@@ -932,7 +1271,7 @@ export function App() {
             setAccount(false);
             setFeed('discover');
             go(null, 'discover');
-            setToast('Signed out');
+            notify('Signed out');
           }}
           close={() => {
             setAccount(false);

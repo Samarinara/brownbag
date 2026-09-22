@@ -1090,3 +1090,360 @@
 .network-new-tag input {
   min-width: 0;
 }
+
+/* ---- Interaction polish & feedback ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Consistent control states: hover / focus-visible / active / disabled / selected. */
+.network-shell .button,
+.network-shell .icon-button,
+.network-shell .network-search-submit,
+.network-shell .theme-picker button,
+.network-shell .network-toolbar nav button,
+.network-shell .network-tag-chits button,
+.network-shell .account-menu-actions button {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 120ms ease,
+    box-shadow 160ms ease;
+}
+.network-shell .button:hover:not(:disabled),
+.network-shell .icon-button:hover:not(:disabled),
+.network-shell .network-search-submit:hover:not(:disabled),
+.network-shell .account-menu-actions button:hover:not(:disabled) {
+  filter: brightness(0.98);
+}
+.network-shell .button:active:not(:disabled),
+.network-shell .icon-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+.network-shell .button:focus-visible,
+.network-shell .icon-button:focus-visible,
+.network-shell .network-search-submit:focus-visible,
+.network-shell .network-toolbar nav button:focus-visible,
+.network-shell .network-tag-chits button:focus-visible,
+.network-shell .network-cookbook-link:focus-visible,
+.network-shell .network-brand:focus-visible,
+.network-shell .network-card a:focus-visible {
+  outline: 3px solid #a1b592;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+.network-shell .button:disabled,
+.network-shell .icon-button:disabled,
+.network-shell .network-search-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+.network-shell .button:disabled:hover,
+.network-shell .icon-button:disabled:hover {
+  filter: none;
+}
+.network-shell .icon-button {
+  border: 1px solid transparent;
+  color: var(--muted);
+}
+.network-shell .icon-button:hover:not(:disabled) {
+  background: var(--soft);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.network-shell .icon-button:active:not(:disabled) {
+  background: var(--soft);
+}
+.network-shell .icon-button[aria-pressed='true'],
+.network-shell .network-tag-chits button[aria-pressed='true'] {
+  outline: 2px solid #a1b592;
+  outline-offset: 1px;
+}
+.network-shell .network-toolbar nav button:hover:not(.active),
+.network-shell .network-tag-chits button:hover:not(.active) {
+  border-color: #bcc7ad;
+  background: var(--soft);
+  color: var(--ink);
+}
+.network-shell .network-toolbar nav button:active:not(.active),
+.network-shell .network-tag-chits button:active:not(.active) {
+  transform: translateY(1px);
+}
+.network-shell .network-toolbar nav button.active,
+.network-shell .network-tag-chits button.active {
+  box-shadow: 0 1px 6px #24371a18;
+}
+
+/* Standardized hierarchy: primary = main action, secondary = default,
+   danger = destructive. */
+.network-shell .button.secondary {
+  background: var(--white);
+}
+.network-shell .button.danger {
+  background: #a83a2a;
+  border-color: #a83a2a;
+  color: #fff8f4;
+}
+.network-shell .button.danger:hover:not(:disabled) {
+  background: #8f3124;
+  border-color: #8f3124;
+}
+.network-shell .button.danger:active:not(:disabled) {
+  background: #7c2b20;
+}
+.network-shell .icon-button.danger {
+  color: #a83a2a;
+}
+.network-shell .icon-button.danger:hover:not(:disabled) {
+  background: #f6e3db;
+  border-color: #dfbfae;
+  color: #8f3124;
+}
+.network-shell .text-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.network-shell .text-button:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.disabled-hint {
+  display: inline-flex;
+}
+.disabled-hint .button:disabled {
+  pointer-events: none;
+}
+.button-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Search: result counts + clear control. */
+.network-search {
+  position: relative;
+}
+.search-clear {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.search-clear:hover:not(:disabled) {
+  background: var(--soft);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.search-clear:focus-visible {
+  outline: 3px solid #a1b592;
+  outline-offset: 2px;
+}
+.result-count-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 auto 18px;
+  max-width: 760px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.network-main > .result-count-row:first-of-type {
+  max-width: none;
+}
+.result-count-row .text-button {
+  white-space: nowrap;
+}
+
+/* Toasts: success vs error, with actions. */
+.network-toast {
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 32px));
+}
+.network-toast.success {
+  background: var(--green-dark);
+  color: white;
+}
+.network-toast.error {
+  background: #7c2b20;
+  color: #fff4ee;
+  border: 1px solid #d99a86;
+}
+.network-toast .toast-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.network-toast .toast-action {
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.network-toast .toast-action:hover {
+  background: #ffffff22;
+}
+.network-toast .toast-close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+.network-toast .toast-close:hover {
+  background: #ffffff22;
+  opacity: 1;
+}
+
+/* Loading skeletons replace plain loading text. */
+@keyframes skeleton-shimmer {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+.skeleton {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--soft), var(--line), var(--soft));
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton-card {
+  pointer-events: none;
+}
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 12px;
+}
+.skeleton-line.short {
+  width: 34%;
+  height: 12px;
+}
+.skeleton-line.title {
+  height: 24px;
+  width: 78%;
+}
+.skeleton-line.narrow {
+  width: 52%;
+  margin-bottom: 0;
+}
+.skeleton-line.hero {
+  height: 44px;
+  width: 68%;
+}
+.skeleton-detail {
+  max-width: 760px;
+  margin: 40px auto;
+  display: grid;
+  gap: 4px;
+}
+.skeleton-grid-label {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+
+/* Empty states with next actions. */
+.empty-state .empty-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* Destructive confirmations. */
+.confirm-body {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+.confirm-body .confirm-warning {
+  background: #f9ece4;
+  border: 1px solid #e2c0ab;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #7c3b24;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.confirm-body ul {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* Share / copy controls on recipe detail. */
+.detail-share-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.detail-share-row .icon-button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 40px;
+  min-height: 40px;
+  background: var(--white);
+}
+
+:root[data-resolved-theme='dark'] .network-shell .button.danger {
+  background: #b0523f;
+  border-color: #b0523f;
+  color: #fff4ee;
+}
+:root[data-resolved-theme='dark'] .network-shell .button.danger:hover:not(:disabled) {
+  background: #c06652;
+  border-color: #c06652;
+}
+:root[data-resolved-theme='dark'] .network-shell .icon-button.danger:hover:not(:disabled) {
+  background: #3a2923;
+  border-color: #654639;
+}
+:root[data-resolved-theme='dark'] .confirm-body .confirm-warning {
+  background: #3a2923;
+  border-color: #654639;
+  color: #e6a17c;
+}
+:root[data-resolved-theme='dark'] .network-toast.error {
+  background: #4a231b;
+  border-color: #7c4a3a;
+  color: #f6cdb8;
+}

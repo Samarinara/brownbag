@@ -68,7 +68,21 @@ export function NetworkEditorPage(props: Props) {
         <button className="text-button" onClick={props.close}>
           <ArrowLeft size={16} /> Back to recipes
         </button>
-        {error ? <Notice error={error} /> : <p role="status">Opening your recipe…</p>}
+        {error ? (
+          <Notice error={error} />
+        ) : (
+          <>
+            <p className="sr-only" role="status">
+              Opening your recipe…
+            </p>
+            <div aria-hidden="true">
+              <div className="skeleton skeleton-line short" />
+              <div className="skeleton skeleton-line hero" />
+              <div className="skeleton skeleton-line" />
+              <div className="skeleton skeleton-line narrow" />
+            </div>
+          </>
+        )}
       </section>
     );
   return <NetworkEditor {...props} editing={editing} />;
@@ -252,6 +266,7 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
         type="button"
         className="icon-button"
         aria-label={`Move ${label} ${index + 1} up`}
+        title={`Move ${label} ${index + 1} up`}
         disabled={index === 0}
         onClick={() => reorder(-1)}
       >
@@ -261,6 +276,7 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
         type="button"
         className="icon-button"
         aria-label={`Move ${label} ${index + 1} down`}
+        title={`Move ${label} ${index + 1} down`}
         disabled={index === length - 1}
         onClick={() => reorder(1)}
       >
@@ -268,8 +284,9 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
       </button>
       <button
         type="button"
-        className="icon-button"
+        className="icon-button danger"
         aria-label={`Remove ${label} ${index + 1}`}
+        title={`Remove ${label} ${index + 1}`}
         disabled={length <= minimum}
         onClick={remove}
       >
@@ -595,8 +612,9 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
                     </label>
                     <button
                       type="button"
-                      className="icon-button"
+                      className="icon-button danger"
                       aria-label={`Remove tag ${index + 1}`}
+                      title={`Remove tag ${index + 1}`}
                       onClick={() =>
                         update(
                           'tags',
@@ -850,14 +868,38 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
               type="button"
               className="button secondary"
               disabled={busy}
+              title={busy ? 'Please wait while we save.' : 'Save a private draft only you can see'}
               onClick={() => void save(false)}
             >
               Save private draft
             </button>
-            <button type="submit" className="button primary" disabled={busy || !confirmed}>
-              {editing.original ? 'Publish changes' : 'Publish recipe'}
-            </button>
+            <span
+              className="disabled-hint"
+              title={
+                busy
+                  ? 'Please wait while we save.'
+                  : !confirmed
+                    ? 'Check the publish box above to enable publishing.'
+                    : editing.original
+                      ? 'Publish your changes publicly'
+                      : 'Publish this recipe publicly'
+              }
+            >
+              <button
+                type="submit"
+                className="button primary"
+                disabled={busy || !confirmed}
+                aria-describedby="publish-hint"
+              >
+                {editing.original ? 'Publish changes' : 'Publish recipe'}
+              </button>
+            </span>
           </div>
+          {!confirmed && !busy && (
+            <span id="publish-hint" className="button-hint">
+              Publishing stays disabled until you confirm the recipe can be public.
+            </span>
+          )}
         </footer>
       </form>
     </article>
