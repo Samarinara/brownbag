@@ -154,6 +154,11 @@ export type RecipeView = {
   authorDid: string;
   authorHandle?: string;
   record: RecipeRecord;
+  cookbookTags?: string[];
+  cookbookAddedAt?: string;
 };
 export type Actor = { did: string; handle?: string; displayName?: string };
 export type SessionUser = { did: string; handle?: string };
+
+export const defaultCookbookTags = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+export const cookbookTagsSchema = z.array(z.string().trim().min(1).max(25)).max(100);
