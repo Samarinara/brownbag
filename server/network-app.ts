@@ -1,3 +1,4 @@
+import { cookbookTagsSchema, defaultCookbookTags } from '../shared/atproto.js';
 import express, { type ErrorRequestHandler, type RequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
 import { safeFetchWrap } from '@atproto-labs/fetch-node';
@@ -164,9 +165,10 @@ export function createNetworkApp(config: {
     const options = z
       .object({
         q: z.string().max(200).default(''),
-        feed: z.enum(['discover', 'following', 'mine', 'saved']).default('discover'),
+        feed: z.enum(['discover', 'following', 'mine', 'saved', 'cookbook']).default('discover'),
         limit: z.coerce.number().int().min(1).max(100).default(24),
         cursor: z.string().max(3000).optional(),
+        tag: z.string().max(25).optional(),
       })
       .parse(req.query);
     if (options.feed === 'discover')
@@ -316,16 +318,27 @@ export function createNetworkApp(config: {
     await publisher.delete(res.locals.user.did, uri, cid);
     res.json({ ok: true });
   });
+  app.get('/api/cookbook/tags', requireUser, async (_req, res) => {
+    const rows = await store.db.query('SELECT name FROM cookbook_tags WHERE did=$1 ORDER BY name', [
+      res.locals.user.did,
+    ]);
+    res
+      .set('Cache-Control', 'private, no-store')
+      .json({ tags: [...new Set([...defaultCookbookTags, ...rows.map((row) => row.name)])] });
+  });
+  app.get('/api/cookbook/entry', requireUser, async (req, res) => {
+    res
+      .set('Cache-Control', 'private, no-store')
+      .json(
+        await store.cookbookEntry(res.locals.user.did, z.string().max(3000).parse(req.query.uri)),
+      );
+  });
   app.post('/api/bookmarks', async (req, res) => {
-    const { uri } = z
-      .object({ uri: z.string().max(3000) })
+    const { uri, tags } = z
+      .object({ uri: z.string().max(3000), tags: cookbookTagsSchema.optional() })
       .strict()
       .parse(req.body);
-    await store.recipe(uri);
-    await store.db.query('INSERT INTO bookmarks(did,uri) VALUES ($1,$2) ON CONFLICT DO NOTHING', [
-      res.locals.user.did,
-      uri,
-    ]);
+    await store.saveCookbook(res.locals.user.did, uri, tags);
     res.json({ ok: true });
   });
   app.delete('/api/bookmarks', async (req, res) => {
@@ -333,10 +346,7 @@ export function createNetworkApp(config: {
       .object({ uri: z.string().max(3000) })
       .strict()
       .parse(req.body);
-    await store.db.query('DELETE FROM bookmarks WHERE did=$1 AND uri=$2', [
-      res.locals.user.did,
-      uri,
-    ]);
+    await store.removeCookbook(res.locals.user.did, uri);
     res.json({ ok: true });
   });
   for (const method of ['post', 'delete'] as const)

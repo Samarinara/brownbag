@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Bookmark, Check, Clock3, Plus, Search, Shuffle } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Bookmark,
+  Check,
+  Clock3,
+  Plus,
+  Search,
+  Shuffle,
+  Tags,
+} from 'lucide-react';
 import { api, ApiError, post } from './api';
 import { Bag, Modal, Notice } from './components';
 import { type RecipeInput, type RecipeView, type SessionUser } from '../shared/atproto';
@@ -7,7 +17,7 @@ import { NetworkEditorPage } from './NetworkEditor';
 import { NetworkAccount } from './NetworkAccount';
 import './network.css';
 
-type Feed = 'discover' | 'following' | 'mine' | 'saved';
+type Feed = 'discover' | 'following' | 'cookbook';
 type Draft = { id: string; data: RecipeInput; updatedAt: string };
 export type Editing = { data: RecipeInput; original?: RecipeView; draftId?: string };
 const blank = (): RecipeInput => ({
@@ -28,7 +38,13 @@ export function App() {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [ready, setReady] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
-  const [feed, setFeed] = useState<Feed>('discover');
+  const [feed, setFeed] = useState<Feed>(
+    location.pathname === '/cookbook' ? 'cookbook' : 'discover',
+  );
+  const [tag, setTag] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [entry, setEntry] = useState<{ saved: boolean; tags: string[] } | null>(null);
+  const [tagSelector, setTagSelector] = useState(false);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [uri, setUri] = useState(currentUri);
@@ -47,10 +63,11 @@ export function App() {
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [nextCursor, setNextCursor] = useState<string>();
+  const pageRequest = useRef(0);
   const refresh = () => setRevision((value) => value + 1);
-  const go = (next: string | null) => {
+  const go = (next: string | null, destination = feed) => {
     if (!leaveGuard.current()) return;
-    const url = next ? recipeUrl(next) : '/';
+    const url = next ? recipeUrl(next) : destination === 'cookbook' ? '/cookbook' : '/';
     history.pushState(null, '', url);
     activeUrl.current = url;
     setEditorRoute(null);
@@ -68,6 +85,7 @@ export function App() {
       activeUrl.current = location.pathname + location.search;
       setEditorRoute(currentEditorRoute());
       setUri(currentUri());
+      if (!currentUri()) setFeed(location.pathname === '/cookbook' ? 'cookbook' : 'discover');
       setChecked(new Set());
     };
     window.addEventListener('popstate', pop);
@@ -93,13 +111,27 @@ export function App() {
       return;
     }
     let alive = true;
+    pageRequest.current += 1;
     setLoading(true);
     setError('');
     setRecipe(null);
+    setEntry(null);
     if (uri) {
-      api<RecipeView>(`/recipe?uri=${encodeURIComponent(uri)}${user ? `&fresh=${Date.now()}` : ''}`)
-        .then((data) => {
-          if (alive) setRecipe(data);
+      Promise.all([
+        api<RecipeView>(
+          `/recipe?uri=${encodeURIComponent(uri)}${user ? `&fresh=${Date.now()}` : ''}`,
+        ),
+        user
+          ? api<{ saved: boolean; tags: string[] }>(
+              `/cookbook/entry?uri=${encodeURIComponent(uri)}`,
+            )
+          : Promise.resolve(null),
+      ])
+        .then(([data, saved]) => {
+          if (alive) {
+            setRecipe(data);
+            setEntry(saved);
+          }
         })
         .catch((e) => {
           if (alive) setError(message(e));
@@ -108,10 +140,15 @@ export function App() {
           if (alive) setLoading(false);
         });
     } else {
-      const params = new URLSearchParams({ feed, q: search, limit: '24' });
+      const params = new URLSearchParams({
+        feed,
+        q: search,
+        ...(feed === 'cookbook' && tag ? { tag } : {}),
+        limit: '24',
+      });
       Promise.all([
         api<{ recipes: RecipeView[]; nextCursor?: string }>(`/recipes?${params}`),
-        feed === 'mine' && user
+        feed === 'cookbook' && user
           ? api<{ drafts: Draft[] }>('/drafts')
           : Promise.resolve({ drafts: [] }),
       ])
@@ -136,8 +173,9 @@ export function App() {
     }
     return () => {
       alive = false;
+      pageRequest.current += 1;
     };
-  }, [ready, configured, feed, search, uri, revision, user, editorRoute]);
+  }, [ready, configured, feed, search, uri, revision, user, tag, editorRoute]);
   useEffect(() => {
     document.title = editorRoute
       ? `${editorRoute.startsWith('/recipe/new') ? 'Add a recipe' : 'Edit recipe'} — brownbag`
@@ -145,6 +183,23 @@ export function App() {
         ? `${recipe.record.title} — brownbag`
         : 'brownbag — Your recipes. All in one bag.';
   }, [editorRoute, recipe, uri]);
+  useEffect(() => {
+    if (!user) {
+      setTags([]);
+      return;
+    }
+    let alive = true;
+    api<{ tags: string[] }>('/cookbook/tags')
+      .then((result) => {
+        if (alive) setTags(result.tags);
+      })
+      .catch((e) => {
+        if (alive) setError(message(e));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user, revision]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 5000);
@@ -173,7 +228,10 @@ export function App() {
       return;
     }
     setFeed(next);
-    go(null);
+    setQuery('');
+    setSearch('');
+    setTag('');
+    go(null, next);
   };
   const edit = (data: Editing) => {
     if (!user) {
@@ -211,6 +269,17 @@ export function App() {
           </span>
         </a>
         <div className="network-actions">
+          <a
+            href="/cookbook"
+            className="network-cookbook-link"
+            aria-current={feed === 'cookbook' && !uri ? 'page' : undefined}
+            onClick={(e) => {
+              e.preventDefault();
+              selectFeed('cookbook');
+            }}
+          >
+            Cookbook
+          </a>
           {user ? (
             <button
               className="network-account-button"
@@ -257,8 +326,11 @@ export function App() {
               done={(result) => {
                 setToast(result ? 'Recipe published' : 'Private draft saved');
                 refresh();
-                if (!result) setFeed('mine');
-                go(result?.uri || null);
+                if (result) go(result.uri);
+                else {
+                  setFeed('cookbook');
+                  go(null, 'cookbook');
+                }
               }}
             />
           ) : (
@@ -274,7 +346,7 @@ export function App() {
           <>
             <button className="text-button recipe-back" onClick={() => go(null)}>
               <ArrowLeft size={16} />
-              Back to recipes
+              {feed === 'cookbook' ? 'Back to cookbook' : 'Back to recipes'}
             </button>
             {loading ? (
               <p role="status" className="network-loading">
@@ -306,17 +378,38 @@ export function App() {
                   <div className="network-actions network-detail-actions">
                     <button
                       className="button primary"
-                      disabled={busy}
+                      disabled={busy || (!!user && !entry)}
+                      aria-label={entry?.saved ? 'Remove from cookbook' : 'Save to cookbook'}
                       onClick={() => {
-                        void action(
-                          () => post('/bookmarks', { uri: recipe.uri }),
-                          'Saved to your cookbook',
-                        );
+                        if (!user) {
+                          setLogin(true);
+                          return;
+                        }
+                        if (entry?.saved)
+                          void action(
+                            () =>
+                              api('/bookmarks', {
+                                method: 'DELETE',
+                                body: JSON.stringify({ uri: recipe.uri }),
+                              }),
+                            'Removed from your cookbook',
+                          );
+                        else setTagSelector(true);
                       }}
                     >
-                      <Bookmark size={15} />
-                      Save
+                      {entry?.saved ? <Check size={15} /> : <Bookmark size={15} />}
+                      {entry?.saved ? 'Saved' : 'Save'}
                     </button>
+                    {entry?.saved && (
+                      <button
+                        className="button secondary"
+                        disabled={busy}
+                        onClick={() => setTagSelector(true)}
+                      >
+                        <Tags size={15} />
+                        Tags
+                      </button>
+                    )}
                     <button
                       className="button secondary"
                       onClick={() =>
@@ -506,24 +599,28 @@ export function App() {
           </>
         ) : (
           <>
-            <section className="network-hero">
-              <h1>
-                Your recipes.
-                <br />
-                All in one{' '}
-                <span className="network-bag-word">
-                  bag.
-                  <svg viewBox="0 0 210 14" preserveAspectRatio="none" aria-hidden="true">
-                    <path
-                      d="M3 10C55 0 142 1 204 8M11 12C70 6 141 6 196 11"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-              </h1>
+            <section className={feed === 'cookbook' ? 'network-cookbook-heading' : 'network-hero'}>
+              {feed === 'cookbook' ? (
+                <h1>Cookbook</h1>
+              ) : (
+                <h1>
+                  Your recipes.
+                  <br />
+                  All in one{' '}
+                  <span className="network-bag-word">
+                    bag.
+                    <svg viewBox="0 0 210 14" preserveAspectRatio="none" aria-hidden="true">
+                      <path
+                        d="M3 10C55 0 142 1 204 8M11 12C70 6 141 6 196 11"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+                </h1>
+              )}
               <div className="network-home-search">
                 <form
                   className="network-search"
@@ -544,17 +641,19 @@ export function App() {
                   </button>
                 </form>
                 <div className="network-hero-actions">
-                  <button
-                    className="button primary"
-                    disabled={loading || recipes.length === 0}
-                    onClick={() => {
-                      const item = recipes[Math.floor(Math.random() * recipes.length)];
-                      if (item) go(item.uri);
-                    }}
-                  >
-                    <Shuffle size={18} />
-                    Surprise me
-                  </button>
+                  {feed !== 'cookbook' && (
+                    <button
+                      className="button primary"
+                      disabled={loading || recipes.length === 0}
+                      onClick={() => {
+                        const item = recipes[Math.floor(Math.random() * recipes.length)];
+                        if (item) go(item.uri);
+                      }}
+                    >
+                      <Shuffle size={18} />
+                      Surprise me
+                    </button>
+                  )}
                   <button
                     className="button secondary"
                     disabled={configured !== true}
@@ -566,34 +665,48 @@ export function App() {
                 </div>
               </div>
             </section>
-            <div className="network-toolbar">
-              <nav aria-label="Recipe feeds">
-                {(['discover', 'following', 'mine', 'saved'] as const).map((value) => (
+            {feed === 'cookbook' && (
+              <nav className="network-tag-chits" aria-label="Filter cookbook by tag">
+                {['', ...tags].map((value) => (
                   <button
                     key={value}
-                    className={feed === value ? 'active' : ''}
-                    aria-current={feed === value ? 'page' : undefined}
-                    onClick={() => selectFeed(value)}
+                    className={tag === value ? 'active' : ''}
+                    aria-pressed={tag === value}
+                    onClick={() => setTag(value)}
                   >
-                    {
-                      {
-                        discover: 'Discover',
-                        following: 'Following',
-                        mine: 'My cookbook',
-                        saved: 'Saved',
-                      }[value]
-                    }
+                    {value || 'All'}
                   </button>
                 ))}
               </nav>
-            </div>
+            )}
+            {feed !== 'cookbook' && (
+              <div className="network-toolbar">
+                <nav aria-label="Recipe feeds">
+                  {(['discover', 'following'] as const).map((value) => (
+                    <button
+                      key={value}
+                      className={feed === value ? 'active' : ''}
+                      aria-current={feed === value ? 'page' : undefined}
+                      onClick={() => selectFeed(value)}
+                    >
+                      {
+                        {
+                          discover: 'Discover',
+                          following: 'Following',
+                        }[value]
+                      }
+                    </button>
+                  ))}
+                </nav>
+              </div>
+            )}
             {loading ? (
               <p className="network-loading" role="status">
                 Gathering recipes…
               </p>
             ) : (
               <>
-                {feed === 'mine' && drafts.length > 0 && (
+                {feed === 'cookbook' && !search && !tag && drafts.length > 0 && (
                   <section className="network-drafts">
                     <h2>Private drafts</h2>
                     <p>Only you can see these. Publish when you’re ready to share.</p>
@@ -627,7 +740,7 @@ export function App() {
                   </section>
                 )}
                 {recipes.length ? (
-                  <div className="network-grid">
+                  <div className={feed === 'cookbook' ? 'network-cookbook-list' : 'network-grid'}>
                     {recipes.map((item) => (
                       <article className="network-card" key={item.uri}>
                         <a
@@ -651,29 +764,23 @@ export function App() {
                             <h2>{item.record.title}</h2>
                             {item.record.summary && <p>{item.record.summary}</p>}
                             <div className="network-card-meta">
-                              <span>{item.record.tags?.[0] || ''}</span>
-                              <span>View recipe →</span>
+                              <span>
+                                {feed === 'cookbook'
+                                  ? item.cookbookTags?.join(' · ')
+                                  : item.record.tags?.[0] || ''}
+                              </span>
+                              <span>
+                                {feed === 'cookbook' && item.cookbookAddedAt
+                                  ? new Date(item.cookbookAddedAt).toLocaleDateString(undefined, {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })
+                                  : 'View recipe →'}
+                              </span>
                             </div>
                           </div>
                         </a>
-                        {feed === 'saved' && (
-                          <button
-                            className="button secondary"
-                            disabled={busy}
-                            onClick={() => {
-                              void action(
-                                () =>
-                                  api('/bookmarks', {
-                                    method: 'DELETE',
-                                    body: JSON.stringify({ uri: item.uri }),
-                                  }),
-                                'Removed from saved',
-                              );
-                            }}
-                          >
-                            Remove from saved
-                          </button>
-                        )}
                       </article>
                     ))}
                   </div>
@@ -682,24 +789,20 @@ export function App() {
                     <section className="empty-state compact">
                       <BookOpen size={38} />
                       <h2>
-                        {search
+                        {search || tag
                           ? 'No recipes found'
                           : feed === 'following'
                             ? 'Find your favourite cooks'
-                            : feed === 'saved'
-                              ? 'Keep the good ones close'
-                              : feed === 'mine'
-                                ? 'Every cookbook starts somewhere'
-                                : 'A good recipe starts with you'}
+                            : feed === 'cookbook'
+                              ? 'Every cookbook starts somewhere'
+                              : 'A good recipe starts with you'}
                       </h2>
                       <p>
-                        {search
-                          ? 'Try another ingredient or title.'
+                        {search || tag
+                          ? 'Try another tag, ingredient or title.'
                           : feed === 'following'
                             ? 'Follow a cook from their recipe to see what they share here.'
-                            : feed === 'saved'
-                              ? 'Save a recipe and it will be waiting here for your next meal.'
-                              : 'Share a recipe you love, or start with a private draft.'}
+                            : 'Share a recipe you love, or start with a private draft.'}
                       </p>
                     </section>
                   )
@@ -710,10 +813,12 @@ export function App() {
                     disabled={busy}
                     onClick={async () => {
                       setBusy(true);
+                      const request = pageRequest.current;
                       try {
                         const result = await api<{ recipes: RecipeView[]; nextCursor?: string }>(
-                          `/recipes?${new URLSearchParams({ feed, q: search, cursor: nextCursor, limit: '24' })}`,
+                          `/recipes?${new URLSearchParams({ feed, q: search, ...(feed === 'cookbook' && tag ? { tag } : {}), cursor: nextCursor, limit: '24' })}`,
                         );
+                        if (request !== pageRequest.current) return;
                         setRecipes((old) => [
                           ...old,
                           ...result.recipes.filter((r) => !old.some((o) => o.uri === r.uri)),
@@ -740,6 +845,20 @@ export function App() {
           {toast}
         </div>
       )}
+      {tagSelector && recipe && (
+        <TagDialog
+          existing={tags}
+          selected={entry?.tags || []}
+          saved={!!entry?.saved}
+          close={() => setTagSelector(false)}
+          done={async (selected) => {
+            await post('/bookmarks', { uri: recipe.uri, tags: selected });
+            setTagSelector(false);
+            setToast(entry?.saved ? 'Tags updated' : 'Saved to your cookbook');
+            refresh();
+          }}
+        />
+      )}
       {login && <LoginDialog close={() => setLogin(false)} />}
       {account && (
         <NetworkAccount
@@ -751,7 +870,7 @@ export function App() {
             setUser(null);
             setAccount(false);
             setFeed('discover');
-            go(null);
+            go(null, 'discover');
             setToast('Signed out');
           }}
           close={() => {
@@ -809,6 +928,110 @@ function LoginDialog({ close }: { close: () => void }) {
         <Notice error={error} />
         <button className="button primary" disabled={busy}>
           {busy ? 'Opening sign in…' : 'Continue'}
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
+function TagDialog({
+  existing,
+  selected,
+  saved,
+  close,
+  done,
+}: {
+  existing: string[];
+  selected: string[];
+  saved: boolean;
+  close: () => void;
+  done: (tags: string[]) => Promise<void>;
+}) {
+  const [choices, setChoices] = useState([...new Set([...existing, ...selected])]);
+  const [selection, setSelection] = useState(selected);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const add = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const value = choices.find((tag) => tag.toLowerCase() === trimmed.toLowerCase()) || trimmed;
+    setChoices((old) => [...new Set([...old, value])]);
+    setSelection((old) => [...new Set([...old, value])]);
+    setName('');
+  };
+  return (
+    <Modal
+      title={saved ? 'Recipe tags' : 'Save to cookbook'}
+      close={() => {
+        if (!busy) close();
+      }}
+    >
+      <form
+        className="stack"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          setBusy(true);
+          setError('');
+          try {
+            const trimmed = name.trim();
+            const value =
+              choices.find((tag) => tag.toLowerCase() === trimmed.toLowerCase()) || trimmed;
+            await done([...new Set([...selection, ...(value ? [value] : [])])]);
+          } catch (e) {
+            setError(message(e));
+            setBusy(false);
+          }
+        }}
+      >
+        <fieldset className="network-tag-options" disabled={busy}>
+          <legend>Choose tags</legend>
+          <div className="network-tag-chits">
+            {choices.map((tag) => (
+              <button
+                type="button"
+                key={tag}
+                aria-pressed={selection.includes(tag)}
+                className={selection.includes(tag) ? 'active' : ''}
+                onClick={() =>
+                  setSelection((old) =>
+                    old.includes(tag) ? old.filter((value) => value !== tag) : [...old, tag],
+                  )
+                }
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <label>
+          New tag <span className="muted">(25 characters max)</span>
+          <div className="network-new-tag">
+            <input
+              maxLength={25}
+              value={name}
+              disabled={busy}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  add();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy || !name.trim()}
+              onClick={add}
+            >
+              Add
+            </button>
+          </div>
+        </label>
+        <Notice error={error} />
+        <button className="button primary" disabled={busy}>
+          {busy ? 'Saving…' : saved ? 'Done' : 'Save recipe'}
         </button>
       </form>
     </Modal>

@@ -20,6 +20,9 @@ const adapt = (p: any): Database => ({
   query: async (sql, params = []) => (await p.query(sql, params)).rows,
   transaction: (fn) => p.transaction((tx: any) => fn(adapt(tx))),
 });
+await pg.exec(
+  await readFile(new URL('../../migrations/003_cookbook.sql', import.meta.url), 'utf8'),
+);
 const store = new NetworkStore(adapt(pg));
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa';
 const cid = 'bafyre' + 'a'.repeat(53);
