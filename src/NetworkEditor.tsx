@@ -842,7 +842,7 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
           <Notice error={error} />
         </div>
         <footer className="recipe-editor-footer">
-          <span role="status">
+          <span role="status" aria-live="polite" aria-atomic="true">
             {busy ? 'Saving…' : dirty ? 'Unsaved changes' : 'Your recipe, your pace.'}
           </span>
           <div className="network-actions">
