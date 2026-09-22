@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { X, Plus, Trash2, ArrowRight } from 'lucide-react';
+import { X, Plus, Trash2, ArrowRight, Check, AlertTriangle } from 'lucide-react';
 import { api, post } from './api';
 import { recipeSchema, type Recipe, type RecipeInput, type User } from '../shared/schema';
 
@@ -65,12 +65,120 @@ export function Modal({
     >
       <div className="modal-head">
         <h2 id={titleId}>{title}</h2>
-        <button className="icon-button" onClick={close} aria-label="Close dialog">
+        <button
+          className="icon-button"
+          onClick={close}
+          aria-label="Close dialog"
+          title="Close dialog"
+        >
           <X size={21} />
         </button>
       </div>
       {children}
     </dialog>
+  );
+}
+export type ToastData = {
+  kind: 'success' | 'error';
+  text: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
+export function Toast({ toast, dismiss }: { toast: ToastData; dismiss: () => void }) {
+  return (
+    <div
+      className={`network-toast ${toast.kind}`}
+      role={toast.kind === 'error' ? 'alert' : 'status'}
+      aria-live={toast.kind === 'error' ? 'assertive' : 'polite'}
+    >
+      {toast.kind === 'error' ? <AlertTriangle size={17} /> : <Check size={17} />}
+      <span className="toast-text">{toast.text}</span>
+      {toast.actionLabel && toast.onAction && (
+        <button
+          type="button"
+          className="toast-action"
+          onClick={() => {
+            toast.onAction?.();
+          }}
+        >
+          {toast.actionLabel}
+        </button>
+      )}
+      <button
+        type="button"
+        className="toast-close"
+        onClick={dismiss}
+        aria-label="Dismiss notification"
+        title="Dismiss notification"
+      >
+        <X size={15} />
+      </button>
+    </div>
+  );
+}
+export function ConfirmDialog({
+  title,
+  children,
+  confirmLabel,
+  close,
+  confirm,
+  busy = false,
+  danger = false,
+}: {
+  title: string;
+  children: ReactNode;
+  confirmLabel: string;
+  close: () => void;
+  confirm: () => void;
+  busy?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <Modal title={title} close={close}>
+      <div className="stack">
+        <div className="confirm-body">{children}</div>
+        <div className="modal-footer">
+          <button type="button" className="button secondary" onClick={close} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            autoFocus
+            className={danger ? 'button danger' : 'button primary'}
+            onClick={confirm}
+            disabled={busy}
+          >
+            {busy ? 'Working…' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+export function SkeletonCards({ count = 6 }: { count?: number }) {
+  return (
+    <div className="network-grid" aria-hidden="true">
+      {Array.from({ length: count }).map((_, i) => (
+        <div className="network-card skeleton-card" key={i}>
+          <div className="network-card-body">
+            <div className="skeleton skeleton-line short" />
+            <div className="skeleton skeleton-line title" />
+            <div className="skeleton skeleton-line" />
+            <div className="skeleton skeleton-line narrow" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+export function SkeletonDetail() {
+  return (
+    <div className="skeleton-detail" aria-hidden="true">
+      <div className="skeleton skeleton-line short" />
+      <div className="skeleton skeleton-line hero" />
+      <div className="skeleton skeleton-line" />
+      <div className="skeleton skeleton-line narrow" />
+    </div>
   );
 }
 export function Notice({ error }: { error: string }) {
