@@ -36,7 +36,7 @@ export function createNetworkApp(config: {
           defaultSrc: ["'self'"],
           scriptSrc: localDevelopment ? ["'self'", "'unsafe-inline'"] : ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:', 'blob:'],
+          imgSrc: ["'self'", 'data:', 'blob:', 'https://cdn.bsky.app'],
           connectSrc: localDevelopment ? ["'self'", 'ws:'] : ["'self'"],
           upgradeInsecureRequests: config.origin.startsWith('https:') ? [] : null,
         },
