@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const MAX_RECIPE_RECORD_BYTES = 128 * 1024;
+
 export const RECIPE_COLLECTION = 'page.polli.brownbag.recipe' as const;
 export const PROFILE_COLLECTION = 'page.polli.brownbag.profile' as const;
 export const FOLLOW_COLLECTION = 'page.polli.brownbag.follow' as const;

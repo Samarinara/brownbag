@@ -47,7 +47,7 @@ export function NetworkAccount({
   }, []);
   return (
     <Modal title="Your account" close={close} wide>
-      <div className="stack">
+      <div className="network-account-content">
         <Notice error={error} />
         {notice && <p role="status">{notice}</p>}
         <section>
@@ -67,64 +67,70 @@ export function NetworkAccount({
           </button>
         </section>
         <section>
-          <h3>Connected assistants</h3>
-          <p>
-            Assistants can read recipes and suggest changes. Only you can approve publication here.
-            Keep keys private.
-          </p>
-          <form
-            className="stack"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(async () => {
-                const result = await post<{ token: string }>('/keys', { name });
-                setToken(result.token);
-                setName('');
-              });
-            }}
-          >
-            <label>
-              Assistant name
-              <input
-                required
-                maxLength={100}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-            <button className="button secondary" disabled={busy}>
-              Create assistant key
-            </button>
-          </form>
-          {token && (
-            <div>
+          <details className="recipe-disclosure">
+            <summary>
+              <h3>Connected assistants</h3>
+            </summary>
+            <div className="stack">
               <p>
-                Copy this key now; it won’t be shown again. Use it as a Bearer token at{' '}
-                {location.origin}/mcp.
+                Assistants can read recipes and suggest changes. Only you can approve publication
+                here. Keep keys private.
               </p>
-              <input
-                aria-label="New assistant key"
-                readOnly
-                value={token}
-                onFocus={(e) => e.target.select()}
-              />
-              <button className="button secondary" onClick={() => setToken('')}>
-                Hide key
-              </button>
-            </div>
-          )}
-          {keys.map((key) => (
-            <p key={key.id}>
-              {key.name} · {key.prefix}…{' '}
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() => void run(() => api(`/keys/${key.id}`, { method: 'DELETE' }))}
+              <form
+                className="stack"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void run(async () => {
+                    const result = await post<{ token: string }>('/keys', { name });
+                    setToken(result.token);
+                    setName('');
+                  });
+                }}
               >
-                Revoke
-              </button>
-            </p>
-          ))}
+                <label>
+                  Assistant name
+                  <input
+                    required
+                    maxLength={100}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </label>
+                <button className="button secondary" disabled={busy}>
+                  Create assistant key
+                </button>
+              </form>
+              {token && (
+                <div>
+                  <p>
+                    Copy this key now; it won’t be shown again. Use it as a Bearer token at{' '}
+                    {location.origin}/mcp.
+                  </p>
+                  <input
+                    aria-label="New assistant key"
+                    readOnly
+                    value={token}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <button className="button secondary" onClick={() => setToken('')}>
+                    Hide key
+                  </button>
+                </div>
+              )}
+              {keys.map((key) => (
+                <p key={key.id}>
+                  {key.name} · {key.prefix}…{' '}
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() => void run(() => api(`/keys/${key.id}`, { method: 'DELETE' }))}
+                  >
+                    Revoke
+                  </button>
+                </p>
+              ))}
+            </div>
+          </details>
         </section>
         <section>
           <h3>Suggested changes</h3>
