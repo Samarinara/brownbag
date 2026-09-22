@@ -41,6 +41,133 @@
   border-radius: 50%;
   color: var(--green);
 }
+.account-menu-wrap {
+  position: relative;
+}
+.account-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 12px);
+  right: 0;
+  width: min(310px, calc(100vw - 32px));
+  padding: 10px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--white) 94%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  box-shadow: 0 18px 48px #15201224;
+  backdrop-filter: blur(18px);
+  animation: account-menu-in 150ms ease-out both;
+}
+.account-menu-profile {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 9px 13px;
+}
+.account-menu-avatar {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: var(--green);
+  background: var(--soft);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+}
+.account-menu-profile div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.account-menu-profile strong,
+.account-menu-profile span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-menu-profile strong {
+  font-size: 13px;
+}
+.account-menu-profile div span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  background: var(--soft);
+  border-radius: 10px;
+}
+.theme-picker button {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 5px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 11px;
+}
+.theme-picker button:hover {
+  color: var(--ink);
+}
+.theme-picker button.active {
+  color: var(--ink);
+  background: var(--white);
+  border-color: var(--line);
+  box-shadow: 0 1px 4px #17201412;
+}
+.account-menu-actions {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.account-menu-actions button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 12px;
+}
+.account-menu-actions button:hover {
+  background: var(--soft);
+}
+.account-menu-actions button:last-child {
+  color: var(--muted);
+}
+.account-menu-error {
+  margin: 5px 8px 3px;
+  color: var(--orange);
+  font-size: 11px;
+  line-height: 1.45;
+}
+@keyframes account-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 .network-sign-in {
   border: 0;
   background: none;

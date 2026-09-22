@@ -5,9 +5,14 @@ import {
   Bookmark,
   Check,
   Clock3,
+  LogOut,
+  Monitor,
+  Moon,
   Plus,
   Search,
+  Settings,
   Shuffle,
+  Sun,
   Tags,
 } from 'lucide-react';
 import { api, ApiError, post } from './api';
@@ -18,6 +23,7 @@ import { NetworkAccount } from './NetworkAccount';
 import './network.css';
 
 type Feed = 'discover' | 'following' | 'cookbook';
+type ThemePreference = 'system' | 'light' | 'dark';
 type Draft = { id: string; data: RecipeInput; updatedAt: string };
 export type Editing = { data: RecipeInput; original?: RecipeView; draftId?: string };
 const blank = (): RecipeInput => ({
@@ -33,6 +39,17 @@ const currentEditorRoute = () =>
     : null;
 export const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+
+const themeOptions: { value: ThemePreference; label: string; icon: typeof Monitor }[] = [
+  { value: 'system', label: 'System', icon: Monitor },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+];
+
+function savedTheme(): ThemePreference {
+  const value = localStorage.getItem('brownbag-theme');
+  return value === 'light' || value === 'dark' ? value : 'system';
+}
 
 export function App() {
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -57,6 +74,8 @@ export function App() {
   const [toast, setToast] = useState('');
   const [login, setLogin] = useState(false);
   const [account, setAccount] = useState(false);
+  const [accountMenu, setAccountMenu] = useState(false);
+  const [theme, setTheme] = useState<ThemePreference>(savedTheme);
   const [editorRoute, setEditorRoute] = useState(currentEditorRoute);
   const leaveGuard = useRef<() => boolean>(() => true);
   const activeUrl = useRef(location.pathname + location.search);
@@ -76,6 +95,21 @@ export function App() {
     setChecked(new Set());
     window.scrollTo(0, 0);
   };
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('brownbag-theme', theme);
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const updateThemeColor = () => {
+      const dark = theme === 'dark' || (theme === 'system' && media.matches);
+      document.documentElement.dataset.resolvedTheme = dark ? 'dark' : 'light';
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute('content', dark ? '#20241f' : '#f7f5ee');
+    };
+    updateThemeColor();
+    if (theme === 'system') media.addEventListener('change', updateThemeColor);
+    return () => media.removeEventListener('change', updateThemeColor);
+  }, [theme]);
   useEffect(() => {
     const pop = () => {
       if (!leaveGuard.current()) {
@@ -281,14 +315,41 @@ export function App() {
             Cookbook
           </a>
           {user ? (
-            <button
-              className="network-account-button"
-              onClick={() => setAccount(true)}
-              aria-label="Open account settings"
-              title={user.handle ? `@${user.handle}` : 'Account'}
-            >
-              {(user.handle?.replace(/^@/, '')[0] || 'A').toUpperCase()}
-            </button>
+            <div className="account-menu-wrap">
+              <button
+                className="network-account-button"
+                onClick={() => setAccountMenu((open) => !open)}
+                aria-label="Open account menu"
+                aria-haspopup="menu"
+                aria-expanded={accountMenu}
+                title={user.handle ? `@${user.handle}` : 'Account'}
+              >
+                {(user.handle?.replace(/^@/, '')[0] || 'A').toUpperCase()}
+              </button>
+              {accountMenu && (
+                <AccountMenu
+                  user={user}
+                  theme={theme}
+                  setTheme={setTheme}
+                  close={() => setAccountMenu(false)}
+                  manage={() => {
+                    setAccountMenu(false);
+                    setAccount(true);
+                  }}
+                  signOut={async () => {
+                    if (!leaveGuard.current())
+                      throw new Error('Finish or save your recipe before signing out.');
+                    await post('/auth/logout', {});
+                    leaveGuard.current = () => true;
+                    setUser(null);
+                    setAccountMenu(false);
+                    setFeed('discover');
+                    go(null, 'discover');
+                    setToast('Signed out');
+                  }}
+                />
+              )}
+            </div>
           ) : (
             <button
               className="network-sign-in"
@@ -878,6 +939,96 @@ export function App() {
             refresh();
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function AccountMenu({
+  user,
+  theme,
+  setTheme,
+  close,
+  manage,
+  signOut,
+}: {
+  user: SessionUser;
+  theme: ThemePreference;
+  setTheme: (theme: ThemePreference) => void;
+  close: () => void;
+  manage: () => void;
+  signOut: () => Promise<void>;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const dismiss = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!ref.current?.contains(target) && !target.closest('.network-account-button')) close();
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+    };
+    document.addEventListener('mousedown', dismiss);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('mousedown', dismiss);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [close]);
+  return (
+    <div className="account-menu" role="menu" ref={ref}>
+      <div className="account-menu-profile">
+        <span className="account-menu-avatar">
+          {(user.handle?.replace(/^@/, '')[0] || 'A').toUpperCase()}
+        </span>
+        <div>
+          <strong>{user.handle ? `@${user.handle.replace(/^@/, '')}` : 'Your account'}</strong>
+          <span>Your brownbag</span>
+        </div>
+      </div>
+      <div className="theme-picker" role="radiogroup" aria-label="Appearance">
+        {themeOptions.map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={theme === value}
+            className={theme === value ? 'active' : ''}
+            onClick={() => setTheme(value)}
+            title={`${label} theme`}
+          >
+            <Icon size={15} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="account-menu-actions">
+        <button role="menuitem" onClick={manage}>
+          <Settings size={16} />
+          <span>Manage account</span>
+        </button>
+        <button
+          role="menuitem"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setError('');
+            void signOut().catch((e) => {
+              setError(message(e));
+              setBusy(false);
+            });
+          }}
+        >
+          <LogOut size={16} />
+          <span>{busy ? 'Signing out…' : 'Sign out'}</span>
+        </button>
+      </div>
+      {error && (
+        <p className="account-menu-error" role="alert">
+          {error}
+        </p>
       )}
     </div>
   );
