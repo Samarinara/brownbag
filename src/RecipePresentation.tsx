@@ -32,8 +32,7 @@ export function RecipeImage({ recipe }: { recipe: RecipeView }) {
         <img src={src} alt={photo!.alt} loading="lazy" onError={() => setFailedSrc(src)} />
       ) : (
         <div className="network-image-placeholder" aria-hidden="true">
-          <BookOpen size={36} strokeWidth={1.2} />
-          <span>From the community cookbook</span>
+          <BookOpen size={22} strokeWidth={1.3} />
         </div>
       )}
     </div>

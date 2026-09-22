@@ -147,19 +147,10 @@
   gap: 18px;
 }
 .network-card {
-  border: 1px solid var(--line);
-  background: #fffef770;
-  border-radius: 10px;
-  overflow: hidden;
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease;
-}
-.network-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  border-bottom: 1px solid var(--line);
 }
 .network-card > a {
   text-decoration: none;
@@ -172,19 +163,19 @@
   outline-offset: -4px;
 }
 .network-card > button {
-  margin: 0 22px 20px;
+  margin: 0 0 20px;
+  align-self: flex-start;
 }
-.network-card:hover {
-  border-color: #adb99c;
-  background: var(--white);
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px #35432d0d;
+.network-card > a:hover h2 {
+  color: var(--green);
 }
 .network-recipe-image {
-  aspect-ratio: 16 / 9;
-  background: var(--soft);
+  aspect-ratio: 2 / 1;
   overflow: hidden;
-  border-bottom: 1px solid var(--line);
+  border-radius: 4px;
+}
+.network-recipe-image:has(.network-image-placeholder) {
+  aspect-ratio: auto;
 }
 .network-recipe-image img {
   display: block;
@@ -193,22 +184,11 @@
   object-fit: cover;
 }
 .network-image-placeholder {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--green);
-  background: radial-gradient(ellipse at top left, #fffef9, transparent 70%), var(--soft);
-}
-.network-image-placeholder span {
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-size: 13px;
+  padding: 12px 0 0;
+  color: #839570;
 }
 .network-card-body {
-  padding: 22px;
+  padding: 16px 0 20px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -261,14 +241,16 @@
   margin: 0;
 }
 .network-tags li {
-  border-radius: 20px;
-  background: var(--soft);
-  padding: 5px 10px;
-  color: var(--green-dark);
+  color: #606958;
   font-size: 12px;
   line-height: 1.4;
   overflow-wrap: anywhere;
   max-width: 100%;
+}
+.network-tags li + li::before {
+  content: '·';
+  margin-right: 6px;
+  color: #839570;
 }
 .network-tags .network-tags-more {
   background: transparent;
@@ -281,10 +263,8 @@
   gap: 8px;
   font-size: 12px;
   color: var(--green);
-  font-weight: 600;
   margin-top: 4px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
+  padding-top: 8px;
 }
 .network-loading {
   text-align: center;
@@ -326,9 +306,7 @@
 .network-recipe-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border-block: 1px solid var(--line);
   margin: 28px 0 0;
   overflow: hidden;
 }
@@ -336,9 +314,7 @@
   padding: 20px;
   min-width: 0;
 }
-.network-recipe-facts > div + div {
-  border-left: 1px solid var(--line);
-}
+
 .network-recipe-facts dt {
   font-size: 11px;
   text-transform: uppercase;
@@ -354,8 +330,7 @@
 }
 .network-recipe-facts .network-fact-tags {
   grid-column: 1 / -1;
-  border-left: 0;
-  border-top: 1px solid var(--line);
+  padding-top: 0;
 }
 .network-recipe-facts .network-fact-note {
   font-size: 12px;
@@ -380,9 +355,7 @@
   margin-left: auto;
 }
 .network-story {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--white);
+  border-block: 1px solid var(--line);
   margin-top: 20px;
 }
 .network-story summary {
@@ -390,7 +363,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 18px;
-  padding: 18px 20px;
+  padding: 18px 0;
   list-style: none;
   cursor: pointer;
 }
@@ -415,7 +388,7 @@
   transform: rotate(180deg);
 }
 .network-story .network-prose {
-  margin: 0 20px;
+  margin: 0;
   padding: 18px 0 20px;
   border-top: 1px solid var(--line);
   overflow-wrap: anywhere;
@@ -443,17 +416,12 @@
   margin-bottom: 12px;
 }
 .network-ingredient-section {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--white);
-  padding: 0 18px;
-  margin-top: 16px;
+  margin-top: 24px;
 }
 .network-ingredient-section h3 {
-  margin: 0 -18px;
-  padding: 12px 18px;
-  background: var(--soft);
-  border-radius: 9px 9px 0 0;
+  margin: 0;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--line);
   color: var(--green-dark);
   font-size: 14px;
   font-weight: 600;
@@ -665,13 +633,5 @@
   }
   .network-delete-action {
     margin-left: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .network-card {
-    transition: none;
-  }
-  .network-card:hover {
-    transform: none;
   }
 }
