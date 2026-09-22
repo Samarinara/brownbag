@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const MAX_RECIPE_RECORD_BYTES = 128 * 1024;
+
 export const RECIPE_COLLECTION = 'page.polli.brownbag.recipe' as const;
 export const PROFILE_COLLECTION = 'page.polli.brownbag.profile' as const;
 export const FOLLOW_COLLECTION = 'page.polli.brownbag.follow' as const;
@@ -154,6 +156,11 @@ export type RecipeView = {
   authorDid: string;
   authorHandle?: string;
   record: RecipeRecord;
+  cookbookTags?: string[];
+  cookbookAddedAt?: string;
 };
 export type Actor = { did: string; handle?: string; displayName?: string };
 export type SessionUser = { did: string; handle?: string };
+
+export const defaultCookbookTags = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+export const cookbookTagsSchema = z.array(z.string().trim().min(1).max(25)).max(100);

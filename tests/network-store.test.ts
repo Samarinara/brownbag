@@ -30,6 +30,9 @@ test('PostgreSQL projections preserve newest revision, deletions, privacy and fe
     await pg.exec(
       await readFile(new URL('../migrations/001_network.sql', import.meta.url), 'utf8'),
     );
+    await pg.exec(
+      await readFile(new URL('../migrations/003_cookbook.sql', import.meta.url), 'utf8'),
+    );
     const store = new NetworkStore(adapt(pg));
     await store.actor(alice, 'alice.example');
     await store.actor(bob, 'bob.example');
@@ -84,6 +87,7 @@ test('PostgreSQL projections preserve newest revision, deletions, privacy and fe
 test('HTTP routes allow public reads but reject foreign origins, private reads and cross-owner writes', async () => {
   const pg = new PGlite();
   await pg.exec(await readFile(new URL('../migrations/001_network.sql', import.meta.url), 'utf8'));
+  await pg.exec(await readFile(new URL('../migrations/003_cookbook.sql', import.meta.url), 'utf8'));
   const store = new NetworkStore(adapt(pg));
   await store.actor(alice);
   await store.actor(bob);
@@ -149,8 +153,222 @@ test('HTTP routes allow public reads but reject foreign origins, private reads a
     );
     const saved = await (await fetch(`${base}/api/recipes?feed=saved`, { headers })).json();
     assert.equal(saved.recipes.length, 1);
+    const tagsResponse = await fetch(`${base}/api/cookbook/tags`, { headers });
+    assert.deepEqual((await tagsResponse.json()).tags, ['Breakfast', 'Lunch', 'Dinner', 'Snack']);
+    assert.equal((await fetch(`${base}/api/cookbook/tags`)).status, 401);
+    assert.equal(
+      (await fetch(`${base}/api/cookbook/entry?uri=${encodeURIComponent(uri)}`)).status,
+      401,
+    );
+    for (const tags of [['x'.repeat(26)], ['   ']]) {
+      assert.equal(
+        (
+          await fetch(`${base}/api/bookmarks`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ uri, tags }),
+          })
+        ).status,
+        400,
+      );
+    }
+    assert.equal(
+      (
+        await fetch(`${base}/api/bookmarks`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ uri, tags: ['x'.repeat(25)] }),
+        })
+      ).status,
+      200,
+    );
+    const entryResponse = await fetch(`${base}/api/cookbook/entry?uri=${encodeURIComponent(uri)}`, {
+      headers,
+    });
+    assert.equal(entryResponse.headers.get('cache-control'), 'private, no-store');
+    assert.deepEqual(await entryResponse.json(), { saved: true, tags: ['x'.repeat(25)] });
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
+    await pg.close();
+  }
+});
+
+test('photo uploads enforce sessions, origins, formats and size and serialize SDK blob references', async () => {
+  const { BlobRef } = await import('@atproto/lexicon');
+  const { jsonToIpld } = await import('@atproto/common-web');
+  const pg = new PGlite();
+  await pg.exec(await readFile(new URL('../migrations/001_network.sql', import.meta.url), 'utf8'));
+  const store = new NetworkStore(adapt(pg));
+  await store.actor(alice);
+  await store.db.query(
+    "INSERT INTO app_sessions(hash,did,expires_at) VALUES ($1,$2,now()+interval '1 day')",
+    [createHash('sha256').update('photo-session').digest('hex'), alice],
+  );
+  let uploads = 0;
+  const blob = {
+    $type: 'blob',
+    ref: { $link: 'bafkrei' + 'a'.repeat(52) },
+    mimeType: 'image/png',
+    size: 8,
+  };
+  const app = createNetworkApp({
+    origin: 'http://127.0.0.1',
+    store,
+    oauth: {
+      agent: async (did: string) => {
+        assert.equal(did, alice);
+        return {
+          uploadBlob: async (bytes: Buffer, options: { encoding: string }) => {
+            uploads++;
+            assert.equal(options.encoding, 'image/png');
+            assert.equal(bytes.length, 8);
+            return { data: { blob: BlobRef.fromJsonRef(jsonToIpld(blob) as any) } };
+          },
+        };
+      },
+    } as any,
+  });
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${(server.address() as any).port}`;
+  const headers = { 'Content-Type': 'image/png', cookie: 'brownbag_session=photo-session' };
+  const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  try {
+    assert.equal(
+      (
+        await fetch(`${base}/api/images`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'image/png' },
+          body: bytes,
+        })
+      ).status,
+      401,
+    );
+    assert.equal(
+      (
+        await fetch(`${base}/api/images`, {
+          method: 'POST',
+          headers: { ...headers, Origin: 'https://elsewhere.example' },
+          body: bytes,
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await fetch(`${base}/api/images`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'image/svg+xml' },
+          body: '<svg/>',
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await fetch(`${base}/api/images`, {
+          method: 'POST',
+          headers,
+          body: new Uint8Array(5_000_001),
+        })
+      ).status,
+      413,
+    );
+    const response = await fetch(`${base}/api/images`, { method: 'POST', headers, body: bytes });
+    assert.equal(response.status, 201);
+    assert.deepEqual(await response.json(), { image: blob });
+    assert.equal(uploads, 1);
+    const largeRecipe = {
+      ...input,
+      instructions: Array.from({ length: 64 }, () => ({ text: 'a'.repeat(10000) })),
+    };
+    const draft = await fetch(`${base}/api/drafts`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: largeRecipe }),
+    });
+    assert.equal(draft.status, 201, 'A lexicon-valid long recipe can be saved');
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await pg.close();
+  }
+});
+
+test('cookbook combines posts and saves, persists private tags, paginates and respects removals', async () => {
+  const pg = new PGlite();
+  try {
+    for (const file of ['001_network.sql', '003_cookbook.sql'])
+      await pg.exec(await readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+    const store = new NetworkStore(adapt(pg));
+    await store.actor(alice);
+    await store.actor(bob);
+    await store.index({
+      did: alice,
+      collection: RECIPE_COLLECTION,
+      rkey: '3mabc234567ab',
+      cid,
+      record,
+      rev: '3mabc234567ac',
+    });
+    const bobUri = `at://${bob}/${RECIPE_COLLECTION}/3mabc234567ab`;
+    await store.index({
+      did: bob,
+      collection: RECIPE_COLLECTION,
+      rkey: '3mabc234567ab',
+      cid,
+      record: { ...record, title: 'Breakfast toast' },
+      rev: '3mabc234567ac',
+    });
+    assert.deepEqual(await store.cookbookEntry(alice, uri), { saved: true, tags: [] });
+    assert.equal((await store.recipes({ feed: 'cookbook', did: alice })).recipes.length, 1);
+    await store.saveCookbook(alice, bobUri, ['Breakfast', 'Quick']);
+    const first = await store.recipes({ feed: 'cookbook', did: alice, limit: 1 });
+    assert.equal(first.recipes[0].uri, bobUri);
+    assert.deepEqual(first.recipes[0].cookbookTags, ['Breakfast', 'Quick']);
+    assert.ok(first.nextCursor);
+    assert.equal(
+      (await store.recipes({ feed: 'cookbook', did: alice, limit: 1, cursor: first.nextCursor }))
+        .recipes[0].uri,
+      uri,
+    );
+    assert.equal(
+      (await store.recipes({ feed: 'cookbook', did: alice, tag: 'Quick', q: 'toast' })).recipes
+        .length,
+      1,
+    );
+    assert.equal(
+      (await store.recipes({ feed: 'cookbook', did: bob, tag: 'Quick' })).recipes.length,
+      0,
+    );
+    await store.saveCookbook(alice, bobUri, ['Lunch']);
+    assert.equal(
+      (await store.recipes({ feed: 'cookbook', did: alice, tag: 'Quick' })).recipes.length,
+      0,
+    );
+    assert.equal(
+      (await store.recipes({ feed: 'cookbook', did: alice })).recipes[0].cookbookAddedAt,
+      first.recipes[0].cookbookAddedAt,
+    );
+    await store.saveCookbook(alice, uri, ['Dinner']);
+    assert.equal(
+      (await store.recipes({ feed: 'cookbook', did: alice })).recipes.length,
+      2,
+      'own posts are not duplicated',
+    );
+    await store.removeCookbook(alice, uri);
+    assert.equal((await store.cookbookEntry(alice, uri)).saved, false);
+    assert.equal((await store.recipes({ feed: 'cookbook', did: alice })).recipes.length, 1);
+    assert.equal(
+      (await store.recipe(uri)).record.title,
+      input.title,
+      'removing own post does not unpublish it',
+    );
+    await store.removeCookbook(alice, bobUri);
+    assert.equal((await store.recipes({ feed: 'cookbook', did: alice })).recipes.length, 0);
+    await store.saveCookbook(alice, uri, []);
+    assert.equal((await store.cookbookEntry(alice, uri)).saved, true);
+    assert.deepEqual(await store.cookbookEntry(bob, bobUri), { saved: true, tags: [] });
+  } finally {
     await pg.close();
   }
 });

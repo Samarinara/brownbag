@@ -36,18 +36,29 @@ export function Modal({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
   const titleId = useId();
   useEffect(() => {
     const dialog = ref.current!;
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog.showModal();
-    return () => dialog.close();
+    return () => {
+      if (dialog.open) dialog.close();
+      // Native dialogs generally restore focus, but retaining this explicitly also
+      // covers dialog removal after an async action or route change.
+      requestAnimationFrame(() => opener.current?.focus());
+    };
   }, []);
   return (
     <dialog
       ref={ref}
       aria-labelledby={titleId}
+      aria-modal="true"
       className={wide ? 'modal wide' : 'modal'}
-      onCancel={close}
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
+      }}
       onClick={(e) => {
         if (e.target === ref.current) close();
       }}

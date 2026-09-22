@@ -17,6 +17,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@atproto-labs/fetch-node": "^0.4.0",
     "@atproto/api": "^0.20.44",
     "@atproto/common-web": "^0.5.12",
     "@atproto/jwk-jose": "^0.2.4",

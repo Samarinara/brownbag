@@ -23,7 +23,7 @@ export const recipeYield = (record: RecipeInput) =>
 export function RecipeImage({ recipe }: { recipe: RecipeView }) {
   const photo = recipe.record.images?.[0];
   const src = photo
-    ? `https://cdn.bsky.app/img/feed_fullsize/plain/${encodeURIComponent(recipe.authorDid)}/${encodeURIComponent(photo.image.ref.$link)}@jpeg`
+    ? `/api/recipe-image?${new URLSearchParams({ uri: recipe.uri, index: '0' })}`
     : '';
   const [failedSrc, setFailedSrc] = useState('');
   return (

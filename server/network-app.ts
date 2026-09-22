@@ -1,5 +1,7 @@
+import { cookbookTagsSchema, defaultCookbookTags } from '../shared/atproto.js';
 import express, { type ErrorRequestHandler, type RequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
+import { safeFetchWrap } from '@atproto-labs/fetch-node';
 import helmet from 'helmet';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z, ZodError } from 'zod';
@@ -15,6 +17,7 @@ import { HttpError, NetworkStore } from './network-store.js';
 import { Publisher } from './publishing.js';
 import { mountNetworkMcp } from './network-mcp.js';
 
+const fetchPhoto = safeFetchWrap({ responseMaxSize: 5_000_000, timeout: 15_000 });
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 export function createNetworkApp(config: {
   origin: string;
@@ -36,7 +39,7 @@ export function createNetworkApp(config: {
           defaultSrc: ["'self'"],
           scriptSrc: localDevelopment ? ["'self'", "'unsafe-inline'"] : ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:', 'blob:', 'https://cdn.bsky.app'],
+          imgSrc: ["'self'", 'data:', 'blob:'],
           connectSrc: localDevelopment ? ["'self'", 'ws:'] : ["'self'"],
           upgradeInsecureRequests: config.origin.startsWith('https:') ? [] : null,
         },
@@ -61,7 +64,7 @@ export function createNetworkApp(config: {
       return next(new HttpError(403, 'Request origin is not allowed.'));
     next();
   });
-  app.use(express.json({ limit: '160kb' }));
+  app.use(express.json({ limit: '1mb' }));
   app.get('/api/config', (_req, res) =>
     res.json({ configured: !!config.store && !!config.oauth, missing: config.missing || [] }),
   );
@@ -162,9 +165,10 @@ export function createNetworkApp(config: {
     const options = z
       .object({
         q: z.string().max(200).default(''),
-        feed: z.enum(['discover', 'following', 'mine', 'saved']).default('discover'),
+        feed: z.enum(['discover', 'following', 'mine', 'saved', 'cookbook']).default('discover'),
         limit: z.coerce.number().int().min(1).max(100).default(24),
         cursor: z.string().max(3000).optional(),
+        tag: z.string().max(25).optional(),
       })
       .parse(req.query);
     if (options.feed === 'discover')
@@ -178,11 +182,74 @@ export function createNetworkApp(config: {
       .set('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=60')
       .json(recipe);
   });
+  app.get('/api/recipe-image', async (req, res) => {
+    const { uri, index } = z
+      .object({ uri: z.string().max(3000), index: z.coerce.number().int().min(0).max(7) })
+      .parse(req.query);
+    const recipe = await store.recipe(uri);
+    const photo = recipe.record.images?.[index];
+    if (!photo) throw new HttpError(404, 'Photo not found.');
+    const identity = await oauth.identity(recipe.authorDid);
+    const endpoint = identity.didDoc.service?.find(
+      (service) =>
+        (service.id === '#atproto_pds' || service.id === `${recipe.authorDid}#atproto_pds`) &&
+        service.type === 'AtprotoPersonalDataServer',
+    )?.serviceEndpoint;
+    if (typeof endpoint !== 'string') throw new HttpError(404, 'Photo account not found.');
+    const url = new URL('/xrpc/com.atproto.sync.getBlob', endpoint);
+    url.search = new URLSearchParams({
+      did: recipe.authorDid,
+      cid: photo.image.ref.$link,
+    }).toString();
+    const response = await fetchPhoto(url, { redirect: 'error' });
+    if (!response.ok) throw new HttpError(404, 'Photo is unavailable.');
+    const mimeType = response.headers.get('content-type')?.split(';')[0];
+    if (mimeType !== photo.image.mimeType) throw new HttpError(400, 'Unexpected photo format.');
+    res.type(mimeType).send(Buffer.from(await response.arrayBuffer()));
+  });
+  app.get('/api/images/:cid', requireUser, async (req, res) => {
+    const cid = recipeInputSchema.shape.images
+      .unwrap()
+      .element.shape.image.shape.ref.shape.$link.parse(req.params.cid);
+    const agent = await oauth.agent(res.locals.user.did);
+    const result = await agent.com.atproto.sync.getBlob({ did: res.locals.user.did, cid });
+    const mimeType = result.headers['content-type']?.split(';')[0];
+    if (
+      !mimeType ||
+      !['image/jpeg', 'image/png', 'image/webp', 'image/avif'].includes(mimeType) ||
+      result.data.length > 5_000_000
+    )
+      throw new HttpError(400, 'Unexpected photo format.');
+    res.type(mimeType).send(Buffer.from(result.data));
+  });
   app.use('/api', (req, res, next) => {
     if (['GET', 'HEAD'].includes(req.method)) return next();
     if (!res.locals.user) return next(new HttpError(401, 'Sign in to continue.'));
     void store.rateLimit(`write:${res.locals.user.did}`, 60).then(() => next(), next);
   });
+  app.post(
+    '/api/images',
+    express.raw({
+      type: ['image/jpeg', 'image/png', 'image/webp', 'image/avif'],
+      limit: 5_000_000,
+    }),
+    async (req, res) => {
+      const mimeType = req.get('Content-Type')?.split(';')[0];
+      if (
+        !mimeType ||
+        !['image/jpeg', 'image/png', 'image/webp', 'image/avif'].includes(mimeType) ||
+        !Buffer.isBuffer(req.body) ||
+        !req.body.length
+      )
+        throw new HttpError(400, 'Choose a JPEG, PNG, WebP or AVIF photo up to 5 MB.');
+      const agent = await oauth.agent(res.locals.user.did);
+      const result = await agent.uploadBlob(req.body, { encoding: mimeType });
+      const image = recipeInputSchema.shape.images
+        .unwrap()
+        .element.shape.image.parse(JSON.parse(JSON.stringify(result.data.blob)));
+      res.status(201).json({ image });
+    },
+  );
   app.get('/api/drafts', requireUser, async (_req, res) =>
     res.json({ drafts: await store.drafts(res.locals.user.did) }),
   );
@@ -251,16 +318,27 @@ export function createNetworkApp(config: {
     await publisher.delete(res.locals.user.did, uri, cid);
     res.json({ ok: true });
   });
+  app.get('/api/cookbook/tags', requireUser, async (_req, res) => {
+    const rows = await store.db.query('SELECT name FROM cookbook_tags WHERE did=$1 ORDER BY name', [
+      res.locals.user.did,
+    ]);
+    res
+      .set('Cache-Control', 'private, no-store')
+      .json({ tags: [...new Set([...defaultCookbookTags, ...rows.map((row) => row.name)])] });
+  });
+  app.get('/api/cookbook/entry', requireUser, async (req, res) => {
+    res
+      .set('Cache-Control', 'private, no-store')
+      .json(
+        await store.cookbookEntry(res.locals.user.did, z.string().max(3000).parse(req.query.uri)),
+      );
+  });
   app.post('/api/bookmarks', async (req, res) => {
-    const { uri } = z
-      .object({ uri: z.string().max(3000) })
+    const { uri, tags } = z
+      .object({ uri: z.string().max(3000), tags: cookbookTagsSchema.optional() })
       .strict()
       .parse(req.body);
-    await store.recipe(uri);
-    await store.db.query('INSERT INTO bookmarks(did,uri) VALUES ($1,$2) ON CONFLICT DO NOTHING', [
-      res.locals.user.did,
-      uri,
-    ]);
+    await store.saveCookbook(res.locals.user.did, uri, tags);
     res.json({ ok: true });
   });
   app.delete('/api/bookmarks', async (req, res) => {
@@ -268,10 +346,7 @@ export function createNetworkApp(config: {
       .object({ uri: z.string().max(3000) })
       .strict()
       .parse(req.body);
-    await store.db.query('DELETE FROM bookmarks WHERE did=$1 AND uri=$2', [
-      res.locals.user.did,
-      uri,
-    ]);
+    await store.removeCookbook(res.locals.user.did, uri);
     res.json({ ok: true });
   });
   for (const method of ['post', 'delete'] as const)
