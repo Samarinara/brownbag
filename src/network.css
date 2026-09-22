@@ -1,11 +1,13 @@
 .network-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
 .network-header {
-  height: 104px;
-  margin: 0 5.4%;
+  min-height: 96px;
+  width: min(1150px, calc(100% - 76px));
+  margin: 0 auto;
+  padding: 20px 0;
   display: flex;
   justify-content: space-between;
   gap: 20px;
@@ -34,8 +36,11 @@
   flex-wrap: wrap;
 }
 .network-account-button {
-  width: 35px;
-  height: 35px;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
   border: 1px solid #cbd3bd;
   background: #e8eddf;
   border-radius: 50%;
@@ -55,13 +60,13 @@
 }
 .network-hero {
   text-align: center;
-  padding: 72px 0 66px;
+  padding: 56px 0 64px;
 }
 .network-hero h1 {
   font-size: clamp(56px, 7vw, 82px);
   line-height: 1.08;
   letter-spacing: -4px;
-  margin: 27px 0 24px;
+  margin: 12px 0 36px;
   animation: network-rise-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .network-bag-word {
@@ -103,6 +108,7 @@
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 .network-toolbar nav button {
   background: transparent;
@@ -133,12 +139,21 @@
   background: transparent;
   outline: none;
   height: 100%;
+  min-width: 0;
+  flex: 1;
+}
+.network-search:focus-within {
+  border-color: #849a76;
+  box-shadow: 0 0 0 3px #7d956420;
 }
 .network-search-submit {
   border: 1px solid var(--line);
   border-radius: 4px;
   background: transparent;
-  padding: 3px 6px;
+  min-width: 36px;
+  min-height: 36px;
+  flex-shrink: 0;
+  padding: 6px;
   color: #9a9e91;
 }
 .network-grid {
@@ -150,7 +165,9 @@
   border: 1px solid var(--line);
   background: #fffef770;
   border-radius: 10px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -159,8 +176,9 @@
 }
 .network-card > a {
   text-decoration: none;
-  display: block;
-  height: 100%;
+  display: flex;
+  flex: 1;
+  border-radius: inherit;
 }
 .network-card:hover {
   border-color: #adb99c;
@@ -169,8 +187,10 @@
   box-shadow: 0 8px 20px #35432d0d;
 }
 .network-card-body {
-  padding: 23px;
-  min-height: 218px;
+  padding: 24px;
+  width: 100%;
+  min-height: 250px;
+  overflow-wrap: anywhere;
   display: flex;
   flex-direction: column;
 }
@@ -181,7 +201,7 @@
 }
 .network-card-body > p:not(.eyebrow) {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -205,7 +225,16 @@
   gap: 8px;
   font-size: 12px;
   margin-top: auto;
-  padding-top: 10px;
+  padding-top: 20px;
+  flex-wrap: wrap;
+}
+.network-card > .button {
+  margin: 0 24px 24px;
+  align-self: flex-start;
+}
+.network-card-meta > span:last-child {
+  white-space: nowrap;
+  color: var(--green);
 }
 .network-card-meta > span:first-child:not(:empty) {
   border-radius: 20px;
@@ -220,7 +249,10 @@
 }
 .network-toast {
   position: fixed;
-  bottom: 28px;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  width: max-content;
+  max-width: calc(100% - 32px);
+  overflow-wrap: anywhere;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -234,7 +266,8 @@
   z-index: 100;
 }
 .network-detail {
-  padding: 45px 0;
+  padding: 40px 0;
+  overflow-wrap: anywhere;
   max-width: 960px;
   margin: auto;
 }
@@ -268,11 +301,19 @@
 }
 .network-cooking {
   display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: 60px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: 48px;
+  line-height: 1.75;
   margin-top: 45px;
 }
+.network-cooking > section:first-child {
+  background: var(--soft);
+  padding: 28px;
+  border-radius: 12px;
+  align-self: start;
+}
 .network-cooking h2 {
+  margin-bottom: 16px;
   font-size: 30px;
 }
 .network-ingredients {
@@ -285,14 +326,17 @@
 }
 .network-ingredients label {
   display: flex;
-  align-items: baseline;
+  flex-direction: row;
+  align-items: flex-start;
+  line-height: 1.65;
   gap: 12px;
   font-weight: normal;
   cursor: pointer;
 }
 .network-ingredients input,
 .network-consent input {
-  width: auto;
+  width: 17px;
+  margin: 3px 0 0;
   accent-color: var(--green);
 }
 .network-ingredients .is-checked span {
@@ -314,34 +358,40 @@
 .network-editor fieldset {
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 15px;
+  padding: 20px;
+  background: var(--white);
 }
 .network-editor legend {
   padding: 0 6px;
 }
 .network-editor-times {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 .network-ingredient-editor {
   display: grid;
-  grid-template-columns: 0.6fr 0.6fr 2fr 28px;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 2fr) 40px;
   gap: 7px;
   margin-bottom: 10px;
   align-items: center;
 }
 .network-step-editor {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 .network-step-editor label {
   flex: 1;
+  min-width: 0;
+}
+.network-step-editor > button {
+  margin-top: 24px;
 }
 .network-consent {
   display: flex;
+  flex-direction: row;
   align-items: flex-start;
   gap: 10px;
   padding: 18px;
@@ -363,6 +413,12 @@
   align-items: center;
   gap: 8px;
   margin-top: 10px;
+}
+.network-drafts > div > .button {
+  min-width: 0;
+  text-align: left;
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
 }
 .network-load-more {
   display: block;
@@ -410,8 +466,9 @@
 }
 @media (max-width: 580px) {
   .network-header {
-    height: 82px;
-    margin: 0 20px;
+    min-height: 80px;
+    width: calc(100% - 40px);
+    gap: 12px;
   }
   .network-main {
     width: calc(100% - 36px);
@@ -426,7 +483,7 @@
     padding: 38px 0 50px;
   }
   .network-hero h1 {
-    font-size: 49px;
+    font-size: clamp(38px, 10vw, 54px);
     letter-spacing: -2.4px;
   }
   .network-grid,
@@ -449,7 +506,7 @@
     grid-template-columns: 1fr;
   }
   .network-ingredient-editor {
-    grid-template-columns: 1fr 1fr 28px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
   }
   .network-ingredient-editor input:nth-child(3) {
     grid-column: 1/3;
@@ -458,5 +515,81 @@
   .network-ingredient-editor button {
     grid-column: 3;
     grid-row: 1/3;
+  }
+}
+
+.network-account section + section {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+.network-account h3 {
+  font-family: Georgia, serif;
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+.network-account p {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.network-account .stack > .button {
+  align-self: flex-start;
+}
+.network-key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  margin-bottom: 0;
+}
+.network-key-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.network-key-row > button {
+  flex-shrink: 0;
+}
+.network-new-key {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--soft);
+  border-radius: 10px;
+}
+.network-new-key > button {
+  margin-top: 12px;
+}
+.network-account-list article h4 {
+  margin-top: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.network-account-list .network-actions {
+  margin-top: 16px;
+}
+@media (max-width: 580px) {
+  .network-search {
+    height: 58px;
+    padding: 0 12px;
+    gap: 10px;
+  }
+  .network-search input {
+    font-size: 16px;
+  }
+  .network-toolbar nav {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .network-editor fieldset {
+    padding: 16px 12px;
+  }
+  .network-editor > .network-actions > .button {
+    flex: 1 1 100%;
+  }
+  .network-card-body {
+    min-height: 230px;
+  }
+  .network-cooking > section:first-child {
+    padding: 24px;
   }
 }

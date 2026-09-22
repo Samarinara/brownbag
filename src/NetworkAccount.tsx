@@ -47,7 +47,7 @@ export function NetworkAccount({
   }, []);
   return (
     <Modal title="Your account" close={close} wide>
-      <div className="stack">
+      <div className="stack network-account">
         <Notice error={error} />
         {notice && <p role="status">{notice}</p>}
         <section>
@@ -97,7 +97,7 @@ export function NetworkAccount({
             </button>
           </form>
           {token && (
-            <div>
+            <div className="network-new-key">
               <p>
                 Copy this key now; it won’t be shown again. Use it as a Bearer token at{' '}
                 {location.origin}/mcp.
@@ -114,8 +114,10 @@ export function NetworkAccount({
             </div>
           )}
           {keys.map((key) => (
-            <p key={key.id}>
-              {key.name} · {key.prefix}…{' '}
+            <p key={key.id} className="network-key-row">
+              <span>
+                {key.name} · {key.prefix}…
+              </span>
               <button
                 className="button secondary"
                 disabled={busy}
@@ -133,49 +135,53 @@ export function NetworkAccount({
             deletions cannot remove copies others saved.
           </p>
           {!proposals.length && <p>No suggestions yet.</p>}
-          {proposals.map((proposal) => (
-            <article key={proposal.id}>
-              <h4>
-                {proposal.payload.action}: {proposal.payload.recipe?.title || 'Recipe'} ·{' '}
-                {proposal.status}
-              </h4>
-              <details>
-                <summary>Inspect complete suggestion</summary>
-                <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                  {JSON.stringify(proposal.payload, null, 2)}
-                </pre>
-              </details>
-              {proposal.status === 'pending' && (
-                <div className="network-actions">
-                  <button
-                    className="button primary"
-                    disabled={busy}
-                    onClick={() => {
-                      if (window.confirm('Apply this suggested change to your public cookbook?'))
-                        void run(() => post(`/proposals/${proposal.id}/review`, { approve: true }));
-                    }}
-                  >
-                    Approve public change
-                  </button>
-                  <button
-                    className="button secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(() => post(`/proposals/${proposal.id}/review`, { approve: false }))
-                    }
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-              {proposal.status === 'applying' && (
-                <p>
-                  The outcome needs checking. Refresh your cookbook and contact the operator before
-                  retrying; the change may already be published.
-                </p>
-              )}
-            </article>
-          ))}
+          <div className="network-account-list">
+            {proposals.map((proposal) => (
+              <article key={proposal.id}>
+                <h4>
+                  {proposal.payload.action}: {proposal.payload.recipe?.title || 'Recipe'} ·{' '}
+                  {proposal.status}
+                </h4>
+                <details>
+                  <summary>Inspect complete suggestion</summary>
+                  <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    {JSON.stringify(proposal.payload, null, 2)}
+                  </pre>
+                </details>
+                {proposal.status === 'pending' && (
+                  <div className="network-actions">
+                    <button
+                      className="button primary"
+                      disabled={busy}
+                      onClick={() => {
+                        if (window.confirm('Apply this suggested change to your public cookbook?'))
+                          void run(() =>
+                            post(`/proposals/${proposal.id}/review`, { approve: true }),
+                          );
+                      }}
+                    >
+                      Approve public change
+                    </button>
+                    <button
+                      className="button secondary"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(() => post(`/proposals/${proposal.id}/review`, { approve: false }))
+                      }
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+                {proposal.status === 'applying' && (
+                  <p>
+                    The outcome needs checking. Refresh your cookbook and contact the operator
+                    before retrying; the change may already be published.
+                  </p>
+                )}
+              </article>
+            ))}
+          </div>
         </section>
         <section className="network-account-signout">
           <button
