@@ -36,10 +36,15 @@
 .network-account-button {
   width: 44px;
   height: 44px;
-  border: 1px solid #cbd3bd;
-  background: #e8eddf;
+  border: 1px solid var(--color-border-accent);
+  background: var(--color-surface-selected);
   border-radius: 50%;
   color: var(--green);
+}
+.network-account-button:hover:not(:disabled),
+.network-account-button[aria-expanded='true'] {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
 }
 .account-menu-wrap {
   position: relative;
@@ -52,10 +57,10 @@
   width: min(310px, calc(100vw - 32px));
   padding: 10px;
   color: var(--ink);
-  background: color-mix(in srgb, var(--white) 94%, transparent);
+  background: var(--color-surface-translucent);
   border: 1px solid var(--line);
   border-radius: 15px;
-  box-shadow: 0 18px 48px #15201224;
+  box-shadow: var(--shadow-popover);
   backdrop-filter: blur(18px);
   animation: account-menu-in 150ms ease-out both;
 }
@@ -118,14 +123,14 @@
   border-radius: 7px;
   font-size: 13px;
 }
-.theme-picker button:hover {
+.theme-picker button:hover:not(:disabled) {
   color: var(--ink);
 }
 .theme-picker button.active {
   color: var(--ink);
   background: var(--white);
   border-color: var(--line);
-  box-shadow: 0 1px 4px #17201412;
+  box-shadow: var(--shadow-low);
 }
 .account-menu-actions {
   display: grid;
@@ -148,7 +153,7 @@
   text-align: left;
   font-size: 14px;
 }
-.account-menu-actions button:hover {
+.account-menu-actions button:hover:not(:disabled) {
   background: var(--soft);
 }
 .account-menu-actions button:last-child {
@@ -176,6 +181,9 @@
   min-height: 44px;
   padding: 8px;
   font-size: 14px;
+}
+.network-sign-in:hover:not(:disabled) {
+  color: var(--orange);
 }
 .network-main {
   width: min(1150px, calc(100% - 76px));
@@ -205,7 +213,7 @@
   bottom: -10px;
   width: 100%;
   height: 14px;
-  color: #b4bd99;
+  color: var(--color-accent-soft);
 }
 .network-home-search {
   max-width: 594px;
@@ -240,9 +248,12 @@
   border-radius: 22px;
   padding: 11px 16px;
 }
+.network-toolbar nav button:hover:not(:disabled):not(.active) {
+  background: var(--color-surface-hover);
+}
 .network-toolbar nav button.active {
-  background: var(--green);
-  color: white;
+  background: var(--color-action);
+  color: var(--color-on-accent);
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 5px;
@@ -252,13 +263,13 @@
   align-items: center;
   gap: 14px;
   background: var(--white);
-  border: 1px solid #d4d7c9;
+  border: 1px solid var(--color-border);
   padding: 0 20px;
   border-radius: 10px;
   width: 100%;
   height: 64px;
-  color: #858b7a;
-  box-shadow: 0 4px 14px #35432d05;
+  color: var(--color-text-subtle);
+  box-shadow: var(--shadow-low);
 }
 .network-search input {
   border: 0;
@@ -274,7 +285,12 @@
   min-width: 44px;
   min-height: 44px;
   padding: 3px 6px;
-  color: #9a9e91;
+  color: var(--color-text-faint);
+}
+.network-search-submit:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
 }
 .network-grid {
   display: grid;
@@ -414,11 +430,11 @@
   display: flex;
   gap: 9px;
   align-items: center;
-  background: var(--green-dark);
-  color: white;
+  background: var(--color-toast);
+  color: var(--color-on-accent);
   padding: 15px 22px;
   border-radius: 30px;
-  box-shadow: 0 5px 20px #0002;
+  box-shadow: var(--shadow-toast);
   z-index: 100;
 }
 .network-detail {
@@ -486,7 +502,7 @@
   font-size: 13px;
 }
 .network-delete-action {
-  color: #974434;
+  color: var(--color-danger);
   margin-left: auto;
 }
 .network-story {
@@ -651,7 +667,7 @@
   margin-top: 5px;
 }
 .network-drafts {
-  border: 1px dashed #9baa8b;
+  border: 1px dashed var(--color-border-strong);
   padding: 25px;
   border-radius: 12px;
   margin-bottom: 30px;
@@ -830,7 +846,7 @@
 .network-editor input,
 .network-editor textarea {
   border-radius: 8px;
-  background: #fffef9a8;
+  background: var(--color-surface-translucent);
 }
 .network-editor input[name='title'] {
   font-family: Georgia, serif;
@@ -946,13 +962,15 @@
 }
 .recipe-photo {
   padding: 20px;
-  background: var(--soft);
+  background: var(--color-surface-media);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
 }
 .recipe-photo img {
   display: block;
   max-width: 100%;
   max-height: 260px;
+  background: var(--color-surface-media);
   border-radius: 6px;
   margin-bottom: 18px;
 }
@@ -1029,7 +1047,7 @@
   border-radius: 10px;
   padding: 14px;
   background: var(--white);
-  box-shadow: 0 8px 20px #35432d0d;
+  box-shadow: var(--shadow-card);
   gap: 10px;
 }
 .recipe-tags {
@@ -1104,7 +1122,7 @@
   border: 0;
 }
 .network-search:focus-within {
-  outline: 2px solid #91a683;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 @media (max-width: 580px) {
@@ -1175,6 +1193,10 @@
 }
 .recipe-gallery figure {
   margin: 0;
+  overflow: hidden;
+  background: var(--color-surface-media);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
 }
 .recipe-gallery img {
   display: block;
@@ -1182,7 +1204,7 @@
   height: auto;
   max-height: 460px;
   object-fit: contain;
-  border-radius: 10px;
+  background: var(--color-surface-media);
 }
 .network-consent,
 .network-ingredients label {
@@ -1229,10 +1251,14 @@
   padding: 8px 14px;
   overflow-wrap: anywhere;
 }
+.network-tag-chits button:hover:not(:disabled):not(.active) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
 .network-tag-chits button.active {
-  background: var(--green);
-  border-color: var(--green);
-  color: white;
+  background: var(--color-action);
+  border-color: var(--color-action);
+  color: var(--color-on-accent);
 }
 .network-tag-chits button[aria-pressed='true']::before {
   content: '✓ ';
@@ -1248,7 +1274,8 @@
   border-radius: 0;
   background: transparent;
 }
-.network-cookbook-list .network-card:hover {
+.network-cookbook-list .network-card:hover,
+.network-cookbook-list .network-card:focus-within {
   transform: none;
   box-shadow: none;
   background: transparent;
@@ -1329,7 +1356,7 @@
 .network-shell .network-cookbook-link:focus-visible,
 .network-shell .network-brand:focus-visible,
 .network-shell .network-card a:focus-visible {
-  outline: 3px solid #a1b592;
+  outline: 3px solid var(--color-focus);
   outline-offset: 3px;
   border-radius: 8px;
 }
@@ -1359,12 +1386,12 @@
 }
 .network-shell .icon-button[aria-pressed='true'],
 .network-shell .network-tag-chits button[aria-pressed='true'] {
-  outline: 2px solid #a1b592;
+  outline: 2px solid var(--color-focus);
   outline-offset: 1px;
 }
 .network-shell .network-toolbar nav button:hover:not(.active),
 .network-shell .network-tag-chits button:hover:not(.active) {
-  border-color: #bcc7ad;
+  border-color: var(--color-border-strong);
   background: var(--soft);
   color: var(--ink);
 }
@@ -1374,7 +1401,7 @@
 }
 .network-shell .network-toolbar nav button.active,
 .network-shell .network-tag-chits button.active {
-  box-shadow: 0 1px 6px #24371a18;
+  box-shadow: var(--shadow-active);
 }
 
 /* Standardized hierarchy: primary = main action, secondary = default,
@@ -1383,24 +1410,24 @@
   background: var(--white);
 }
 .network-shell .button.danger {
-  background: #a83a2a;
-  border-color: #a83a2a;
-  color: #fff8f4;
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-on-danger);
 }
 .network-shell .button.danger:hover:not(:disabled) {
-  background: #8f3124;
-  border-color: #8f3124;
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
 }
 .network-shell .button.danger:active:not(:disabled) {
-  background: #7c2b20;
+  background: var(--color-danger-active);
 }
 .network-shell .icon-button.danger {
-  color: #a83a2a;
+  color: var(--color-danger);
 }
 .network-shell .icon-button.danger:hover:not(:disabled) {
-  background: #f6e3db;
-  border-color: #dfbfae;
-  color: #8f3124;
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger-soft-border);
+  color: var(--color-danger-hover);
 }
 .network-shell .text-button:disabled {
   cursor: not-allowed;
@@ -1446,7 +1473,7 @@
   color: var(--ink);
 }
 .search-clear:focus-visible {
-  outline: 3px solid #a1b592;
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 .result-count-row {
@@ -1476,9 +1503,9 @@
   color: white;
 }
 .network-toast.error {
-  background: #7c2b20;
-  color: #fff4ee;
-  border: 1px solid #d99a86;
+  background: var(--color-toast-error-bg);
+  color: var(--color-toast-error-text);
+  border: 1px solid var(--color-toast-error-border);
 }
 .network-toast .toast-text {
   flex: 1;
@@ -1496,7 +1523,7 @@
   white-space: nowrap;
 }
 .network-toast .toast-action:hover {
-  background: #ffffff22;
+  background: color-mix(in srgb, var(--color-on-accent) 14%, transparent);
 }
 .network-toast .toast-close {
   border: 0;
@@ -1512,7 +1539,7 @@
   flex-shrink: 0;
 }
 .network-toast .toast-close:hover {
-  background: #ffffff22;
+  background: color-mix(in srgb, var(--color-on-accent) 14%, transparent);
   opacity: 1;
 }
 
@@ -1585,11 +1612,11 @@
   color: var(--ink);
 }
 .confirm-body .confirm-warning {
-  background: #f9ece4;
-  border: 1px solid #e2c0ab;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
   border-radius: 8px;
   padding: 12px 14px;
-  color: #7c3b24;
+  color: var(--color-warning-text);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -1614,30 +1641,6 @@
   min-width: 40px;
   min-height: 40px;
   background: var(--white);
-}
-
-:root[data-resolved-theme='dark'] .network-shell .button.danger {
-  background: #b0523f;
-  border-color: #b0523f;
-  color: #fff4ee;
-}
-:root[data-resolved-theme='dark'] .network-shell .button.danger:hover:not(:disabled) {
-  background: #c06652;
-  border-color: #c06652;
-}
-:root[data-resolved-theme='dark'] .network-shell .icon-button.danger:hover:not(:disabled) {
-  background: #3a2923;
-  border-color: #654639;
-}
-:root[data-resolved-theme='dark'] .confirm-body .confirm-warning {
-  background: #3a2923;
-  border-color: #654639;
-  color: #e6a17c;
-}
-:root[data-resolved-theme='dark'] .network-toast.error {
-  background: #4a231b;
-  border-color: #7c4a3a;
-  color: #f6cdb8;
 }
 
 .network-cookbook-list .network-recipe-image:has(img) {
