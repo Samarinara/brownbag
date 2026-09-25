@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { ArrowDown, ArrowLeft, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { api, post } from './api';
 import { Notice } from './components';
+import { mealLabels, retentionStart, targetFromRoute } from '../shared/planner';
+import { displayDate } from './MealPlanner';
 import {
   draftInputSchema,
   recipeInputSchema,
@@ -110,7 +112,10 @@ function Disclosure({
   );
 }
 
-function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: Editing }) {
+function NetworkEditor({ editing, close, done, leaveGuard, route }: Props & { editing: Editing }) {
+  const plannerTarget = targetFromRoute(route);
+  const plannedId = useRef(crypto.randomUUID());
+  const [published, setPublished] = useState<RecipeView>();
   const [data, setData] = useState<RecipeInput>(() => editableRecipe(editing.data));
   const initial = useRef(JSON.stringify(data));
   const [busy, setBusy] = useState(false);
@@ -145,7 +150,13 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
   };
   useEffect(() => {
     leaveGuard.current = () =>
-      !busy && (!dirty || window.confirm('Leave this recipe? Unsaved changes will be lost.'));
+      !busy &&
+      (!dirty ||
+        window.confirm(
+          published
+            ? 'Your recipe is published but has not been added to the meal plan. Leave the editor?'
+            : 'Leave this recipe? Unsaved changes will be lost.',
+        ));
     const unload = (event: BeforeUnloadEvent) => {
       if (dirty || busy) {
         event.preventDefault();
@@ -157,7 +168,7 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
       leaveGuard.current = () => true;
       window.removeEventListener('beforeunload', unload);
     };
-  }, [dirty, busy, leaveGuard]);
+  }, [dirty, busy, leaveGuard, published]);
   const previewUrls = useRef<string[]>([]);
   useEffect(() => () => previewUrls.current.forEach((url) => URL.revokeObjectURL(url)), []);
   useEffect(() => {
@@ -182,6 +193,27 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
   const save = async (publish: boolean) => {
     setError('');
     setIssues([]);
+    if (publish && plannerTarget && plannerTarget.date < retentionStart()) {
+      setError(
+        'This meal date has expired. Save a private draft and choose a more recent date from the planner.',
+      );
+      return;
+    }
+    if (publish && published && plannerTarget) {
+      setBusy(true);
+      try {
+        await post('/planner', { ...plannerTarget, uri: published.uri, id: plannedId.current });
+        leaveGuard.current = () => true;
+        done(published);
+      } catch (error) {
+        setError(
+          `Your recipe is published, but could not be added to the meal plan: ${message(error)} Retry adding it below.`,
+        );
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const checked = (publish ? recipeInputSchema : draftInputSchema).safeParse(data);
     if (!checked.success) {
       setIssues(checked.error.issues);
@@ -207,6 +239,17 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
               }),
             })
           : await post<RecipeView>('/recipes', { recipe: checked.data, draftId: editing.draftId });
+        if (plannerTarget) {
+          setPublished(result);
+          try {
+            await post('/planner', { ...plannerTarget, uri: result.uri, id: plannedId.current });
+          } catch (error) {
+            setError(
+              `Your recipe is published, but could not be added to the meal plan: ${message(error)} Retry adding it below.`,
+            );
+            return;
+          }
+        }
       } else if (editing.draftId) {
         await api(`/drafts/${encodeURIComponent(editing.draftId)}`, {
           method: 'PUT',
@@ -297,7 +340,7 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
   return (
     <article className="network-editor-page">
       <button className="text-button recipe-back" onClick={close}>
-        <ArrowLeft size={16} /> Back to recipes
+        <ArrowLeft size={16} /> {plannerTarget ? 'Back to Meal Planner' : 'Back to recipes'}
       </button>
       <header className="recipe-editor-heading">
         <p className="eyebrow">YOUR COOKBOOK</p>
@@ -309,6 +352,17 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
               : 'Something worth keeping.'}
         </h1>
         <p>Start with the essentials. Add the little details that make it yours.</p>
+        {plannerTarget && (
+          <div className="planner-editor-destination">
+            <strong>
+              Creating for {displayDate(plannerTarget.date)} · {mealLabels[plannerTarget.slot]}
+            </strong>
+            <p>
+              Publishing adds this recipe to your meal plan and returns you to that week. Saving a
+              private draft does not add it.
+            </p>
+          </div>
+        )}
       </header>
       <form
         ref={formRef}
@@ -319,7 +373,7 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
           if (confirmed && !busy) void save(true);
         }}
       >
-        <fieldset disabled={busy} className="recipe-editor-fields">
+        <fieldset disabled={busy || !!published} className="recipe-editor-fields">
           <section className="recipe-editor-section stack">
             <label>
               Recipe title
@@ -867,7 +921,7 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
             <button
               type="button"
               className="button secondary"
-              disabled={busy}
+              disabled={busy || !!published}
               title={busy ? 'Please wait while we save.' : 'Save a private draft only you can see'}
               onClick={() => void save(false)}
             >
@@ -891,7 +945,13 @@ function NetworkEditor({ editing, close, done, leaveGuard }: Props & { editing: 
                 disabled={busy || !confirmed}
                 aria-describedby="publish-hint"
               >
-                {editing.original ? 'Publish changes' : 'Publish recipe'}
+                {published
+                  ? 'Retry adding to meal plan'
+                  : plannerTarget
+                    ? 'Publish & add to meal plan'
+                    : editing.original
+                      ? 'Publish changes'
+                      : 'Publish recipe'}
               </button>
             </span>
           </div>

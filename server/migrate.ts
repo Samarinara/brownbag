@@ -10,7 +10,12 @@ try {
       'CREATE TABLE IF NOT EXISTS schema_migrations(version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
     );
     let applied = false;
-    for (const migration of ['001_network.sql', '002_normalize_jsonb.sql', '003_cookbook.sql']) {
+    for (const migration of [
+      '001_network.sql',
+      '002_normalize_jsonb.sql',
+      '003_cookbook.sql',
+      '004_meal_planner.sql',
+    ]) {
       const version = Number(migration.slice(0, 3));
       const done = await tx.query('SELECT version FROM schema_migrations WHERE version=$1', [
         version,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, post } from './api';
 import { ConfirmDialog, Modal, Notice } from './components';
+import { PlannerPreferences } from './MealPlanner';
 
 type Key = { id: string; name: string; prefix: string };
 type Proposal = {
@@ -53,6 +54,7 @@ export function NetworkAccount({
       <div className="network-account-content">
         <Notice error={error} />
         {notice && <p role="status">{notice}</p>}
+        <PlannerPreferences />
         <section>
           <h3>Your cookbook</h3>
           <p>Missing recipes you published elsewhere? Refresh your account’s public records.</p>

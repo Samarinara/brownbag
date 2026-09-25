@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch server/index.ts",
-    "build": "tsc --noEmit && vite build && esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js && esbuild server/indexer.ts server/migrate.ts --bundle --platform=node --format=esm --packages=external --outdir=dist",
+    "build": "tsc --noEmit && vite build && esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js && esbuild server/indexer.ts server/migrate.ts server/prune-meal-plans.ts --bundle --platform=node --format=esm --packages=external --outdir=dist",
     "start": "NODE_ENV=production node dist/server.js",
     "test": "tsx --test tests/*.test.ts",
     "email:check": "tsx server/check-mail.ts",
     "db:migrate": "tsx server/migrate.ts",
+    "planner:prune": "tsx server/prune-meal-plans.ts",
     "keys:generate": "tsx scripts/generate-oauth-keys.ts",
     "indexer": "tsx server/indexer.ts",
     "check": "tsc --noEmit",

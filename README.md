@@ -7,9 +7,14 @@ A shared recipe platform at **brownbag.polli.page**. This branch replaces the se
 - Public discovery and PostgreSQL full-text search; personal, saved, and followed-cook feeds.
 - Existing-account OAuth, encrypted server-side credentials, durable refresh locks, and cookie sessions. No passwords, email signup, or hosted accounts.
 - Private drafts and bookmarks; public recipe publishing, optimistic-concurrency edits/deletes, and attributed adaptations.
+- Private Meal Planner: Sunday-first weeks, a mobile day agenda, a month week-picker, multiple recipes per meal, notes, and a cross-device default meal preference. Use the top-bar **Meal Planner** link or **Plan meal** on any recipe.
 - Public follow records and profile ingestion. The recipe editor uses ordinary cooking language, not protocol jargon.
 - Revocable assistant keys, stateless MCP, and mandatory human approval before any agent-proposed publication.
 - Filtered Jetstream ingestion with durable cursors, idempotent revision guards, tombstones, invalid-event storage, and bounded account reconciliation.
+
+Meal Planner data lives only in PostgreSQL, scoped to the signed-in account’s DID; it is not published to AT Protocol. Migration `004_meal_planner.sql` adds its tables (run `npm run db:migrate` before deploying). Deleting a recipe cascades to every plan referencing it. Recipe notes also appear together in the day view’s meal notes. Publishing from a meal slot adds the recipe and returns to that week; saving a private draft does not add anything. If assignment fails after publication, the editor can retry assignment without publishing another copy.
+
+Plans before the date one calendar month ago are permanently deleted using a UTC date boundary, while future dates have no planning horizon. Cleanup runs on planner reads and hourly in the indexer, including for inactive accounts. Deployments without the indexer should schedule `node dist/prune-meal-plans.js` daily (`npm run planner:prune` in development). Local sample plans are included in the isolated, in-memory preview fixture: after `npm run build`, run `npx tsx tests/support/preview.ts` and open port 3001. The fixture never writes to a real account or database.
 
 ## Architecture and storage
 

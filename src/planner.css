@@ -1,0 +1,425 @@
+.meal-planner {
+  margin: 30px 0 50px;
+}
+.planner-heading,
+.planner-toolbar,
+.planner-date-nav,
+.planner-picker-toolbar,
+.planner-month-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.planner-heading {
+  margin-bottom: 28px;
+}
+.planner-heading h1 {
+  font:
+    42px Georgia,
+    serif;
+  margin: 8px 0;
+  letter-spacing: -1.3px;
+}
+.planner-heading .eyebrow {
+  font-size: 10px;
+}
+.planner-toggle {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 3px;
+}
+.planner-toggle button {
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+.planner-toggle button[aria-pressed='true'] {
+  background: var(--green);
+  color: var(--paper);
+}
+.planner-date-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  font-weight: 600;
+  padding: 9px 0;
+}
+.planner-status {
+  min-height: 22px;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 12px 0;
+}
+.planner-board {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  align-items: start;
+  scroll-snap-type: x proximity;
+  position: relative;
+}
+.planner-day {
+  min-width: 0;
+  background: var(--color-surface-selected);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  scroll-snap-align: start;
+}
+.planner-day.is-today {
+  border-color: var(--green);
+}
+.planner-day-heading {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 16px 13px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  min-height: 93px;
+}
+.planner-day-heading span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.planner-day-heading strong {
+  font:
+    22px Georgia,
+    serif;
+}
+.planner-day-heading small {
+  font-size: 10px;
+  color: var(--green);
+}
+.planner-slot {
+  padding: 10px;
+  border-top: 1px solid var(--line);
+  min-height: 128px;
+}
+.planner-slot-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+.planner-slot-heading h2 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0;
+  color: var(--muted);
+}
+.planner-slot-heading .icon-button {
+  width: 26px;
+  height: 26px;
+}
+.planner-empty-slot {
+  width: 100%;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border: 1px dashed var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.planner-empty-slot:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+.planner-entry {
+  position: relative;
+  padding: 13px 30px 13px 11px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 8px 0;
+}
+.planner-entry a {
+  color: var(--ink);
+  text-decoration: none;
+  display: block;
+}
+.planner-entry a:hover strong {
+  text-decoration: underline;
+}
+.planner-entry a > strong {
+  font-size: 13px;
+  line-height: 1.4;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.planner-time {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.planner-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+.planner-entry-menu {
+  position: absolute;
+  right: 2px;
+  top: 5px;
+}
+.planner-entry-menu > .icon-button {
+  width: 26px;
+  height: 28px;
+}
+.planner-menu-actions {
+  position: absolute;
+  z-index: 5;
+  top: 30px;
+  right: 0;
+  width: 155px;
+  padding: 5px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-popover);
+}
+.planner-menu-actions button {
+  display: block;
+  text-align: left;
+  padding: 10px 7px;
+  width: 100%;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+}
+.planner-menu-actions button:hover {
+  background: var(--soft);
+}
+.planner-retention {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 20px;
+}
+.is-day .planner-board {
+  display: block;
+  overflow: visible;
+  max-width: 740px;
+  margin: auto;
+}
+.is-day .planner-day-heading {
+  padding: 20px;
+}
+.is-day .planner-slot {
+  padding: 18px 20px;
+}
+.is-day .planner-entry {
+  padding: 16px 40px 16px 16px;
+}
+.is-day .planner-entry a > strong {
+  font-size: 17px;
+}
+.is-day .planner-entry .network-recipe-image {
+  width: 90px;
+  height: 70px;
+  float: left;
+  margin-right: 14px;
+  border-radius: 7px;
+}
+.is-day .planner-entry a::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+.planner-meal-notes {
+  margin-top: 18px;
+  border-left: 2px solid var(--line);
+  padding-left: 14px;
+}
+.planner-meal-notes h3 {
+  font-size: 12px;
+  color: var(--muted);
+}
+.planner-meal-notes p {
+  font-size: 12px;
+}
+.planner-meal-notes span {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-top: 4px;
+}
+.planner-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  margin-top: 18px;
+}
+.planner-month-grid > span {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding-bottom: 7px;
+}
+.planner-month-grid button {
+  min-height: 38px;
+  padding: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  border-radius: 6px;
+  font-weight: 400;
+}
+.planner-month-grid button.planned {
+  font-weight: 800;
+}
+.planner-month-grid button.outside {
+  color: var(--muted);
+}
+.planner-month-grid button.selected-week {
+  background: var(--soft);
+}
+.planner-month-grid button[aria-current='date'] {
+  border-color: var(--green);
+}
+.planner-month-grid button:hover {
+  background: var(--color-surface-hover);
+}
+.planner-form-fields,
+.planner-preference {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.planner-form-fields details > label {
+  margin-top: 12px;
+}
+.planner-preference {
+  max-width: 240px;
+}
+.planner-search {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+.planner-picker-results {
+  max-height: 42vh;
+  overflow-y: auto;
+}
+.planner-picker-recipe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
+.planner-picker-recipe > div {
+  min-width: 0;
+}
+.planner-picker-recipe strong {
+  overflow-wrap: anywhere;
+}
+.planner-picker-recipe small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.planner-picker-recipe button {
+  flex-shrink: 0;
+}
+.planner-picker-notice {
+  min-height: 20px;
+  font-size: 13px;
+  color: var(--green);
+}
+.planner-editor-destination {
+  padding: 15px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 22px;
+}
+.planner-editor-destination p {
+  font-size: 13px;
+  margin: 6px 0 0;
+}
+@media (max-width: 700px) {
+  .network-header {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 94px;
+    padding: 15px 0;
+    gap: 12px;
+  }
+  .network-header .network-actions {
+    gap: 12px;
+  }
+  .network-header .network-cookbook-link {
+    font-size: 13px;
+  }
+  .meal-planner {
+    margin-top: 18px;
+  }
+  .planner-heading {
+    align-items: flex-end;
+    gap: 8px;
+  }
+  .planner-heading h1 {
+    font-size: 31px;
+  }
+  .planner-heading .eyebrow {
+    display: none;
+  }
+  .planner-toggle button {
+    padding: 8px 10px;
+  }
+  .planner-toolbar {
+    flex-wrap: wrap;
+  }
+  .planner-date-nav {
+    gap: 4px;
+  }
+  .planner-date-title {
+    font-size: 13px;
+  }
+  .planner-date-title svg {
+    display: none;
+  }
+  .planner-toolbar > .button {
+    padding: 8px 10px;
+  }
+  .is-week .planner-board {
+    grid-template-columns: repeat(7, minmax(78vw, 1fr));
+    scroll-snap-type: x mandatory;
+  }
+  .planner-picker-toolbar {
+    flex-wrap: wrap;
+  }
+  .planner-entry a > strong {
+    font-size: 15px;
+  }
+}
