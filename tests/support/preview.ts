@@ -3,7 +3,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { TID } from '@atproto/common-web';
 import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import express from 'express';
 import { NetworkStore } from '../../server/network-store.js';
@@ -11,6 +11,8 @@ import { createNetworkApp } from '../../server/network-app.js';
 import { createRecipeRecord } from '../../server/atproto/records.js';
 import { RECIPE_COLLECTION } from '../../shared/atproto.js';
 import type { Database } from '../../server/db.js';
+import { PlannerStore } from '../../server/planner.js';
+import { addDays, localDate, weekStart } from '../../shared/planner.js';
 
 const previewPort = Number(process.env.BROWNBAG_PREVIEW_PORT || 3001);
 const previewOrigin = `http://127.0.0.1:${previewPort}`;
@@ -24,6 +26,9 @@ await pg.exec(
   await readFile(new URL('../../migrations/003_cookbook.sql', import.meta.url), 'utf8'),
 );
 const store = new NetworkStore(adapt(pg));
+await pg.exec(
+  await readFile(new URL('../../migrations/004_meal_planner.sql', import.meta.url), 'utf8'),
+);
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa';
 const cid = 'bafyre' + 'a'.repeat(53);
 const records = new Map<string, unknown>();
@@ -48,6 +53,46 @@ await store.index({
   cid,
   record,
   rev: TID.nextStr(),
+});
+// Relative dates keep the local demo useful without writing to a real account.
+const demoPlanner = new PlannerStore(store);
+const demoWeek = weekStart(localDate());
+const demoRecipes = [
+  { title: 'Slow Sunday pancakes', cookMinutes: 20, slot: 'breakfast' as const, day: 0 },
+  { title: 'Roasted tomato sauce', cookMinutes: 35, slot: 'dinner' as const, day: 2 },
+  { title: 'Crunchy chickpea salad', cookMinutes: 10, slot: 'lunch' as const, day: 4 },
+  { title: 'Something sweet', cookMinutes: undefined, slot: 'other' as const, day: 6 },
+];
+for (const [index, demo] of demoRecipes.entries()) {
+  const rkey = `demo${index}`;
+  const demoRecord = createRecipeRecord({
+    ...input,
+    title: demo.title,
+    cookMinutes: demo.cookMinutes,
+  });
+  records.set(rkey, demoRecord);
+  await store.index({
+    did,
+    collection: RECIPE_COLLECTION,
+    rkey,
+    cid,
+    record: demoRecord,
+    rev: TID.nextStr(),
+  });
+  await demoPlanner.add(did, {
+    id: randomUUID(),
+    uri: `at://${did}/${RECIPE_COLLECTION}/${rkey}`,
+    date: addDays(demoWeek, demo.day),
+    slot: demo.slot,
+    note: index === 1 ? 'Make extra for the freezer.' : '',
+  });
+}
+await demoPlanner.add(did, {
+  id: randomUUID(),
+  uri: `at://${did}/${RECIPE_COLLECTION}/3mabc234567ab`,
+  date: addDays(demoWeek, 2),
+  slot: 'dinner',
+  note: 'Serve the sauce on the side.',
 });
 await store.db.query(
   "INSERT INTO app_sessions(hash,did,expires_at) VALUES ($1,$2,now()+interval '1 hour')",

@@ -16,6 +16,7 @@ import type { OAuthService } from './atproto/oauth.js';
 import { HttpError, NetworkStore } from './network-store.js';
 import { Publisher } from './publishing.js';
 import { mountNetworkMcp } from './network-mcp.js';
+import { mountPlanner } from './planner.js';
 
 const fetchPhoto = safeFetchWrap({ responseMaxSize: 5_000_000, timeout: 15_000 });
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -355,6 +356,7 @@ export function createNetworkApp(config: {
       await publisher.follow(res.locals.user.did, did, method === 'delete');
       res.json({ ok: true });
     });
+  mountPlanner(app, store, requireUser);
   mountNetworkMcp(app, store, publisher, requireUser);
   app.use(['/api', '/mcp'], (_req, _res, next) => next(new HttpError(404, 'Endpoint not found.')));
   const errors: ErrorRequestHandler = (err, _req, res, _next) => {

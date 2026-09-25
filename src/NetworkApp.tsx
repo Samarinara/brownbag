@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BookOpen,
   Bookmark,
+  CalendarDays,
   Check,
   Link2,
   LogOut,
@@ -31,7 +32,10 @@ import {
 import { type RecipeInput, type RecipeView, type SessionUser } from '../shared/atproto';
 import { NetworkEditorPage } from './NetworkEditor';
 import { NetworkAccount } from './NetworkAccount';
+import { MealPlanner, PlanRecipeDialog, defaultPlannerUrl } from './MealPlanner';
+import { mealLabels, plannerUrl, targetFromRoute, type MealTarget } from '../shared/planner';
 import './network.css';
+import './planner.css';
 import {
   CardFacts,
   RecipeFacts,
@@ -52,6 +56,12 @@ const blank = (): RecipeInput => ({
 });
 const recipeUrl = (uri: string) => `/recipe?uri=${encodeURIComponent(uri)}`;
 const currentUri = () => new URLSearchParams(location.search).get('uri');
+const currentPlannerRoute = () =>
+  /^\/meal-planner(?:\/day)?$/.test(location.pathname)
+    ? location.pathname === '/meal-planner' && !location.search
+      ? defaultPlannerUrl()
+      : location.pathname + location.search
+    : null;
 const currentEditorRoute = () =>
   /^\/recipe\/(new|edit|adapt|draft)$/.test(location.pathname)
     ? location.pathname + location.search
@@ -96,6 +106,9 @@ export function App() {
   const [accountMenu, setAccountMenu] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>(savedTheme);
   const [editorRoute, setEditorRoute] = useState(currentEditorRoute);
+  const [plannerRoute, setPlannerRoute] = useState(currentPlannerRoute);
+  const [planRecipe, setPlanRecipe] = useState(false);
+  const recipeReturn = useRef<string | null>(null);
   const leaveGuard = useRef<() => boolean>(() => true);
   const activeUrl = useRef(location.pathname + location.search);
   const [checked, setChecked] = useState<Set<number>>(new Set());
@@ -113,11 +126,46 @@ export function App() {
     history.pushState(null, '', url);
     activeUrl.current = url;
     setEditorRoute(null);
+    setPlannerRoute(null);
     setUri(next);
     setError('');
     setChecked(new Set());
     window.scrollTo(0, 0);
   };
+  const navigatePlanner = (url = defaultPlannerUrl()) => {
+    if (!user) {
+      setLogin(true);
+      return;
+    }
+    if (!leaveGuard.current()) return;
+    history.pushState(null, '', url);
+    activeUrl.current = url;
+    setPlannerRoute(url);
+    setEditorRoute(null);
+    setUri(null);
+    setError('');
+    window.scrollTo(0, 0);
+  };
+  const createPlannedRecipe = (target: MealTarget) => {
+    if (!leaveGuard.current()) return;
+    const url = `/recipe/new?planDate=${target.date}&planSlot=${target.slot}`;
+    history.pushState(null, '', url);
+    activeUrl.current = url;
+    setPlannerRoute(null);
+    setEditorRoute(url);
+    setError('');
+    window.scrollTo(0, 0);
+  };
+  useEffect(() => {
+    if (
+      plannerRoute &&
+      location.pathname.startsWith('/meal-planner') &&
+      location.pathname + location.search !== plannerRoute
+    ) {
+      history.replaceState(null, '', plannerRoute);
+      activeUrl.current = plannerRoute;
+    }
+  }, [plannerRoute]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('brownbag-theme', theme);
@@ -141,6 +189,7 @@ export function App() {
       }
       activeUrl.current = location.pathname + location.search;
       setEditorRoute(currentEditorRoute());
+      setPlannerRoute(currentPlannerRoute());
       setUri(currentUri());
       if (!currentUri()) setFeed(location.pathname === '/cookbook' ? 'cookbook' : 'discover');
       setChecked(new Set());
@@ -162,7 +211,7 @@ export function App() {
     return () => window.removeEventListener('popstate', pop);
   }, []);
   useEffect(() => {
-    if (!ready || configured === null || editorRoute) return;
+    if (!ready || configured === null || editorRoute || plannerRoute) return;
     if (!configured) {
       setLoading(false);
       return;
@@ -232,14 +281,16 @@ export function App() {
       alive = false;
       pageRequest.current += 1;
     };
-  }, [ready, configured, feed, search, uri, revision, user, tag, editorRoute]);
+  }, [ready, configured, feed, search, uri, revision, user, tag, editorRoute, plannerRoute]);
   useEffect(() => {
-    document.title = editorRoute
-      ? `${editorRoute.startsWith('/recipe/new') ? 'Add a recipe' : 'Edit recipe'} — brownbag`
-      : recipe && uri
-        ? `${recipe.record.title} — brownbag`
-        : 'brownbag — Your recipes. All in one bag.';
-  }, [editorRoute, recipe, uri]);
+    document.title = plannerRoute
+      ? 'Meal Planner — brownbag'
+      : editorRoute
+        ? `${editorRoute.startsWith('/recipe/new') ? 'Add a recipe' : 'Edit recipe'} — brownbag`
+        : recipe && uri
+          ? `${recipe.record.title} — brownbag`
+          : 'brownbag — Your recipes. All in one bag.';
+  }, [editorRoute, recipe, uri, plannerRoute]);
   useEffect(() => {
     if (!user) {
       setTags([]);
@@ -288,6 +339,7 @@ export function App() {
       return;
     }
     setFeed(next);
+    recipeReturn.current = null;
     setQuery('');
     setSearch('');
     setTag('');
@@ -316,6 +368,7 @@ export function App() {
     history.pushState(null, '', url);
     activeUrl.current = url;
     setEditorRoute(url);
+    setPlannerRoute(null);
     setError('');
     window.scrollTo(0, 0);
   };
@@ -342,13 +395,26 @@ export function App() {
           <a
             href="/cookbook"
             className="network-cookbook-link"
-            aria-current={feed === 'cookbook' && !uri ? 'page' : undefined}
+            aria-current={
+              feed === 'cookbook' && !uri && !plannerRoute && !editorRoute ? 'page' : undefined
+            }
             onClick={(e) => {
               e.preventDefault();
               selectFeed('cookbook');
             }}
           >
             Cookbook
+          </a>
+          <a
+            href="/meal-planner"
+            className="network-cookbook-link"
+            aria-current={plannerRoute ? 'page' : undefined}
+            onClick={(event) => {
+              event.preventDefault();
+              navigatePlanner();
+            }}
+          >
+            Meal Planner
           </a>
           {user ? (
             <div className="account-menu-wrap">
@@ -409,9 +475,14 @@ export function App() {
           )}
         </div>
       </header>
-      <main id="main-content" className="network-main" tabIndex={-1} aria-label="Recipe content">
+      <main
+        id="main-content"
+        className="network-main"
+        tabIndex={-1}
+        aria-label={plannerRoute ? 'Meal Planner' : 'Recipe content'}
+      >
         <p className="sr-only" role="status" aria-atomic="true">
-          {browseAnnouncement}
+          {plannerRoute ? 'Meal Planner opened.' : browseAnnouncement}
         </p>
         <Notice error={error} />
         {configured === false ? (
@@ -423,6 +494,29 @@ export function App() {
               be available once setup is complete.
             </p>
           </section>
+        ) : plannerRoute ? (
+          !ready ? (
+            <p role="status">Opening your Meal Planner…</p>
+          ) : user ? (
+            <MealPlanner
+              key={user.did}
+              route={plannerRoute}
+              navigate={navigatePlanner}
+              createRecipe={createPlannedRecipe}
+              openRecipe={(uri) => {
+                recipeReturn.current = plannerRoute;
+                go(uri);
+              }}
+            />
+          ) : (
+            <section className="empty-state">
+              <h1>Meal Planner</h1>
+              <p>Sign in to plan your meals.</p>
+              <button className="button primary" onClick={() => setLogin(true)}>
+                Sign in
+              </button>
+            </section>
+          )
         ) : editorRoute ? (
           !ready ? (
             <>
@@ -441,8 +535,23 @@ export function App() {
               route={editorRoute}
               userDid={user.did}
               leaveGuard={leaveGuard}
-              close={() => go(uri)}
+              close={() => {
+                const target = targetFromRoute(editorRoute);
+                if (target) navigatePlanner(plannerUrl(target.date));
+                else go(uri);
+              }}
               done={(result) => {
+                const target = targetFromRoute(editorRoute);
+                if (target) {
+                  notify(
+                    result
+                      ? `Recipe published and added to ${mealLabels[target.slot]}`
+                      : 'Private draft saved. Nothing added to your meal plan.',
+                  );
+                  refresh();
+                  navigatePlanner(plannerUrl(target.date));
+                  return;
+                }
                 notify(result ? 'Recipe published' : 'Private draft saved');
                 refresh();
                 if (result) go(result.uri);
@@ -463,9 +572,18 @@ export function App() {
           )
         ) : uri ? (
           <>
-            <button className="text-button recipe-back" onClick={() => go(null)}>
+            <button
+              className="text-button recipe-back"
+              onClick={() =>
+                recipeReturn.current ? navigatePlanner(recipeReturn.current) : go(null)
+              }
+            >
               <ArrowLeft size={16} />
-              {feed === 'cookbook' ? 'Back to cookbook' : 'Back to recipes'}
+              {recipeReturn.current
+                ? 'Back to Meal Planner'
+                : feed === 'cookbook'
+                  ? 'Back to cookbook'
+                  : 'Back to recipes'}
             </button>
             {loading ? (
               <>
@@ -573,6 +691,15 @@ export function App() {
                             ? 'Choosing Save will ask you to sign in first.'
                             : ''}
                     </span>
+                    <button
+                      className="button secondary"
+                      onClick={() => {
+                        if (!user) setLogin(true);
+                        else setPlanRecipe(true);
+                      }}
+                    >
+                      <CalendarDays size={16} /> Plan meal
+                    </button>
                     {entry?.saved && (
                       <button
                         className="button secondary"
@@ -1253,6 +1380,24 @@ export function App() {
             setTagSelector(false);
             notify(entry?.saved ? 'Tags updated' : 'Saved to your cookbook');
             refresh();
+          }}
+        />
+      )}
+      {planRecipe && recipe && user && (
+        <PlanRecipeDialog
+          recipe={recipe}
+          close={() => setPlanRecipe(false)}
+          done={(target) => {
+            setPlanRecipe(false);
+            setToast({
+              kind: 'success',
+              text: `Added to ${mealLabels[target.slot]} on ${target.date}`,
+              actionLabel: 'View plan',
+              onAction: () => {
+                setToast(null);
+                navigatePlanner(plannerUrl(target.date));
+              },
+            });
           }}
         />
       )}
