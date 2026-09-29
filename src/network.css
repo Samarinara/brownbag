@@ -1785,3 +1785,47 @@
     line-height: 1.5;
   }
 }
+
+.has-recipe-feed {
+  overflow-x: clip;
+}
+.recipe-feed-detail {
+  touch-action: pan-y pinch-zoom;
+}
+
+/* A phone snackbar needs a real width; a centered shrink-to-fit pill wraps excessively. */
+@media (max-width: 580px) {
+  .network-toast {
+    inset-inline: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-width: none;
+    transform: none;
+    min-height: 52px;
+    gap: 8px;
+    padding: 4px 6px 4px 12px;
+    border-radius: 12px;
+    box-sizing: border-box;
+  }
+  .network-toast > svg {
+    flex: 0 0 16px;
+    width: 16px;
+  }
+  .network-toast .toast-text {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .network-toast .toast-action {
+    border: 0;
+    border-radius: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .network-toast .toast-close {
+    width: 44px;
+    height: 44px;
+  }
+}

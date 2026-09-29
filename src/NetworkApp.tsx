@@ -36,6 +36,7 @@ import { NetworkAccount } from './NetworkAccount';
 import { MealPlanner, PlanRecipeDialog, defaultPlannerUrl } from './MealPlanner';
 import { mealLabels, plannerUrl, targetFromRoute, type MealTarget } from '../shared/planner';
 import './network.css';
+import { useRecipeSwipe } from './useRecipeSwipe';
 import './planner.css';
 import {
   CardFacts,
@@ -91,7 +92,12 @@ export function App() {
   );
   const [feedPage, setFeedPage] = useState(location.pathname === '/feed');
   const [feedEnd, setFeedEnd] = useState(false);
-  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const preparedRecipe = useRef<{
+    recipe: RecipeView;
+    entry: { saved: boolean; tags: string[] } | null;
+    userDid?: string;
+  } | null>(null);
+  const entryCache = useRef(new Map<string, Promise<{ saved: boolean; tags: string[] }>>());
   const interactionLock = useRef(false);
   const [tag, setTag] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -231,6 +237,14 @@ export function App() {
   useEffect(() => {
     if (!ready || configured === null || editorRoute || plannerRoute) return;
     if (!configured) {
+      setLoading(false);
+      return;
+    }
+    const prepared = preparedRecipe.current;
+    preparedRecipe.current = null;
+    if (feedPage && prepared?.recipe.uri === uri && prepared.userDid === user?.did) {
+      setRecipe(prepared.recipe);
+      setEntry(prepared.entry);
       setLoading(false);
       return;
     }
@@ -400,12 +414,55 @@ export function App() {
     refresh();
     window.scrollTo(0, 0);
   };
-  const advanceRecipe = async (originUrl: string) => {
+  const feedEntry = (target: string) => {
+    if (!user) return Promise.resolve(null);
+    const key = `${user.did}:${target}`;
+    let request = entryCache.current.get(key);
+    if (!request) {
+      request = api<{ saved: boolean; tags: string[] }>(
+        `/cookbook/entry?uri=${encodeURIComponent(target)}`,
+      );
+      entryCache.current.set(key, request);
+      void request.catch(() => {
+        entryCache.current.delete(key);
+      });
+    }
+    return request;
+  };
+  useEffect(() => {
+    const index = recipes.findIndex((item) => item.uri === uri);
+    const next = index >= 0 ? recipes[index + 1] : undefined;
+    if (feedPage && next) void feedEntry(next.uri).catch(() => {});
+  }, [feedPage, uri, recipes, user]);
+  useEffect(() => {
+    entryCache.current.clear();
+  }, [user, revision]);
+  const swipe = useRecipeSwipe(
+    recipe?.uri,
+    feedPage &&
+      !busy &&
+      !loading &&
+      !feedEnd &&
+      !login &&
+      !planRecipe &&
+      !tagSelector &&
+      !confirmDeleteRecipe,
+    (save) => {
+      void interactWithFeed(save);
+    },
+  );
+  const showFeedRecipe = (next: RecipeView, saved: { saved: boolean; tags: string[] } | null) => {
+    preparedRecipe.current = { recipe: next, entry: saved, userDid: user?.did };
+    setRecipe(next);
+    setEntry(saved);
+    setLoading(false);
+    go(next.uri, 'discover', true);
+  };
+  const advanceRecipe = async (originUrl: string): Promise<RecipeView | null | undefined> => {
     if (activeUrl.current !== originUrl) return;
     const index = recipes.findIndex((item) => item.uri === uri);
     if (index >= 0 && recipes[index + 1]) {
-      go(recipes[index + 1].uri, 'discover', true);
-      return;
+      return recipes[index + 1];
     }
     // A directly opened feed URL starts at that recipe, then continues by publish date.
     const cursor =
@@ -423,37 +480,68 @@ export function App() {
       setRecipes((previous) => [...previous, ...result.recipes]);
       setNextCursor(result.nextCursor);
       if (result.recipes[0]) {
-        go(result.recipes[0].uri, 'discover', true);
-        return;
+        return result.recipes[0];
       }
     }
-    setFeedEnd(true);
-    window.scrollTo(0, 0);
+    return null;
   };
   const interactWithFeed = async (save: boolean) => {
     if (interactionLock.current || busy || loading || !recipe || feedEnd) return;
     if (save && !user) {
+      swipe.reset();
       setLogin(true);
       return;
     }
-    if (save && !entry) return;
+    if (save && !entry) {
+      swipe.reset();
+      return;
+    }
     interactionLock.current = true;
     setBusy(true);
     const previous = recipe.uri;
+    const previousRecipe = recipe;
+    const previousEntry = entry;
     const originUrl = activeUrl.current;
     const wasSaved = !!entry?.saved;
     try {
+      // Keep the current recipe visible until the destination and save are ready.
+      const next = await advanceRecipe(originUrl);
+      if (next === undefined || activeUrl.current !== originUrl) {
+        swipe.reset();
+        return;
+      }
+      const savedEntry = next ? await feedEntry(next.uri) : null;
+      if (activeUrl.current !== originUrl) {
+        swipe.reset();
+        return;
+      }
       if (save && !wasSaved) await post('/bookmarks', { uri: previous });
+      if (activeUrl.current !== originUrl) {
+        swipe.reset();
+        return;
+      }
+      entryCache.current.delete(`${user?.did}:${previous}`);
+      await swipe.leave(save);
+      if (activeUrl.current !== originUrl) {
+        swipe.reset();
+        return;
+      }
+      if (next) showFeedRecipe(next, savedEntry);
+      else {
+        setFeedEnd(true);
+        window.scrollTo(0, 0);
+      }
       if (save)
         setToast({
           kind: 'success',
-          text: wasSaved ? 'Already in your cookbook' : 'Saved to your cookbook',
+          text: wasSaved ? 'Already saved' : 'Saved to cookbook',
           actionLabel: 'Undo',
           onAction: () => {
             void (async () => {
               if (interactionLock.current) return;
               interactionLock.current = true;
               setBusy(true);
+              const undoOrigin = activeUrl.current;
               try {
                 if (!wasSaved)
                   await api('/bookmarks', {
@@ -461,8 +549,14 @@ export function App() {
                     body: JSON.stringify({ uri: previous }),
                   });
                 setToast(null);
-                go(previous, 'discover', true);
-                refresh();
+                entryCache.current.delete(`${user?.did}:${previous}`);
+                if (activeUrl.current !== undoOrigin) return;
+                await swipe.leave(false);
+                if (activeUrl.current !== undoOrigin) {
+                  swipe.reset();
+                  return;
+                }
+                showFeedRecipe(previousRecipe, previousEntry);
               } catch (e) {
                 setError(message(e));
               } finally {
@@ -472,8 +566,8 @@ export function App() {
             })();
           },
         });
-      await advanceRecipe(originUrl);
     } catch (e) {
+      swipe.reset();
       setError(message(e));
     } finally {
       setBusy(false);
@@ -509,7 +603,7 @@ export function App() {
     window.scrollTo(0, 0);
   };
   return (
-    <div className="network-shell">
+    <div className={`network-shell ${feedPage ? 'has-recipe-feed' : ''}`}>
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
@@ -769,42 +863,8 @@ export function App() {
                   key={recipe.uri}
                   className={`network-detail ${feedPage ? 'recipe-feed-detail' : ''}`}
                   lang={recipe.record.language}
-                  onTouchStart={(event) => {
-                    if (
-                      !feedPage ||
-                      event.touches.length !== 1 ||
-                      (event.target as HTMLElement).closest(
-                        'button, a, input, summary, .network-tags',
-                      )
-                    ) {
-                      swipeStart.current = null;
-                      return;
-                    }
-                    swipeStart.current = {
-                      x: event.touches[0].clientX,
-                      y: event.touches[0].clientY,
-                    };
-                  }}
-                  onTouchMove={(event) => {
-                    if (
-                      swipeStart.current &&
-                      (event.touches.length !== 1 ||
-                        Math.abs(event.touches[0].clientY - swipeStart.current.y) > 35)
-                    )
-                      swipeStart.current = null;
-                  }}
-                  onTouchCancel={() => {
-                    swipeStart.current = null;
-                  }}
-                  onTouchEnd={(event) => {
-                    const start = swipeStart.current;
-                    swipeStart.current = null;
-                    if (!start) return;
-                    const dx = event.changedTouches[0].clientX - start.x;
-                    const dy = event.changedTouches[0].clientY - start.y;
-                    if (Math.abs(dx) >= 80 && Math.abs(dx) > Math.abs(dy) * 2)
-                      void interactWithFeed(dx > 0);
-                  }}
+                  ref={swipe.ref}
+                  {...(feedPage ? swipe.handlers : {})}
                 >
                   {user?.did === recipe.authorDid ? (
                     <div className="recipe-owner-actions">
