@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run db:migrate && npm run build",
   "outputDirectory": "dist/client",
   "functions": { "api/index.ts": { "maxDuration": 60 } },
   "rewrites": [
