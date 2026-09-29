@@ -12,7 +12,7 @@ A shared recipe platform at **brownbag.polli.page**. This branch replaces the se
 - Revocable assistant keys, stateless MCP, and mandatory human approval before any agent-proposed publication.
 - Filtered Jetstream ingestion with durable cursors, idempotent revision guards, tombstones, invalid-event storage, and bounded account reconciliation.
 
-Meal Planner data lives only in PostgreSQL, scoped to the signed-in account’s DID; it is not published to AT Protocol. Migration `004_meal_planner.sql` adds its tables (run `npm run db:migrate` before deploying). Deleting a recipe cascades to every plan referencing it. Recipe notes also appear together in the day view’s meal notes. Publishing from a meal slot adds the recipe and returns to that week; saving a private draft does not add anything. If assignment fails after publication, the editor can retry assignment without publishing another copy.
+Meal Planner data lives only in PostgreSQL, scoped to the signed-in account’s DID; it is not published to AT Protocol. Migration `004_meal_planner.sql` adds its tables. Vercel runs pending migrations as part of its build; other deployment targets must run `npm run db:migrate` before starting the new release. Deleting a recipe cascades to every plan referencing it. Recipe notes also appear together in the day view’s meal notes. Publishing from a meal slot adds the recipe and returns to that week; saving a private draft does not add anything. If assignment fails after publication, the editor can retry assignment without publishing another copy.
 
 Plans before the date one calendar month ago are permanently deleted using a UTC date boundary, while future dates have no planning horizon. Cleanup runs on planner reads and hourly in the indexer, including for inactive accounts. Deployments without the indexer should schedule `node dist/prune-meal-plans.js` daily (`npm run planner:prune` in development). Local sample plans are included in the isolated, in-memory preview fixture: after `npm run build`, run `npx tsx tests/support/preview.ts` and open port 3001. The fixture never writes to a real account or database.
 
@@ -65,7 +65,7 @@ Open http://127.0.0.1:3000. Without credentials the app shows a setup screen, no
 
 ## Vercel and worker deployment
 
-1. Create a Neon project and run the migration against it. Place the API and worker near the database region. Use separate preview database branches and OAuth secrets; never point untrusted previews at production.
+1. Create a Neon project and place the API and worker near the database region. Vercel's build runs pending migrations using `DATABASE_URL_UNPOOLED` when configured, otherwise `DATABASE_URL`. Use separate preview database branches and OAuth secrets; never point untrusted previews at production.
 2. Configure the variables above in Vercel, with `APP_ORIGIN=https://brownbag.polli.page`, Node 22, and the custom domain. `vercel.json` builds the static client and routes API/OAuth/MCP requests to `api/index.ts`.
 3. Make `/oauth-client-metadata.json`, `/jwks.json`, and `/api/auth/callback` publicly reachable. Deployment protection must not block OAuth metadata. Verify callback routing on a real preview before launch.
 4. Deploy the same commit as a worker using `npm ci && npm run build`, then `node dist/indexer.js`. The worker needs `DATABASE_URL` and optionally `JETSTREAM_URL`; it does not need OAuth secrets.
