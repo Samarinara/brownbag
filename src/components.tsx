@@ -60,7 +60,16 @@ export function Modal({
         close();
       }}
       onClick={(e) => {
-        if (e.target === ref.current) close();
+        if (e.target === ref.current) {
+          const bounds = ref.current.getBoundingClientRect();
+          if (
+            e.clientX < bounds.left ||
+            e.clientX > bounds.right ||
+            e.clientY < bounds.top ||
+            e.clientY > bounds.bottom
+          )
+            close();
+        }
       }}
     >
       <div className="modal-head">
@@ -74,7 +83,7 @@ export function Modal({
           <X size={21} />
         </button>
       </div>
-      {children}
+      <div className="modal-body">{children}</div>
     </dialog>
   );
 }
