@@ -14,7 +14,6 @@ import {
   Search,
   Settings,
   Share2,
-  Shuffle,
   Sun,
   Tags,
   X,
@@ -45,6 +44,7 @@ import {
   RecipeStory,
   RecipeTags,
   ingredientSections,
+  recipeTime,
   recipeYield,
 } from './RecipePresentation';
 
@@ -602,6 +602,7 @@ export function App() {
     setError('');
     window.scrollTo(0, 0);
   };
+  const titleTime = recipe ? recipeTime(recipe.record) : null;
   return (
     <div className={`network-shell ${feedPage ? 'has-recipe-feed' : ''}`}>
       <a className="skip-link" href="#main-content">
@@ -889,7 +890,12 @@ export function App() {
                         (recipe.authorHandle ? `@${recipe.authorHandle}` : 'A COMMUNITY COOK')}
                     </p>
                   )}
-                  <h1>{recipe.record.title}</h1>
+                  <div className="recipe-title-row">
+                    <h1>{recipe.record.title}</h1>
+                    {titleTime && (
+                      <span className="recipe-title-time">{titleTime.minutes} min total</span>
+                    )}
+                  </div>
                   <p className="network-summary">{recipe.record.summary}</p>
                   <div
                     className="network-actions network-detail-actions"
@@ -1010,7 +1016,7 @@ export function App() {
                     </button>
 
                     <button
-                      className="text-button recipe-adapt"
+                      className="button secondary recipe-adapt"
                       onClick={() =>
                         edit({
                           data: {
@@ -1075,11 +1081,6 @@ export function App() {
                     </div>
                   </div>
                   <RecipeTags tags={recipe.record.tags} />
-                  {feedPage && (
-                    <p className="feed-hint">
-                      Swipe right to save · Swipe left for the next recipe
-                    </p>
-                  )}
                   {!!recipe.record.images?.length && (
                     <div className="recipe-gallery">
                       {recipe.record.images.map((photo, index) => (
@@ -1105,12 +1106,8 @@ export function App() {
                       )}
                       {ingredientSections(recipe.record.ingredients).map(
                         (section, sectionIndex) => (
-                          <details className="ingredient-group" key={sectionIndex} open>
-                            <summary>
-                              {section.name ||
-                                (sectionIndex === 0 ? 'Ingredients' : 'Other ingredients')}{' '}
-                              <span>{section.items.length}</span>
-                            </summary>
+                          <div className="ingredient-group" key={sectionIndex}>
+                            {section.name && <h3>{section.name}</h3>}
                             <ul className="ingredient-rows">
                               {section.items.map(({ ingredient, index }) => (
                                 <li key={index}>
@@ -1128,7 +1125,7 @@ export function App() {
                                 </li>
                               ))}
                             </ul>
-                          </details>
+                          </div>
                         ),
                       )}
                     </section>
@@ -1155,7 +1152,7 @@ export function App() {
                         Edit cookbook tags
                       </button>
                     )}
-                    <RecipeFacts record={recipe.record} />
+                    <RecipeFacts record={recipe.record} showTime={false} />
                     {recipe.record.derivedFrom && (
                       <p className="network-attribution">
                         Inspired by{' '}
@@ -1242,29 +1239,9 @@ export function App() {
                 </form>
                 <div className="network-hero-actions">
                   {feed !== 'cookbook' && (
-                    <span
-                      className="disabled-hint"
-                      title={
-                        loading
-                          ? 'Surprise Me is unavailable while recipes are loading.'
-                          : recipes.length === 0
-                            ? 'Surprise Me needs at least one recipe to pick from.'
-                            : 'Open a random recipe'
-                      }
-                    >
-                      <button
-                        className="button primary"
-                        disabled={loading || recipes.length === 0}
-                        aria-describedby="surprise-hint"
-                        onClick={() => {
-                          const item = recipes[Math.floor(Math.random() * recipes.length)];
-                          if (item) go(item.uri);
-                        }}
-                      >
-                        <Shuffle size={18} />
-                        Surprise me
-                      </button>
-                    </span>
+                    <button className="button primary" onClick={openFeed}>
+                      Open recipe feed <ArrowRight size={18} />
+                    </button>
                   )}
                   <span
                     className="disabled-hint"
@@ -1284,13 +1261,6 @@ export function App() {
                     </button>
                   </span>
                 </div>
-                <span id="surprise-hint" className="sr-only">
-                  {loading
-                    ? 'Surprise Me is disabled while recipes are loading.'
-                    : recipes.length === 0
-                      ? 'Surprise Me is disabled because there are no recipes to choose from.'
-                      : ''}
-                </span>
               </div>
             </section>
             {feed === 'cookbook' && (
@@ -1308,15 +1278,6 @@ export function App() {
                   </button>
                 ))}
               </nav>
-            )}
-            {feed !== 'cookbook' && !search && (
-              <div className="home-feed-invitation">
-                <h2>What’s cooking?</h2>
-                <p>Explore one recipe at a time. Save what catches your eye.</p>
-                <button className="button primary" onClick={openFeed}>
-                  Open recipe feed <ArrowRight size={18} />
-                </button>
-              </div>
             )}
             {(feed === 'cookbook' || !!search) && (
               <>

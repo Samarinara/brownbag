@@ -83,20 +83,28 @@ export function CardFacts({ record }: { record: RecipeInput }) {
   );
 }
 
-export function RecipeFacts({ record }: { record: RecipeInput }) {
+export function RecipeFacts({
+  record,
+  showTime = true,
+}: {
+  record: RecipeInput;
+  showTime?: boolean;
+}) {
   const time = recipeTime(record);
   const source = record.source;
   return (
     <dl className="network-recipe-facts">
-      <div>
-        <dt>{time?.label || 'Time'}</dt>
-        <dd>{time ? `${time.minutes} min` : 'Not specified'}</dd>
-        {record.prepMinutes !== undefined && record.cookMinutes !== undefined && (
-          <dd className="network-fact-note">
-            {record.prepMinutes} min prep · {record.cookMinutes} min cook
-          </dd>
-        )}
-      </div>
+      {showTime && (
+        <div>
+          <dt>{time?.label || 'Time'}</dt>
+          <dd>{time ? `${time.minutes} min` : 'Not specified'}</dd>
+          {record.prepMinutes !== undefined && record.cookMinutes !== undefined && (
+            <dd className="network-fact-note">
+              {record.prepMinutes} min prep · {record.cookMinutes} min cook
+            </dd>
+          )}
+        </div>
+      )}
       <div>
         <dt>Source</dt>
         <dd>

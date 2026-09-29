@@ -460,6 +460,21 @@
   margin: 20px 0;
   overflow-wrap: anywhere;
 }
+.recipe-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.recipe-title-row h1 {
+  margin: 0;
+}
+.recipe-title-time {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .network-summary {
   font-size: 19px;
   color: var(--muted);
@@ -1706,11 +1721,6 @@
   align-items: center;
   min-height: 44px;
 }
-.feed-hint {
-  color: var(--muted);
-  font-size: 12px;
-  margin: 0 0 22px;
-}
 .recipe-feed-detail {
   touch-action: pan-y;
 }
@@ -1725,7 +1735,6 @@
 }
 .network-detail-actions .recipe-adapt {
   font-size: 13px;
-  padding: 10px 4px;
 }
 .network-detail .network-cooking {
   grid-template-columns: minmax(0, 1fr);
@@ -1737,51 +1746,40 @@
   font-size: 14px;
   margin: 0 0 16px;
 }
-.ingredient-group {
-  border-top: 1px solid var(--line);
+.ingredient-group + .ingredient-group {
+  margin-top: 18px;
 }
-.ingredient-group > summary {
-  cursor: pointer;
-  padding: 13px 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-.ingredient-group > summary > span {
+.ingredient-group h3 {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
-  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin: 0 0 7px;
+  text-transform: uppercase;
 }
 .ingredient-rows {
   list-style: none;
-  padding: 0 0 12px;
+  padding: 0;
   margin: 0;
 }
 .ingredient-rows li {
   display: grid;
   grid-template-columns: minmax(66px, 24%) minmax(0, 1fr);
   gap: 12px;
-  padding: 5px 0;
-  font-size: 15px;
+  padding: 4px 0;
+  font-size: 14px;
   line-height: 1.5;
 }
 .ingredient-amount {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 500;
 }
 .recipe-details-footer {
   margin-top: 36px;
   color: var(--muted);
 }
 .recipe-details-footer .network-recipe-facts {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.home-feed-invitation {
-  padding: 32px 0 56px;
-  border-top: 1px solid var(--line);
-}
-.home-feed-invitation p {
-  color: var(--muted);
+  grid-template-columns: minmax(0, 1fr);
 }
 @media (max-width: 580px) {
   .network-header {
@@ -1812,6 +1810,16 @@
   .network-summary {
     font-size: 17px;
     line-height: 1.5;
+  }
+}
+
+@media (min-width: 800px) {
+  .network-detail {
+    max-width: 1080px;
+  }
+  .network-detail .network-cooking {
+    grid-template-columns: minmax(250px, 0.85fr) minmax(0, 1.5fr);
+    gap: clamp(40px, 6vw, 72px);
   }
 }
 
