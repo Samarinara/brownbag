@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   Bookmark,
   CalendarDays,
@@ -43,9 +44,10 @@ import {
   RecipeStory,
   RecipeTags,
   ingredientSections,
+  recipeYield,
 } from './RecipePresentation';
 
-type Feed = 'discover' | 'following' | 'cookbook';
+type Feed = 'discover' | 'cookbook';
 type ThemePreference = 'system' | 'light' | 'dark';
 type Draft = { id: string; data: RecipeInput; updatedAt: string };
 export type Editing = { data: RecipeInput; original?: RecipeView; draftId?: string };
@@ -87,6 +89,10 @@ export function App() {
   const [feed, setFeed] = useState<Feed>(
     location.pathname === '/cookbook' ? 'cookbook' : 'discover',
   );
+  const [feedPage, setFeedPage] = useState(location.pathname === '/feed');
+  const [feedEnd, setFeedEnd] = useState(false);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const interactionLock = useRef(false);
   const [tag, setTag] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [entry, setEntry] = useState<{ saved: boolean; tags: string[] } | null>(null);
@@ -111,7 +117,6 @@ export function App() {
   const recipeReturn = useRef<string | null>(null);
   const leaveGuard = useRef<() => boolean>(() => true);
   const activeUrl = useRef(location.pathname + location.search);
-  const [checked, setChecked] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [nextCursor, setNextCursor] = useState<string>();
   const [confirmDeleteRecipe, setConfirmDeleteRecipe] = useState(false);
@@ -120,16 +125,23 @@ export function App() {
   const pageRequest = useRef(0);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const refresh = () => setRevision((value) => value + 1);
-  const go = (next: string | null, destination = feed) => {
+  const go = (next: string | null, destination = feed, inFeed = feedPage) => {
     if (!leaveGuard.current()) return;
-    const url = next ? recipeUrl(next) : destination === 'cookbook' ? '/cookbook' : '/';
+    const url = next
+      ? inFeed
+        ? `/feed?uri=${encodeURIComponent(next)}`
+        : recipeUrl(next)
+      : destination === 'cookbook'
+        ? '/cookbook'
+        : '/';
+    setFeedPage(!!next && inFeed);
+    setFeedEnd(false);
     history.pushState(null, '', url);
     activeUrl.current = url;
     setEditorRoute(null);
     setPlannerRoute(null);
     setUri(next);
     setError('');
-    setChecked(new Set());
     window.scrollTo(0, 0);
   };
   const navigatePlanner = (url = defaultPlannerUrl()) => {
@@ -141,6 +153,7 @@ export function App() {
     history.pushState(null, '', url);
     activeUrl.current = url;
     setPlannerRoute(url);
+    setFeedPage(false);
     setEditorRoute(null);
     setUri(null);
     setError('');
@@ -191,8 +204,13 @@ export function App() {
       setEditorRoute(currentEditorRoute());
       setPlannerRoute(currentPlannerRoute());
       setUri(currentUri());
+      setFeedPage(location.pathname === '/feed');
+      if (location.pathname === '/feed') {
+        setRecipes([]);
+        setNextCursor(undefined);
+      }
+      setFeedEnd(false);
       if (!currentUri()) setFeed(location.pathname === '/cookbook' ? 'cookbook' : 'discover');
-      setChecked(new Set());
     };
     window.addEventListener('popstate', pop);
     api<{ configured: boolean }>('/config')
@@ -263,6 +281,13 @@ export function App() {
             setRecipes(result.recipes);
             setNextCursor(result.nextCursor);
             setDrafts(privateData.drafts);
+            if (feedPage && result.recipes[0]) {
+              const first = result.recipes[0];
+              const url = `/feed?uri=${encodeURIComponent(first.uri)}`;
+              history.replaceState(null, '', url);
+              activeUrl.current = url;
+              setUri(first.uri);
+            }
           }
         })
         .catch((e) => {
@@ -281,7 +306,19 @@ export function App() {
       alive = false;
       pageRequest.current += 1;
     };
-  }, [ready, configured, feed, search, uri, revision, user, tag, editorRoute, plannerRoute]);
+  }, [
+    ready,
+    configured,
+    feed,
+    search,
+    uri,
+    revision,
+    user,
+    tag,
+    editorRoute,
+    plannerRoute,
+    feedPage,
+  ]);
   useEffect(() => {
     document.title = plannerRoute
       ? 'Meal Planner — brownbag'
@@ -345,6 +382,104 @@ export function App() {
     setTag('');
     go(null, next);
   };
+  const openFeed = () => {
+    if (!leaveGuard.current()) return;
+    history.pushState(null, '', '/feed');
+    activeUrl.current = '/feed';
+    recipeReturn.current = null;
+    setFeed('discover');
+    setFeedPage(true);
+    setFeedEnd(false);
+    setEditorRoute(null);
+    setPlannerRoute(null);
+    setSearch('');
+    setQuery('');
+    setUri(null);
+    setRecipes([]);
+    setNextCursor(undefined);
+    refresh();
+    window.scrollTo(0, 0);
+  };
+  const advanceRecipe = async (originUrl: string) => {
+    if (activeUrl.current !== originUrl) return;
+    const index = recipes.findIndex((item) => item.uri === uri);
+    if (index >= 0 && recipes[index + 1]) {
+      go(recipes[index + 1].uri, 'discover', true);
+      return;
+    }
+    // A directly opened feed URL starts at that recipe, then continues by publish date.
+    const cursor =
+      index < 0 && recipe
+        ? btoa(JSON.stringify({ date: recipe.record.createdAt, uri: recipe.uri }))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '')
+        : nextCursor;
+    if (cursor) {
+      const result = await api<{ recipes: RecipeView[]; nextCursor?: string }>(
+        `/recipes?${new URLSearchParams({ feed: 'discover', cursor, limit: '24' })}`,
+      );
+      if (activeUrl.current !== originUrl) return;
+      setRecipes((previous) => [...previous, ...result.recipes]);
+      setNextCursor(result.nextCursor);
+      if (result.recipes[0]) {
+        go(result.recipes[0].uri, 'discover', true);
+        return;
+      }
+    }
+    setFeedEnd(true);
+    window.scrollTo(0, 0);
+  };
+  const interactWithFeed = async (save: boolean) => {
+    if (interactionLock.current || busy || loading || !recipe || feedEnd) return;
+    if (save && !user) {
+      setLogin(true);
+      return;
+    }
+    if (save && !entry) return;
+    interactionLock.current = true;
+    setBusy(true);
+    const previous = recipe.uri;
+    const originUrl = activeUrl.current;
+    const wasSaved = !!entry?.saved;
+    try {
+      if (save && !wasSaved) await post('/bookmarks', { uri: previous });
+      if (save)
+        setToast({
+          kind: 'success',
+          text: wasSaved ? 'Already in your cookbook' : 'Saved to your cookbook',
+          actionLabel: 'Undo',
+          onAction: () => {
+            void (async () => {
+              if (interactionLock.current) return;
+              interactionLock.current = true;
+              setBusy(true);
+              try {
+                if (!wasSaved)
+                  await api('/bookmarks', {
+                    method: 'DELETE',
+                    body: JSON.stringify({ uri: previous }),
+                  });
+                setToast(null);
+                go(previous, 'discover', true);
+                refresh();
+              } catch (e) {
+                setError(message(e));
+              } finally {
+                setBusy(false);
+                interactionLock.current = false;
+              }
+            })();
+          },
+        });
+      await advanceRecipe(originUrl);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+      interactionLock.current = false;
+    }
+  };
   const browseAnnouncement = loading
     ? 'Loading recipes.'
     : uri
@@ -368,6 +503,7 @@ export function App() {
     history.pushState(null, '', url);
     activeUrl.current = url;
     setEditorRoute(url);
+    setFeedPage(false);
     setPlannerRoute(null);
     setError('');
     window.scrollTo(0, 0);
@@ -392,6 +528,17 @@ export function App() {
           </span>
         </a>
         <div className="network-actions">
+          <a
+            href="/feed"
+            className="network-cookbook-link"
+            aria-current={feedPage ? 'page' : undefined}
+            onClick={(e) => {
+              e.preventDefault();
+              openFeed();
+            }}
+          >
+            Recipe feed
+          </a>
           <a
             href="/cookbook"
             className="network-cookbook-link"
@@ -570,21 +717,43 @@ export function App() {
               </button>
             </section>
           )
+        ) : feedPage && (!uri || feedEnd) ? (
+          <section className="empty-state">
+            <h1>
+              {loading
+                ? 'Finding your next recipe…'
+                : feedEnd
+                  ? 'You’re all caught up.'
+                  : 'The feed is warming up.'}
+            </h1>
+            <p>
+              {loading
+                ? 'Fresh recipes, newest first.'
+                : 'Come back for more inspiration, or find something in your cookbook.'}
+            </p>
+            {!loading && (
+              <button className="button primary" onClick={openFeed}>
+                Back to newest recipes
+              </button>
+            )}
+          </section>
         ) : uri ? (
           <>
-            <button
-              className="text-button recipe-back"
-              onClick={() =>
-                recipeReturn.current ? navigatePlanner(recipeReturn.current) : go(null)
-              }
-            >
-              <ArrowLeft size={16} />
-              {recipeReturn.current
-                ? 'Back to Meal Planner'
-                : feed === 'cookbook'
-                  ? 'Back to cookbook'
-                  : 'Back to recipes'}
-            </button>
+            {!feedPage && (
+              <button
+                className="text-button recipe-back"
+                onClick={() =>
+                  recipeReturn.current ? navigatePlanner(recipeReturn.current) : go(null)
+                }
+              >
+                <ArrowLeft size={16} />
+                {recipeReturn.current
+                  ? 'Back to Meal Planner'
+                  : feed === 'cookbook'
+                    ? 'Back to cookbook'
+                    : 'Back to recipes'}
+              </button>
+            )}
             {loading ? (
               <>
                 <p className="sr-only" role="status">
@@ -596,14 +765,72 @@ export function App() {
               </>
             ) : (
               recipe && (
-                <article className="network-detail" lang={recipe.record.language}>
-                  <p className="eyebrow">
-                    FROM THE KITCHEN OF{' '}
-                    {recipe.authorHandle ? `@${recipe.authorHandle}` : 'A COMMUNITY COOK'}
-                  </p>
+                <article
+                  key={recipe.uri}
+                  className={`network-detail ${feedPage ? 'recipe-feed-detail' : ''}`}
+                  lang={recipe.record.language}
+                  onTouchStart={(event) => {
+                    if (
+                      !feedPage ||
+                      event.touches.length !== 1 ||
+                      (event.target as HTMLElement).closest(
+                        'button, a, input, summary, .network-tags',
+                      )
+                    ) {
+                      swipeStart.current = null;
+                      return;
+                    }
+                    swipeStart.current = {
+                      x: event.touches[0].clientX,
+                      y: event.touches[0].clientY,
+                    };
+                  }}
+                  onTouchMove={(event) => {
+                    if (
+                      swipeStart.current &&
+                      (event.touches.length !== 1 ||
+                        Math.abs(event.touches[0].clientY - swipeStart.current.y) > 35)
+                    )
+                      swipeStart.current = null;
+                  }}
+                  onTouchCancel={() => {
+                    swipeStart.current = null;
+                  }}
+                  onTouchEnd={(event) => {
+                    const start = swipeStart.current;
+                    swipeStart.current = null;
+                    if (!start) return;
+                    const dx = event.changedTouches[0].clientX - start.x;
+                    const dy = event.changedTouches[0].clientY - start.y;
+                    if (Math.abs(dx) >= 80 && Math.abs(dx) > Math.abs(dy) * 2)
+                      void interactWithFeed(dx > 0);
+                  }}
+                >
+                  {user?.did === recipe.authorDid ? (
+                    <div className="recipe-owner-actions">
+                      <button
+                        className="text-button"
+                        onClick={() => edit({ data: recipe.record, original: recipe })}
+                      >
+                        Edit recipe
+                      </button>
+                      <button
+                        className="text-button danger"
+                        disabled={busy}
+                        onClick={() => setConfirmDeleteRecipe(true)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="eyebrow">
+                      FROM THE KITCHEN OF{' '}
+                      {recipe.authorDisplayName ||
+                        (recipe.authorHandle ? `@${recipe.authorHandle}` : 'A COMMUNITY COOK')}
+                    </p>
+                  )}
                   <h1>{recipe.record.title}</h1>
                   <p className="network-summary">{recipe.record.summary}</p>
-                  <RecipeFacts record={recipe.record} />
                   <div
                     className="network-actions network-detail-actions"
                     role="group"
@@ -616,19 +843,31 @@ export function App() {
                           ? 'Please wait while we finish the current action.'
                           : user && !entry
                             ? 'Checking whether this recipe is in your cookbook…'
-                            : entry?.saved
-                              ? 'Remove this recipe from your cookbook'
-                              : user
-                                ? 'Save this recipe to your cookbook'
-                                : 'Sign in to save this recipe to your cookbook'
+                            : feedPage
+                              ? 'Save to your cookbook and open the next recipe'
+                              : entry?.saved
+                                ? 'Remove this recipe from your cookbook'
+                                : user
+                                  ? 'Save this recipe to your cookbook'
+                                  : 'Sign in to save this recipe to your cookbook'
                       }
                     >
                       <button
                         className="button primary"
                         disabled={busy || (!!user && !entry)}
-                        aria-label={entry?.saved ? 'Remove from cookbook' : 'Save to cookbook'}
+                        aria-label={
+                          feedPage
+                            ? 'Save to cookbook and next recipe'
+                            : entry?.saved
+                              ? 'Remove from cookbook'
+                              : 'Save to cookbook'
+                        }
                         aria-describedby="save-hint"
                         onClick={() => {
+                          if (feedPage) {
+                            void interactWithFeed(true);
+                            return;
+                          }
                           if (!user) {
                             setLogin(true);
                             return;
@@ -682,6 +921,15 @@ export function App() {
                         {entry?.saved ? 'Saved' : 'Save'}
                       </button>
                     </span>
+                    {feedPage && (
+                      <button
+                        className="button primary recipe-next"
+                        disabled={busy || loading}
+                        onClick={() => void interactWithFeed(false)}
+                      >
+                        Next recipe <ArrowRight size={17} />
+                      </button>
+                    )}
                     <span id="save-hint" className="sr-only">
                       {busy
                         ? 'Save is unavailable while another action is in progress.'
@@ -700,18 +948,9 @@ export function App() {
                     >
                       <CalendarDays size={16} /> Plan meal
                     </button>
-                    {entry?.saved && (
-                      <button
-                        className="button secondary"
-                        disabled={busy}
-                        onClick={() => setTagSelector(true)}
-                      >
-                        <Tags size={15} />
-                        Tags
-                      </button>
-                    )}
+
                     <button
-                      className="button secondary"
+                      className="text-button recipe-adapt"
                       onClick={() =>
                         edit({
                           data: {
@@ -774,78 +1013,13 @@ export function App() {
                         <Share2 size={17} />
                       </button>
                     </div>
-                    <FloatingDetails className="recipe-more-actions" summary="More options">
-                      <div className="stack">
-                        {user?.did === recipe.authorDid ? (
-                          <>
-                            <button
-                              className="button secondary"
-                              onClick={() => edit({ data: recipe.record, original: recipe })}
-                            >
-                              Edit recipe
-                            </button>
-                            <button
-                              className="button secondary danger"
-                              disabled={busy}
-                              title="Permanently delete this published recipe"
-                              onClick={() => setConfirmDeleteRecipe(true)}
-                            >
-                              Delete
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              className="button secondary"
-                              disabled={busy}
-                              onClick={() => {
-                                void action(
-                                  () => post('/follows', { did: recipe.authorDid }),
-                                  'Following this cook',
-                                );
-                              }}
-                            >
-                              Follow cook
-                            </button>
-                            {user && (
-                              <button
-                                className="button secondary"
-                                disabled={busy}
-                                onClick={() =>
-                                  void action(
-                                    () =>
-                                      api('/follows', {
-                                        method: 'DELETE',
-                                        body: JSON.stringify({ did: recipe.authorDid }),
-                                      }),
-                                    'Stopped following this cook',
-                                  )
-                                }
-                              >
-                                Stop following
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </FloatingDetails>
                   </div>
-                  {recipe.record.derivedFrom && (
-                    <p className="network-attribution">
-                      Inspired by{' '}
-                      <a
-                        href={recipeUrl(recipe.record.derivedFrom.uri)}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          go(recipe.record.derivedFrom!.uri);
-                        }}
-                      >
-                        this original recipe
-                      </a>
-                      . {recipe.record.adaptationNote}
+                  <RecipeTags tags={recipe.record.tags} />
+                  {feedPage && (
+                    <p className="feed-hint">
+                      Swipe right to save · Swipe left for the next recipe
                     </p>
                   )}
-                  <RecipeStory key={recipe.uri} description={recipe.record.description} />
                   {!!recipe.record.images?.length && (
                     <div className="recipe-gallery">
                       {recipe.record.images.map((photo, index) => (
@@ -864,40 +1038,37 @@ export function App() {
                   <div className="network-cooking">
                     <section>
                       <h2>Ingredients</h2>
-                      <p className="muted">Tap each ingredient as you go.</p>
+                      {recipeYield(recipe.record) && (
+                        <p className="ingredient-yield">
+                          Serves / makes: {recipeYield(recipe.record)}
+                        </p>
+                      )}
                       {ingredientSections(recipe.record.ingredients).map(
                         (section, sectionIndex) => (
-                          <div className="network-ingredient-section" key={sectionIndex}>
-                            {(section.name || sectionIndex > 0) && (
-                              <h3>{section.name || 'Other ingredients'}</h3>
-                            )}
-                            <ul className="network-ingredients">
+                          <details className="ingredient-group" key={sectionIndex} open>
+                            <summary>
+                              {section.name ||
+                                (sectionIndex === 0 ? 'Ingredients' : 'Other ingredients')}{' '}
+                              <span>{section.items.length}</span>
+                            </summary>
+                            <ul className="ingredient-rows">
                               {section.items.map(({ ingredient, index }) => (
                                 <li key={index}>
-                                  <label className={checked.has(index) ? 'is-checked' : ''}>
-                                    <input
-                                      type="checkbox"
-                                      checked={checked.has(index)}
-                                      onChange={() =>
-                                        setChecked((previous) => {
-                                          const next = new Set(previous);
-                                          if (next.has(index)) next.delete(index);
-                                          else next.add(index);
-                                          return next;
-                                        })
-                                      }
-                                    />
-                                    <span>
-                                      {[ingredient.quantity, ingredient.unit, ingredient.name]
-                                        .filter(Boolean)
-                                        .join(' ')}
-                                      {ingredient.preparation && `, ${ingredient.preparation}`}
-                                    </span>
-                                  </label>
+                                  <span className="ingredient-amount">
+                                    {[ingredient.quantity, ingredient.unit]
+                                      .filter(Boolean)
+                                      .join(' ')}
+                                  </span>
+                                  <span>
+                                    {ingredient.name}
+                                    {ingredient.preparation && (
+                                      <span className="muted">, {ingredient.preparation}</span>
+                                    )}
+                                  </span>
                                 </li>
                               ))}
                             </ul>
-                          </div>
+                          </details>
                         ),
                       )}
                     </section>
@@ -913,6 +1084,35 @@ export function App() {
                       </ol>
                     </section>
                   </div>
+                  <footer className="recipe-details-footer">
+                    {entry?.saved && (
+                      <button
+                        className="text-button"
+                        disabled={busy}
+                        onClick={() => setTagSelector(true)}
+                      >
+                        <Tags size={15} />
+                        Edit cookbook tags
+                      </button>
+                    )}
+                    <RecipeFacts record={recipe.record} />
+                    {recipe.record.derivedFrom && (
+                      <p className="network-attribution">
+                        Inspired by{' '}
+                        <a
+                          href={recipeUrl(recipe.record.derivedFrom.uri)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            go(recipe.record.derivedFrom!.uri);
+                          }}
+                        >
+                          this original recipe
+                        </a>
+                        . {recipe.record.adaptationNote}
+                      </p>
+                    )}
+                    <RecipeStory key={recipe.uri} description={recipe.record.description} />
+                  </footer>
                 </article>
               )
             )}
@@ -1049,158 +1249,43 @@ export function App() {
                 ))}
               </nav>
             )}
-            {feed !== 'cookbook' && (
-              <div className="network-toolbar">
-                <nav aria-label="Recipe feeds">
-                  {(['discover', 'following'] as const).map((value) => (
-                    <button
-                      key={value}
-                      className={feed === value ? 'active' : ''}
-                      aria-current={feed === value ? 'page' : undefined}
-                      onClick={() => selectFeed(value)}
-                    >
-                      {
-                        {
-                          discover: 'Discover',
-                          following: 'Following',
-                        }[value]
-                      }
-                    </button>
-                  ))}
-                </nav>
+            {feed !== 'cookbook' && !search && (
+              <div className="home-feed-invitation">
+                <h2>What’s cooking?</h2>
+                <p>Explore one recipe at a time. Save what catches your eye.</p>
+                <button className="button primary" onClick={openFeed}>
+                  Open recipe feed <ArrowRight size={18} />
+                </button>
               </div>
             )}
-            {loading ? (
+            {(feed === 'cookbook' || !!search) && (
               <>
-                <p className="sr-only" role="status">
-                  Gathering recipes…
-                </p>
-                <p className="skeleton-grid-label" aria-hidden="true">
-                  Gathering recipes…
-                </p>
-                <div aria-hidden="true">
-                  <SkeletonCards count={6} />
-                </div>
-              </>
-            ) : (
-              <>
-                {!loading && !error && (
-                  <div className="result-count-row" role="status" aria-live="polite">
-                    <span>
-                      {recipes.length === 1 ? '1 recipe' : `${recipes.length} recipes`}
-                      {search ? ` for “${search}”` : ''}
-                      {feed === 'cookbook' && tag ? ` tagged “${tag}”` : ''}
-                      {feed === 'following' && !search ? ' from cooks you follow' : ''}
-                      {nextCursor ? ' so far' : ''}
-                    </span>
-                    {(search || tag) && (
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => {
-                          setQuery('');
-                          setSearch('');
-                          setTag('');
-                        }}
-                      >
-                        Clear search & filters
-                      </button>
-                    )}
-                  </div>
-                )}
-                {feed === 'cookbook' && !search && !tag && drafts.length > 0 && (
-                  <section className="network-drafts" aria-label="Private drafts">
-                    <h2>Private drafts</h2>
-                    <p>Only you can see these. Publish when you’re ready to share.</p>
-                    {drafts.map((draft) => (
-                      <div key={draft.id}>
-                        <button
-                          className="button secondary"
-                          title={`Continue editing ${draft.data.title || 'untitled recipe'}`}
-                          onClick={() => edit({ data: draft.data, draftId: draft.id })}
-                        >
-                          {draft.data.title || 'Untitled recipe'}
-                        </button>
-                        <button
-                          className="icon-button danger"
-                          disabled={busy}
-                          aria-label={`Delete draft ${draft.data.title || 'untitled recipe'}`}
-                          title={`Delete draft ${draft.data.title || 'untitled recipe'}`}
-                          onClick={() => setPendingDraft(draft)}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </section>
-                )}
-                {recipes.length ? (
-                  <div className={feed === 'cookbook' ? 'network-cookbook-list' : 'network-grid'}>
-                    {recipes.map((item) => (
-                      <article className="network-card" key={item.uri}>
-                        <a
-                          href={recipeUrl(item.uri)}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            go(item.uri);
-                          }}
-                        >
-                          <RecipeImage recipe={item} />
-                          <div className="network-card-body">
-                            <p className="network-card-author">
-                              By {item.authorHandle ? `@${item.authorHandle}` : 'a community cook'}
-                            </p>
-                            <h2>{item.record.title}</h2>
-                            {item.record.summary && (
-                              <p className="network-card-summary">{item.record.summary}</p>
-                            )}
-                            <CardFacts record={item.record} />
-                            <RecipeTags
-                              tags={feed === 'cookbook' ? item.cookbookTags : item.record.tags}
-                              limit={3}
-                            />
-                            <div className="network-card-meta">
-                              <span>View recipe</span>
-                              <span>
-                                {feed === 'cookbook' && item.cookbookAddedAt
-                                  ? new Date(item.cookbookAddedAt).toLocaleDateString(undefined, {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                    })
-                                  : '→'}
-                              </span>
-                            </div>
-                          </div>
-                        </a>
-                      </article>
-                    ))}
-                  </div>
+                {loading ? (
+                  <>
+                    <p className="sr-only" role="status">
+                      Gathering recipes…
+                    </p>
+                    <p className="skeleton-grid-label" aria-hidden="true">
+                      Gathering recipes…
+                    </p>
+                    <div aria-hidden="true">
+                      <SkeletonCards count={6} />
+                    </div>
+                  </>
                 ) : (
-                  !error && (
-                    <section className="empty-state compact">
-                      <BookOpen size={38} />
-                      <h2>
-                        {search || tag
-                          ? 'No recipes found'
-                          : feed === 'following'
-                            ? 'Find your favourite cooks'
-                            : feed === 'cookbook'
-                              ? 'Every cookbook starts somewhere'
-                              : 'A good recipe starts with you'}
-                      </h2>
-                      <p>
-                        {search || tag
-                          ? 'Try another tag, ingredient or title — or clear the search to browse everything.'
-                          : feed === 'following'
-                            ? 'Follow a cook from their recipe to see what they share here.'
-                            : 'Share a recipe you love, or start with a private draft.'}
-                      </p>
-                      <div className="empty-actions">
-                        {search || tag ? (
+                  <>
+                    {!loading && !error && (
+                      <div className="result-count-row" role="status" aria-live="polite">
+                        <span>
+                          {recipes.length === 1 ? '1 recipe' : `${recipes.length} recipes`}
+                          {search ? ` for “${search}”` : ''}
+                          {feed === 'cookbook' && tag ? ` tagged “${tag}”` : ''}
+                          {nextCursor ? ' so far' : ''}
+                        </span>
+                        {(search || tag) && (
                           <button
                             type="button"
-                            className="button secondary"
+                            className="text-button"
                             onClick={() => {
                               setQuery('');
                               setSearch('');
@@ -1209,65 +1294,170 @@ export function App() {
                           >
                             Clear search & filters
                           </button>
-                        ) : null}
-                        {feed === 'following' && !search ? (
-                          <button
-                            type="button"
-                            className="button secondary"
-                            onClick={() => selectFeed('discover')}
-                          >
-                            Discover recipes
-                          </button>
-                        ) : null}
-                        {feed !== 'following' && !search && !tag ? (
-                          <button
-                            type="button"
-                            className="button primary"
-                            disabled={configured !== true}
-                            title={
-                              configured !== true
-                                ? 'Adding recipes is unavailable until setup is complete.'
-                                : 'Add your first recipe'
-                            }
-                            onClick={() => edit({ data: blank() })}
-                          >
-                            <Plus size={16} />
-                            Add a recipe
-                          </button>
-                        ) : null}
+                        )}
                       </div>
-                    </section>
-                  )
-                )}
-                {nextCursor && (
-                  <button
-                    className="button secondary network-load-more"
-                    disabled={busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      const request = pageRequest.current;
-                      try {
-                        const result = await api<{ recipes: RecipeView[]; nextCursor?: string }>(
-                          `/recipes?${new URLSearchParams({ feed, q: search, ...(feed === 'cookbook' && tag ? { tag } : {}), cursor: nextCursor, limit: '24' })}`,
-                        );
-                        if (request !== pageRequest.current) return;
-                        setRecipes((old) => [
-                          ...old,
-                          ...result.recipes.filter((r) => !old.some((o) => o.uri === r.uri)),
-                        ]);
-                        setNextCursor(result.nextCursor);
-                      } catch (e) {
-                        const text = message(e);
-                        setError(text);
-                        setToast({ kind: 'error', text });
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                    title={busy ? 'Please wait while recipes load.' : 'Load more recipes'}
-                  >
-                    {busy ? 'Loading…' : 'More recipes'}
-                  </button>
+                    )}
+                    {feed === 'cookbook' && !search && !tag && drafts.length > 0 && (
+                      <section className="network-drafts" aria-label="Private drafts">
+                        <h2>Private drafts</h2>
+                        <p>Only you can see these. Publish when you’re ready to share.</p>
+                        {drafts.map((draft) => (
+                          <div key={draft.id}>
+                            <button
+                              className="button secondary"
+                              title={`Continue editing ${draft.data.title || 'untitled recipe'}`}
+                              onClick={() => edit({ data: draft.data, draftId: draft.id })}
+                            >
+                              {draft.data.title || 'Untitled recipe'}
+                            </button>
+                            <button
+                              className="icon-button danger"
+                              disabled={busy}
+                              aria-label={`Delete draft ${draft.data.title || 'untitled recipe'}`}
+                              title={`Delete draft ${draft.data.title || 'untitled recipe'}`}
+                              onClick={() => setPendingDraft(draft)}
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </section>
+                    )}
+                    {recipes.length ? (
+                      <div
+                        className={feed === 'cookbook' ? 'network-cookbook-list' : 'network-grid'}
+                      >
+                        {recipes.map((item) => (
+                          <article className="network-card" key={item.uri}>
+                            <a
+                              href={recipeUrl(item.uri)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                go(item.uri);
+                              }}
+                            >
+                              <RecipeImage recipe={item} />
+                              <div className="network-card-body">
+                                <p className="network-card-author">
+                                  By{' '}
+                                  {item.authorDisplayName ||
+                                    (item.authorHandle
+                                      ? `@${item.authorHandle}`
+                                      : 'a community cook')}
+                                </p>
+                                <h2>{item.record.title}</h2>
+                                {item.record.summary && (
+                                  <p className="network-card-summary">{item.record.summary}</p>
+                                )}
+                                <CardFacts record={item.record} />
+                                <RecipeTags
+                                  tags={feed === 'cookbook' ? item.cookbookTags : item.record.tags}
+                                  limit={3}
+                                />
+                                <div className="network-card-meta">
+                                  <span>View recipe</span>
+                                  <span>
+                                    {feed === 'cookbook' && item.cookbookAddedAt
+                                      ? new Date(item.cookbookAddedAt).toLocaleDateString(
+                                          undefined,
+                                          {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: 'numeric',
+                                          },
+                                        )
+                                      : '→'}
+                                  </span>
+                                </div>
+                              </div>
+                            </a>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      !error && (
+                        <section className="empty-state compact">
+                          <BookOpen size={38} />
+                          <h2>
+                            {search || tag
+                              ? 'No recipes found'
+                              : feed === 'cookbook'
+                                ? 'Every cookbook starts somewhere'
+                                : 'A good recipe starts with you'}
+                          </h2>
+                          <p>
+                            {search || tag
+                              ? 'Try another tag, ingredient or title — or clear the search to browse everything.'
+                              : 'Share a recipe you love, or start with a private draft.'}
+                          </p>
+                          <div className="empty-actions">
+                            {search || tag ? (
+                              <button
+                                type="button"
+                                className="button secondary"
+                                onClick={() => {
+                                  setQuery('');
+                                  setSearch('');
+                                  setTag('');
+                                }}
+                              >
+                                Clear search & filters
+                              </button>
+                            ) : null}
+                            {!search && !tag ? (
+                              <button
+                                type="button"
+                                className="button primary"
+                                disabled={configured !== true}
+                                title={
+                                  configured !== true
+                                    ? 'Adding recipes is unavailable until setup is complete.'
+                                    : 'Add your first recipe'
+                                }
+                                onClick={() => edit({ data: blank() })}
+                              >
+                                <Plus size={16} />
+                                Add a recipe
+                              </button>
+                            ) : null}
+                          </div>
+                        </section>
+                      )
+                    )}
+                    {nextCursor && (
+                      <button
+                        className="button secondary network-load-more"
+                        disabled={busy}
+                        onClick={async () => {
+                          setBusy(true);
+                          const request = pageRequest.current;
+                          try {
+                            const result = await api<{
+                              recipes: RecipeView[];
+                              nextCursor?: string;
+                            }>(
+                              `/recipes?${new URLSearchParams({ feed, q: search, ...(feed === 'cookbook' && tag ? { tag } : {}), cursor: nextCursor, limit: '24' })}`,
+                            );
+                            if (request !== pageRequest.current) return;
+                            setRecipes((old) => [
+                              ...old,
+                              ...result.recipes.filter((r) => !old.some((o) => o.uri === r.uri)),
+                            ]);
+                            setNextCursor(result.nextCursor);
+                          } catch (e) {
+                            const text = message(e);
+                            setError(text);
+                            setToast({ kind: 'error', text });
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                        title={busy ? 'Please wait while recipes load.' : 'Load more recipes'}
+                      >
+                        {busy ? 'Loading…' : 'More recipes'}
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -1423,43 +1613,6 @@ export function App() {
         />
       )}
     </div>
-  );
-}
-
-function FloatingDetails({
-  className,
-  summary,
-  children,
-}: {
-  className: string;
-  summary: string;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const closeOutside = (event: MouseEvent) => {
-      if (ref.current?.open && event.target instanceof Node && !ref.current.contains(event.target))
-        ref.current.open = false;
-    };
-    const closeEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && ref.current?.open) {
-        event.preventDefault();
-        ref.current.open = false;
-        ref.current.querySelector<HTMLElement>('summary')?.focus();
-      }
-    };
-    document.addEventListener('mousedown', closeOutside);
-    document.addEventListener('keydown', closeEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOutside);
-      document.removeEventListener('keydown', closeEscape);
-    };
-  }, []);
-  return (
-    <details className={className} ref={ref}>
-      <summary>{summary}</summary>
-      {children}
-    </details>
   );
 }
 
