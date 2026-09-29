@@ -98,10 +98,6 @@ export function RecipeFacts({ record }: { record: RecipeInput }) {
         )}
       </div>
       <div>
-        <dt>Yield</dt>
-        <dd>{recipeYield(record) || 'Not specified'}</dd>
-      </div>
-      <div>
         <dt>Source</dt>
         <dd>
           {source?.url && /^https?:\/\//i.test(source.url) ? (
@@ -113,11 +109,6 @@ export function RecipeFacts({ record }: { record: RecipeInput }) {
             source?.name || 'Not specified'
           )}
         </dd>
-      </div>
-      <div className="network-fact-tags">
-        <dt>Tags & dietary context</dt>
-        <dd>{record.tags?.length ? <RecipeTags tags={record.tags} /> : 'No tags added'}</dd>
-        <dd className="network-fact-note">As tagged by the cook</dd>
       </div>
     </dl>
   );
@@ -139,7 +130,7 @@ export function RecipeStory({ description }: { description?: string }) {
   );
 }
 
-// Keep ingredient order and original indices so checklist state survives section boundaries.
+// Keep ingredient order and original indices across section boundaries.
 export function ingredientSections(ingredients: RecipeInput['ingredients']) {
   const sections: {
     name: string;

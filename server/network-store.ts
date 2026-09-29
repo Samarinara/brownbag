@@ -112,6 +112,7 @@ export class NetworkStore {
       cid: row.cid,
       authorDid: row.did,
       ...(row.handle ? { authorHandle: row.handle } : {}),
+      ...(row.display_name ? { authorDisplayName: row.display_name } : {}),
       record,
       ...(row.cookbook_tags !== undefined
         ? {
@@ -171,7 +172,7 @@ export class NetworkStore {
       }
     }
     const rows = await this.db.query(
-      `SELECT r.*,a.handle,${date} AS cookbook_date${cookbook ? ',b.tags AS cookbook_tags' : ''} FROM public_recipes r JOIN actors a ON a.did=r.did ${join} WHERE ${where.join(' AND ')} ORDER BY ${date} DESC,r.uri DESC LIMIT ${bind(limit + 1)}`,
+      `SELECT r.*,a.handle,a.profile->>'displayName' AS display_name,${date} AS cookbook_date${cookbook ? ',b.tags AS cookbook_tags' : ''} FROM public_recipes r JOIN actors a ON a.did=r.did ${join} WHERE ${where.join(' AND ')} ORDER BY ${date} DESC,r.uri DESC LIMIT ${bind(limit + 1)}`,
       params,
     );
     const page = rows.slice(0, limit);
@@ -189,7 +190,7 @@ export class NetworkStore {
   }
   async recipe(uri: string) {
     const [row] = await this.db.query(
-      'SELECT r.*,a.handle FROM public_recipes r JOIN actors a ON a.did=r.did WHERE r.uri=$1 AND a.active AND NOT r.hidden',
+      "SELECT r.*,a.handle,a.profile->>'displayName' AS display_name FROM public_recipes r JOIN actors a ON a.did=r.did WHERE r.uri=$1 AND a.active AND NOT r.hidden",
       [uri],
     );
     if (!row) throw new HttpError(404, 'Recipe not found.');

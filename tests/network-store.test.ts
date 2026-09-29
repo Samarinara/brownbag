@@ -47,6 +47,14 @@ test('PostgreSQL projections preserve newest revision, deletions, privacy and fe
     await store.index(event);
     await store.index(event);
     assert.equal((await store.recipes()).recipes.length, 1);
+    await store.db.query('UPDATE actors SET profile=$2::text::jsonb WHERE did=$1', [
+      alice,
+      JSON.stringify({ displayName: 'Alice’s Kitchen' }),
+    ]);
+    assert.equal((await store.recipe(uri)).authorDisplayName, 'Alice’s Kitchen');
+    assert.equal((await store.recipes()).recipes[0].authorDisplayName, 'Alice’s Kitchen');
+    assert.equal((await store.recipe(uri)).authorHandle, 'alice.example');
+
     await store.index({ ...event, rev: '3mabc234567ab', record: { ...record, title: 'Stale' } });
     assert.equal((await store.recipe(uri)).record.title, 'Lemon pasta');
     assert.equal((await store.recipes({ q: 'spaghetti' })).recipes.length, 1);

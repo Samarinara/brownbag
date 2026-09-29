@@ -155,6 +155,7 @@ export type RecipeView = {
   cid: string;
   authorDid: string;
   authorHandle?: string;
+  authorDisplayName?: string;
   record: RecipeRecord;
   cookbookTags?: string[];
   cookbookAddedAt?: string;
