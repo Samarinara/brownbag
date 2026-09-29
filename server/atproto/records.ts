@@ -1,12 +1,13 @@
 import {
   RECIPE_COLLECTION,
+  MAX_RECIPE_RECORD_BYTES,
   didSchema,
   recipeInputSchema,
   recipeRecordSchema,
   type RecipeRecord,
 } from '../../shared/atproto.js';
 
-export const MAX_RECIPE_RECORD_BYTES = 128 * 1024;
+export { MAX_RECIPE_RECORD_BYTES } from '../../shared/atproto.js';
 
 export function parseRecipeUri(uri: string, ownerDid?: string) {
   const match = /^at:\/\/([^/]+)\/([^/]+)\/([A-Za-z0-9._~:-]{1,512})$/.exec(uri);
@@ -20,7 +21,8 @@ export function parseRecipeUri(uri: string, ownerDid?: string) {
 }
 
 export function validateRecipeRecord(value: unknown): RecipeRecord {
-  const record = recipeRecordSchema.parse(value);
+  // The AT Protocol SDK returns BlobRef/CID objects; validate their wire representation.
+  const record = recipeRecordSchema.parse(JSON.parse(JSON.stringify(value)));
   if (Buffer.byteLength(JSON.stringify(record), 'utf8') > MAX_RECIPE_RECORD_BYTES) {
     throw new Error('Recipe exceeds the 128 KiB record limit');
   }

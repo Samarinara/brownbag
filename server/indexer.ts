@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 import WebSocket from 'ws';
 import { connectDatabase } from './db.js';
 import { ingestEvent, jetstreamUrl, persistCursor } from './atproto/ingestion.js';
+import { pruneMealPlans } from './planner.js';
 
 export async function runIndexer(signal: AbortSignal) {
   const { db, sql } = connectDatabase();
@@ -11,6 +12,13 @@ export async function runIndexer(signal: AbortSignal) {
   if (!Number.isSafeInteger(overlap) || overlap < 0)
     throw new Error('Invalid JETSTREAM_REPLAY_OVERLAP_US');
   let delay = 1000;
+  // Run independently of traffic so inactive accounts also expire old plans.
+  const cleanup = () =>
+    pruneMealPlans(db).catch((error) => console.error('Meal plan cleanup failed:', error));
+  await cleanup();
+  const cleanupTimer = setInterval(() => {
+    void cleanup();
+  }, 3600000);
   try {
     while (!signal.aborted) {
       try {
@@ -114,6 +122,7 @@ export async function runIndexer(signal: AbortSignal) {
       delay = Math.min(delay * 2, 30000);
     }
   } finally {
+    clearInterval(cleanupTimer);
     await sql.end({ timeout: 5 });
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, post } from './api';
-import { Modal, Notice } from './components';
+import { ConfirmDialog, Modal, Notice } from './components';
+import { PlannerPreferences } from './MealPlanner';
 
 type Key = { id: string; name: string; prefix: string };
 type Proposal = {
@@ -19,9 +20,12 @@ export function NetworkAccount({
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [name, setName] = useState('');
   const [token, setToken] = useState('');
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pendingKey, setPendingKey] = useState<Key | null>(null);
+  const [pendingProposal, setPendingProposal] = useState<Proposal | null>(null);
   async function load() {
     const [k, p] = await Promise.all([
       api<{ keys: Key[] }>('/keys'),
@@ -47,9 +51,10 @@ export function NetworkAccount({
   }, []);
   return (
     <Modal title="Your account" close={close} wide>
-      <div className="stack network-account">
+      <div className="network-account-content">
         <Notice error={error} />
         {notice && <p role="status">{notice}</p>}
+        <PlannerPreferences />
         <section>
           <h3>Your cookbook</h3>
           <p>Missing recipes you published elsewhere? Refresh your account’s public records.</p>
@@ -67,66 +72,100 @@ export function NetworkAccount({
           </button>
         </section>
         <section>
-          <h3>Connected assistants</h3>
-          <p>
-            Assistants can read recipes and suggest changes. Only you can approve publication here.
-            Keep keys private.
-          </p>
-          <form
-            className="stack"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(async () => {
-                const result = await post<{ token: string }>('/keys', { name });
-                setToken(result.token);
-                setName('');
-              });
-            }}
-          >
-            <label>
-              Assistant name
-              <input
-                required
-                maxLength={100}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-            <button className="button secondary" disabled={busy}>
-              Create assistant key
-            </button>
-          </form>
-          {token && (
-            <div className="network-new-key">
+          <details className="recipe-disclosure">
+            <summary>
+              <h3>Connected assistants</h3>
+            </summary>
+            <div className="stack">
               <p>
-                Copy this key now; it won’t be shown again. Use it as a Bearer token at{' '}
-                {location.origin}/mcp.
+                Assistants can read recipes and suggest changes. Only you can approve publication
+                here. Keep keys private.
               </p>
-              <input
-                aria-label="New assistant key"
-                readOnly
-                value={token}
-                onFocus={(e) => e.target.select()}
-              />
-              <button className="button secondary" onClick={() => setToken('')}>
-                Hide key
-              </button>
-            </div>
-          )}
-          {keys.map((key) => (
-            <p key={key.id} className="network-key-row">
-              <span>
-                {key.name} · {key.prefix}…
-              </span>
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() => void run(() => api(`/keys/${key.id}`, { method: 'DELETE' }))}
+              <form
+                className="stack"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void run(async () => {
+                    const result = await post<{ token: string }>('/keys', { name });
+                    setToken(result.token);
+                    setName('');
+                  });
+                }}
               >
-                Revoke
-              </button>
-            </p>
-          ))}
+                <label>
+                  Assistant name
+                  <input
+                    required
+                    maxLength={100}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="button secondary"
+                  disabled={busy}
+                  title={busy ? 'Please wait while we work.' : 'Create a new assistant key'}
+                  type="submit"
+                >
+                  Create assistant key
+                </button>
+              </form>
+              {token && (
+                <div>
+                  <p>
+                    Copy this key now; it won’t be shown again. Use it as a Bearer token at{' '}
+                    {location.origin}/mcp.
+                  </p>
+                  <input
+                    aria-label="New assistant key"
+                    readOnly
+                    value={token}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <div className="network-actions">
+                    <button
+                      type="button"
+                      className="button secondary"
+                      title="Copy the new key to the clipboard"
+                      onClick={() => {
+                        if (navigator.clipboard?.writeText) {
+                          void navigator.clipboard
+                            .writeText(token)
+                            .then(() => {
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2500);
+                            })
+                            .catch(() => setError('Could not copy the key.'));
+                        }
+                      }}
+                    >
+                      {copied ? 'Copied!' : 'Copy key'}
+                    </button>
+                    <button
+                      className="button secondary"
+                      onClick={() => setToken('')}
+                      title="Hide the new key"
+                    >
+                      Hide key
+                    </button>
+                  </div>
+                </div>
+              )}
+              {keys.map((key) => (
+                <p key={key.id}>
+                  {key.name} · {key.prefix}…{' '}
+                  <button
+                    className="button secondary danger"
+                    disabled={busy}
+                    title={`Revoke access for ${key.name}. Assistants using this key will stop working.`}
+                    onClick={() => setPendingKey(key)}
+                  >
+                    Revoke
+                  </button>
+                </p>
+              ))}
+            </div>
+          </details>
         </section>
         <section>
           <h3>Suggested changes</h3>
@@ -135,58 +174,54 @@ export function NetworkAccount({
             deletions cannot remove copies others saved.
           </p>
           {!proposals.length && <p>No suggestions yet.</p>}
-          <div className="network-account-list">
-            {proposals.map((proposal) => (
-              <article key={proposal.id}>
-                <h4>
-                  {proposal.payload.action}: {proposal.payload.recipe?.title || 'Recipe'} ·{' '}
-                  {proposal.status}
-                </h4>
-                <details>
-                  <summary>Inspect complete suggestion</summary>
-                  <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                    {JSON.stringify(proposal.payload, null, 2)}
-                  </pre>
-                </details>
-                {proposal.status === 'pending' && (
-                  <div className="network-actions">
-                    <button
-                      className="button primary"
-                      disabled={busy}
-                      onClick={() => {
-                        if (window.confirm('Apply this suggested change to your public cookbook?'))
-                          void run(() =>
-                            post(`/proposals/${proposal.id}/review`, { approve: true }),
-                          );
-                      }}
-                    >
-                      Approve public change
-                    </button>
-                    <button
-                      className="button secondary"
-                      disabled={busy}
-                      onClick={() =>
-                        void run(() => post(`/proposals/${proposal.id}/review`, { approve: false }))
-                      }
-                    >
-                      Reject
-                    </button>
-                  </div>
-                )}
-                {proposal.status === 'applying' && (
-                  <p>
-                    The outcome needs checking. Refresh your cookbook and contact the operator
-                    before retrying; the change may already be published.
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
+          {proposals.map((proposal) => (
+            <article key={proposal.id}>
+              <h4>
+                {proposal.payload.action}: {proposal.payload.recipe?.title || 'Recipe'} ·{' '}
+                {proposal.status}
+              </h4>
+              <details>
+                <summary>Inspect complete suggestion</summary>
+                <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                  {JSON.stringify(proposal.payload, null, 2)}
+                </pre>
+              </details>
+              {proposal.status === 'pending' && (
+                <div className="network-actions">
+                  <button
+                    className="button primary"
+                    disabled={busy}
+                    title="Publish this suggested change to your public cookbook"
+                    onClick={() => setPendingProposal(proposal)}
+                  >
+                    Approve public change
+                  </button>
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    title="Dismiss this suggestion without publishing"
+                    onClick={() =>
+                      void run(() => post(`/proposals/${proposal.id}/review`, { approve: false }))
+                    }
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
+              {proposal.status === 'applying' && (
+                <p>
+                  The outcome needs checking. Refresh your cookbook and contact the operator before
+                  retrying; the change may already be published.
+                </p>
+              )}
+            </article>
+          ))}
         </section>
         <section className="network-account-signout">
           <button
             className="button secondary"
             disabled={busy}
+            title="Sign out of brownbag on this device"
             onClick={() => {
               setBusy(true);
               setError('');
@@ -200,6 +235,62 @@ export function NetworkAccount({
           </button>
         </section>
       </div>
+      {pendingKey && (
+        <ConfirmDialog
+          title="Revoke this key?"
+          confirmLabel="Revoke key"
+          danger
+          busy={busy}
+          close={() => {
+            if (!busy) setPendingKey(null);
+          }}
+          confirm={() => {
+            const target = pendingKey;
+            void run(async () => {
+              await api(`/keys/${target.id}`, { method: 'DELETE' });
+              setPendingKey(null);
+              setNotice(`Revoked access for ${target.name}.`);
+            });
+          }}
+        >
+          <p>
+            <strong>{pendingKey.name}</strong> ({pendingKey.prefix}…) will stop working immediately.
+          </p>
+          <p className="confirm-warning">
+            Assistants using this key lose access right away. This cannot be undone — create a new
+            key if you need access again.
+          </p>
+        </ConfirmDialog>
+      )}
+      {pendingProposal && (
+        <ConfirmDialog
+          title="Approve this change?"
+          confirmLabel="Approve public change"
+          busy={busy}
+          close={() => {
+            if (!busy) setPendingProposal(null);
+          }}
+          confirm={() => {
+            const target = pendingProposal;
+            void run(async () => {
+              await post(`/proposals/${target.id}/review`, { approve: true });
+              setPendingProposal(null);
+              setNotice('Suggestion approved and published.');
+            });
+          }}
+        >
+          <p>
+            <strong>
+              {pendingProposal.payload.action}: {pendingProposal.payload.recipe?.title || 'Recipe'}
+            </strong>{' '}
+            will become public on your account.
+          </p>
+          <p className="confirm-warning">
+            Review the complete suggestion above first. Approved recipes become public, and
+            deletions cannot remove copies others saved.
+          </p>
+        </ConfirmDialog>
+      )}
     </Modal>
   );
 }

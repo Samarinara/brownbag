@@ -19,6 +19,7 @@ test('agent writes require owner review, claims prevent duplicate publication, a
     query: async (text, params) => (await connection.query(text, params)).rows as any,
     transaction: (fn) => connection.transaction((tx) => fn(wrap(tx as unknown as PGlite))),
   });
+  await pg.exec(await readFile(new URL('../migrations/003_cookbook.sql', import.meta.url), 'utf8'));
   const store = new NetworkStore(wrap(pg));
   await store.actor('did:plc:alice');
   await store.actor('did:plc:bob');
