@@ -1,0 +1,5 @@
+<resources>
+    <string name="asset_statements" translatable="false">[{\"relation\":[\"delegate_permission/common.handle_all_urls\"],\"target\":{\"namespace\":\"web\",\"site\":\"https://brownbag.polli.page\"}}]</string>
+    <color name="surface">#f7f5ee</color>
+    <color name="surface_dark">#20241f</color>
+</resources>

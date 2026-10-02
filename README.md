@@ -36,6 +36,10 @@ Exact field names, limits, and optionality live in [shared/atproto.ts](shared/at
 
 Profiles also allow a banner, cuisine and dietary-interest lists, and a website. Before publishing these schemas as a stable ecosystem contract, finalize their versions and configure lexicon authority/discovery for the `page.polli.brownbag` namespace. This repository does not modify your DNS or publish schema records on your behalf.
 
+## Mobile app
+
+The website supports Home Screen installation on iOS/Android, offline recipe text, and local draft recovery. A small Android TWA project builds with `npm run android:debug` or `npm run android:unsigned`; no cloud build service is required. See [mobile setup and signing](docs/mobile.md) for SDK requirements, domain verification, and offline behavior.
+
 ## Local setup
 
 Requires Node 22.12+ and npm. Legacy SQLite tests still require native build tools if a prebuilt binary is unavailable.

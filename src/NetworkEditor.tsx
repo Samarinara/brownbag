@@ -1,3 +1,4 @@
+import { readRecovery, recoveryKey, removeRecovery, writeRecovery } from './offline-storage';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { api, post } from './api';
@@ -87,7 +88,7 @@ export function NetworkEditorPage(props: Props) {
         )}
       </section>
     );
-  return <NetworkEditor {...props} editing={editing} />;
+  return <NetworkEditor key={`${props.userDid}:${props.route}`} {...props} editing={editing} />;
 }
 
 function Disclosure({
@@ -112,12 +113,23 @@ function Disclosure({
   );
 }
 
-function NetworkEditor({ editing, close, done, leaveGuard, route }: Props & { editing: Editing }) {
+function NetworkEditor({
+  editing,
+  close,
+  done,
+  leaveGuard,
+  route,
+  userDid,
+}: Props & { editing: Editing }) {
   const plannerTarget = targetFromRoute(route);
   const plannedId = useRef(crypto.randomUUID());
   const [published, setPublished] = useState<RecipeView>();
   const [data, setData] = useState<RecipeInput>(() => editableRecipe(editing.data));
   const initial = useRef(JSON.stringify(data));
+  const deviceKey = recoveryKey(userDid, route);
+  const [recovery, setRecovery] = useState(() => readRecovery(deviceKey));
+  const [recoveryStatus, setRecoveryStatus] = useState('');
+  const completed = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -126,6 +138,31 @@ function NetworkEditor({ editing, close, done, leaveGuard, route }: Props & { ed
   const errorsRef = useRef<HTMLDivElement>(null);
   const [issues, setIssues] = useState<{ path: PropertyKey[]; message: string }[]>([]);
   const dirty = JSON.stringify(data) !== initial.current;
+  useEffect(() => {
+    if (recovery || completed.current) return;
+    if (!dirty) {
+      removeRecovery(deviceKey);
+      return;
+    }
+    const saved = writeRecovery(deviceKey, data);
+    setRecoveryStatus(
+      saved
+        ? 'Changes backed up on this device. Save a private draft to sync them.'
+        : 'Device backup is unavailable. Save a private draft before leaving.',
+    );
+  }, [data, dirty, deviceKey, recovery]);
+  useEffect(() => {
+    const cleared = () => {
+      setRecovery(undefined);
+      setRecoveryStatus('Device backup cleared.');
+    };
+    window.addEventListener('brownbag-device-data-cleared', cleared);
+    return () => window.removeEventListener('brownbag-device-data-cleared', cleared);
+  }, []);
+  const finishRecovery = () => {
+    completed.current = true;
+    removeRecovery(deviceKey);
+  };
   const update = <K extends keyof RecipeInput>(key: K, value: RecipeInput[K]) =>
     setData((old) => ({ ...old, [key]: value }));
   const ingredient = (index: number, patch: Partial<RecipeInput['ingredients'][number]>) =>
@@ -155,7 +192,7 @@ function NetworkEditor({ editing, close, done, leaveGuard, route }: Props & { ed
         window.confirm(
           published
             ? 'Your recipe is published but has not been added to the meal plan. Leave the editor?'
-            : 'Leave this recipe? Unsaved changes will be lost.',
+            : 'Leave this recipe? Changes have not been saved to your account.',
         ));
     const unload = (event: BeforeUnloadEvent) => {
       if (dirty || busy) {
@@ -204,6 +241,7 @@ function NetworkEditor({ editing, close, done, leaveGuard, route }: Props & { ed
       try {
         await post('/planner', { ...plannerTarget, uri: published.uri, id: plannedId.current });
         leaveGuard.current = () => true;
+        finishRecovery();
         done(published);
       } catch (error) {
         setError(
@@ -239,6 +277,7 @@ function NetworkEditor({ editing, close, done, leaveGuard, route }: Props & { ed
               }),
             })
           : await post<RecipeView>('/recipes', { recipe: checked.data, draftId: editing.draftId });
+        finishRecovery();
         if (plannerTarget) {
           setPublished(result);
           try {
@@ -257,6 +296,7 @@ function NetworkEditor({ editing, close, done, leaveGuard, route }: Props & { ed
         });
       } else await post('/drafts', { data: checked.data });
       leaveGuard.current = () => true;
+      finishRecovery();
       done(result);
     } catch (e) {
       setError(message(e));
@@ -364,9 +404,34 @@ function NetworkEditor({ editing, close, done, leaveGuard, route }: Props & { ed
           </div>
         )}
       </header>
+      {recovery && (
+        <div className="recovery-notice" role="status">
+          <p>There are unsaved changes from an earlier visit on this device.</p>
+          <button
+            className="button secondary"
+            onClick={() => {
+              setData(editableRecipe(recovery));
+              setRecovery(undefined);
+            }}
+          >
+            Restore changes
+          </button>{' '}
+          <button
+            className="text-button"
+            onClick={() => {
+              removeRecovery(deviceKey);
+              setRecovery(undefined);
+            }}
+          >
+            Discard backup
+          </button>
+        </div>
+      )}
+      {recoveryStatus && <p role="status">{recoveryStatus}</p>}
       <form
         ref={formRef}
         className="network-editor"
+        inert={!!recovery}
         noValidate
         onSubmit={(event) => {
           event.preventDefault();

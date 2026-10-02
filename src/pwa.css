@@ -1,0 +1,99 @@
+/* Safe areas apply in Safari standalone and edge-to-edge Android browser windows. */
+body {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.network-header {
+  padding-top: max(1rem, env(safe-area-inset-top, 0px));
+}
+.pwa-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+.pwa-tools p {
+  flex-basis: 100%;
+  margin: 0.25rem 0;
+}
+.pwa-update {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.offline-save {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.offline-library {
+  width: min(44rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 3rem);
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--paper);
+  color: var(--ink);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.offline-library::backdrop {
+  background: var(--color-overlay);
+}
+.offline-toolbar,
+.offline-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.offline-toolbar h2 {
+  margin: 0;
+}
+.offline-list {
+  list-style: none;
+  padding: 0;
+}
+.offline-list li {
+  border-bottom: 1px solid var(--line);
+  padding: 0.75rem 0;
+}
+.offline-library li {
+  margin-bottom: 0.75rem;
+}
+.offline-story {
+  white-space: pre-line;
+}
+.recovery-notice {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+  .pwa-tools button,
+  .offline-library button {
+    min-height: 44px;
+  }
+  .offline-library {
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
