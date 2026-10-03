@@ -1,3 +1,4 @@
+import { PwaTools, OfflineRecipeButton } from './PwaTools';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -717,6 +718,7 @@ export function App() {
           )}
         </div>
       </header>
+      <PwaTools canReload={() => leaveGuard.current()} />
       <main
         id="main-content"
         className="network-main"
@@ -1030,6 +1032,7 @@ export function App() {
                     >
                       Make it your own
                     </button>
+                    <OfflineRecipeButton key={recipe.uri} recipe={recipe} />
                     <div className="detail-share-row" role="group" aria-label="Share this recipe">
                       <button
                         type="button"

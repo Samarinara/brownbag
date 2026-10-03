@@ -284,8 +284,8 @@
   flex: 1;
 }
 .network-search:focus-within {
-  border-color: #849a76;
-  box-shadow: 0 0 0 3px #7d956420;
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 15%, transparent);
 }
 .network-search-submit {
   border: 1px solid var(--line);

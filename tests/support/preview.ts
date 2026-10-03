@@ -166,6 +166,7 @@ app.use(
     oauth: { agent: async () => agent } as any,
   }),
 );
+app.use('/.well-known', express.static(resolve('dist/client/.well-known')));
 app.use(express.static(resolve('dist/client')));
 app.get('/{*path}', (_req, res) => res.sendFile('index.html', { root: resolve('dist/client') }));
 app.listen(previewPort, '127.0.0.1', () =>

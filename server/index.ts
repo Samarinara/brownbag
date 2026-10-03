@@ -8,6 +8,7 @@ import { initializeApp } from './runtime.js';
 const app = await initializeApp();
 const server = createServer(app);
 if (process.env.NODE_ENV === 'production') {
+  app.use('/.well-known', express.static(resolve('dist/client/.well-known')));
   app.use(express.static(resolve('dist/client'), { index: false }));
   app.get('/{*path}', (_req, res) => res.sendFile('index.html', { root: resolve('dist/client') }));
 } else {

@@ -28,12 +28,14 @@ function contrast(foreground: string, background: string) {
 }
 
 test('theme colors stay tokenized and avoid component-specific dark patches', async () => {
-  const [styles, network] = await Promise.all([
+  const [styles, network, pwa] = await Promise.all([
     readFile(stylesPath, 'utf8'),
     readFile(networkPath, 'utf8'),
+    readFile(new URL('../src/pwa.css', import.meta.url), 'utf8'),
   ]);
   const withoutTokenBlocks = styles.replace(/:root(?:\[[^\]]+\])?\s*\{[^}]*\}/g, '');
 
+  assert.doesNotMatch(pwa, /#[\da-f]{3,8}\b/gi);
   assert.doesNotMatch(network, /#[\da-f]{3,8}\b/gi);
   assert.doesNotMatch(withoutTokenBlocks, /#[\da-f]{3,8}\b/gi);
   assert.doesNotMatch(styles, /data-resolved-theme=['"]dark['"]\]\s+\./);
