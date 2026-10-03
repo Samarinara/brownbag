@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Check,
   Link2,
+  PanelsTopLeft,
   LogOut,
   Monitor,
   Moon,
@@ -17,6 +18,7 @@ import {
   Share2,
   Sun,
   Tags,
+  UserRound,
   X,
 } from 'lucide-react';
 import { api, ApiError, post } from './api';
@@ -623,21 +625,23 @@ export function App() {
             brownbag<span className="brand-period">.</span>
           </span>
         </a>
-        <div className="network-actions">
+        <nav className="network-actions" aria-label="Main navigation">
           <a
             href="/feed"
-            className="network-cookbook-link"
+            className="network-cookbook-link network-feed-link"
             aria-current={feedPage ? 'page' : undefined}
             onClick={(e) => {
               e.preventDefault();
               openFeed();
             }}
           >
-            Recipe feed
+            <PanelsTopLeft size={20} aria-hidden="true" />
+            <span>Recipe feed</span>
           </a>
           <a
             href="/cookbook"
-            className="network-cookbook-link"
+            className="network-cookbook-link network-library-link"
+            aria-label="Cookbook"
             aria-current={
               feed === 'cookbook' && !uri && !plannerRoute && !editorRoute ? 'page' : undefined
             }
@@ -646,18 +650,49 @@ export function App() {
               selectFeed('cookbook');
             }}
           >
-            Cookbook
+            <BookOpen size={20} aria-hidden="true" />
+            <span>Cookbook</span>
           </a>
           <a
             href="/meal-planner"
-            className="network-cookbook-link"
+            className="network-cookbook-link network-planner-link"
+            aria-label="Meal Planner"
             aria-current={plannerRoute ? 'page' : undefined}
             onClick={(event) => {
               event.preventDefault();
               navigatePlanner();
             }}
           >
-            Meal Planner
+            <CalendarDays size={20} aria-hidden="true" />
+            <span>Meal Planner</span>
+          </a>
+          <a
+            href="/feed"
+            className="network-mobile-feed"
+            aria-label="Brownbag recipe feed"
+            aria-current={feedPage ? 'page' : undefined}
+            onClick={(event) => {
+              event.preventDefault();
+              openFeed();
+            }}
+          >
+            <Bag small />
+          </a>
+          <a
+            href="/"
+            className="network-mobile-search"
+            aria-label="Search recipes"
+            aria-current={
+              feed === 'discover' && !feedPage && !uri && !plannerRoute && !editorRoute
+                ? 'page'
+                : undefined
+            }
+            onClick={(event) => {
+              event.preventDefault();
+              selectFeed('discover');
+            }}
+          >
+            <Search size={24} aria-hidden="true" />
           </a>
           {user ? (
             <div className="account-menu-wrap">
@@ -670,7 +705,7 @@ export function App() {
                 aria-expanded={accountMenu}
                 title={user.handle ? `@${user.handle}` : 'Account'}
               >
-                {(user.handle?.replace(/^@/, '')[0] || 'A').toUpperCase()}
+                <UserRound size={22} aria-hidden="true" />
               </button>
               {accountMenu && (
                 <AccountMenu
@@ -703,6 +738,7 @@ export function App() {
           ) : (
             <button
               className="network-sign-in"
+              aria-label="Sign in"
               disabled={!ready || configured !== true}
               title={
                 !ready
@@ -713,10 +749,11 @@ export function App() {
               }
               onClick={() => setLogin(true)}
             >
-              Sign in
+              <UserRound size={22} aria-hidden="true" />
+              <span>Sign in</span>
             </button>
           )}
-        </div>
+        </nav>
       </header>
       <PwaTools canReload={() => leaveGuard.current()} />
       <main

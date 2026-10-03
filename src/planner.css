@@ -368,19 +368,6 @@
   margin: 6px 0 0;
 }
 @media (max-width: 700px) {
-  .network-header {
-    flex-wrap: wrap;
-    height: auto;
-    min-height: 94px;
-    padding: 15px 0;
-    gap: 12px;
-  }
-  .network-header .network-actions {
-    gap: 12px;
-  }
-  .network-header .network-cookbook-link {
-    font-size: 13px;
-  }
   .meal-planner {
     margin-top: 18px;
   }
