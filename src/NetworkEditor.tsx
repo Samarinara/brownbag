@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { ArrowDown, ArrowLeft, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { api, post } from './api';
 import { Notice } from './components';
+import { RecipeCategory } from './RecipeCategory';
 import { mealLabels, retentionStart, targetFromRoute } from '../shared/planner';
 import { displayDate } from './MealPlanner';
 import {
@@ -24,6 +25,7 @@ import {
 type Props = {
   route: string;
   userDid: string;
+  preview?: boolean;
   close: () => void;
   done: (recipe?: RecipeView) => void;
   leaveGuard: RefObject<() => boolean>;
@@ -36,7 +38,7 @@ export function NetworkEditorPage(props: Props) {
     let alive = true;
     const load = async () => {
       const url = new URL(props.route, location.origin);
-      if (url.pathname === '/recipe/new') return { data: blankRecipe() };
+      if (props.preview || url.pathname === '/recipe/new') return { data: blankRecipe() };
       if (url.pathname === '/recipe/draft') {
         const { drafts } = await api<{ drafts: { id: string; data: RecipeInput }[] }>('/drafts');
         const draft = drafts.find((item) => item.id === url.searchParams.get('id'));
@@ -64,7 +66,7 @@ export function NetworkEditorPage(props: Props) {
     return () => {
       alive = false;
     };
-  }, [props.route, props.userDid]);
+  }, [props.route, props.userDid, props.preview]);
   if (!editing)
     return (
       <section className="network-editor-page">
@@ -122,14 +124,19 @@ function NetworkEditor({
   leaveGuard,
   route,
   userDid,
+  preview = false,
 }: Props & { editing: Editing }) {
   const plannerTarget = targetFromRoute(route);
   const plannedId = useRef(crypto.randomUUID());
   const [published, setPublished] = useState<RecipeView>();
   const [data, setData] = useState<RecipeInput>(() => editableRecipe(editing.data));
+  const rowKeys = useRef({
+    ingredients: data.ingredients.map(() => crypto.randomUUID()),
+    instructions: data.instructions.map(() => crypto.randomUUID()),
+  });
   const initial = useRef(JSON.stringify(data));
   const deviceKey = recoveryKey(userDid, route);
-  const [recovery, setRecovery] = useState(() => readRecovery(deviceKey));
+  const [recovery, setRecovery] = useState(() => (preview ? undefined : readRecovery(deviceKey)));
   const [recoveryStatus, setRecoveryStatus] = useState('');
   const completed = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -141,7 +148,7 @@ function NetworkEditor({
   const [issues, setIssues] = useState<{ path: PropertyKey[]; message: string }[]>([]);
   const dirty = JSON.stringify(data) !== initial.current;
   useEffect(() => {
-    if (recovery || completed.current) return;
+    if (preview || recovery || completed.current) return;
     if (!dirty) {
       removeRecovery(deviceKey);
       return;
@@ -152,7 +159,7 @@ function NetworkEditor({
         ? 'Backed up on this device'
         : 'Device backup is unavailable. Save a private draft before leaving.',
     );
-  }, [data, dirty, deviceKey, recovery]);
+  }, [data, dirty, deviceKey, recovery, preview]);
   useEffect(() => {
     const cleared = () => {
       setRecovery(undefined);
@@ -169,6 +176,7 @@ function NetworkEditor({
     setData((old) => ({ ...old, [key]: value }));
   const addRow = (kind: 'ingredients' | 'instructions') => {
     const index = data[kind].length;
+    rowKeys.current[kind].push(crypto.randomUUID());
     if (kind === 'ingredients') update(kind, [...data.ingredients, { name: '' }]);
     else update(kind, [...data.instructions, { text: '' }]);
     requestAnimationFrame(() => {
@@ -198,6 +206,24 @@ function NetworkEditor({
     const next = [...items];
     [next[index], next[index + direction]] = [next[index + direction], next[index]];
     return next;
+  };
+  const reorderRow = (kind: 'ingredients' | 'instructions', index: number, direction: number) => {
+    rowKeys.current[kind] = move(rowKeys.current[kind], index, direction);
+    if (kind === 'ingredients') update(kind, move(data.ingredients, index, direction));
+    else update(kind, move(data.instructions, index, direction));
+  };
+  const removeRow = (kind: 'ingredients' | 'instructions', index: number) => {
+    rowKeys.current[kind].splice(index, 1);
+    if (kind === 'ingredients')
+      update(
+        kind,
+        data.ingredients.filter((_, i) => i !== index),
+      );
+    else
+      update(
+        kind,
+        data.instructions.filter((_, i) => i !== index),
+      );
   };
   useEffect(() => {
     leaveGuard.current = () =>
@@ -242,6 +268,7 @@ function NetworkEditor({
     }
   };
   const save = async (publish: boolean) => {
+    if (preview) return;
     setError('');
     setIssues([]);
     if (publish && plannerTarget && plannerTarget.date < retentionStart()) {
@@ -319,7 +346,7 @@ function NetworkEditor({
     }
   };
   const upload = async (files: FileList | null) => {
-    if (!files?.length) return;
+    if (preview || !files?.length) return;
     setError('');
     if ((data.images?.length || 0) + files.length > 8) {
       setError('You can add up to 8 photos.');
@@ -350,6 +377,19 @@ function NetworkEditor({
       setBusy(false);
     }
   };
+  const categorySuggestions = (kind: 'ingredients' | 'instructions', index: number) =>
+    [
+      ...new Map(
+        [
+          ...data.ingredients.filter((_, i) => kind !== 'ingredients' || i !== index),
+          ...data.instructions.filter((_, i) => kind !== 'instructions' || i !== index),
+        ]
+          .map((item) => item.group?.trim())
+          .filter((group): group is string => !!group)
+          .map((group) => [group.toLocaleLowerCase(), group] as const)
+          .reverse(),
+      ).values(),
+    ].reverse();
   const rowActions = (
     label: string,
     index: number,
@@ -371,16 +411,6 @@ function NetworkEditor({
       </button>
       <button
         type="button"
-        className="icon-button"
-        aria-label={`Move ${label} ${index + 1} down`}
-        title={`Move ${label} ${index + 1} down`}
-        disabled={index === length - 1}
-        onClick={() => reorder(1)}
-      >
-        <ArrowDown size={15} />
-      </button>
-      <button
-        type="button"
         className="icon-button danger"
         aria-label={`Remove ${label} ${index + 1}`}
         title={`Remove ${label} ${index + 1}`}
@@ -388,6 +418,16 @@ function NetworkEditor({
         onClick={remove}
       >
         <Trash2 size={15} />
+      </button>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={`Move ${label} ${index + 1} down`}
+        title={`Move ${label} ${index + 1} down`}
+        disabled={index === length - 1}
+        onClick={() => reorder(1)}
+      >
+        <ArrowDown size={15} />
       </button>
     </div>
   );
@@ -416,6 +456,10 @@ function NetworkEditor({
           <button
             className="button secondary"
             onClick={() => {
+              rowKeys.current = {
+                ingredients: recovery.ingredients.map(() => crypto.randomUUID()),
+                instructions: recovery.instructions.map(() => crypto.randomUUID()),
+              };
               setData(editableRecipe(recovery));
               setRecovery(undefined);
             }}
@@ -440,7 +484,7 @@ function NetworkEditor({
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
-          if (confirmed && !busy) void save(true);
+          if (!preview && confirmed && !busy) void save(true);
         }}
       >
         <fieldset disabled={busy || !!published} className="recipe-editor-fields">
@@ -454,13 +498,24 @@ function NetworkEditor({
                 placeholder="Lemon pasta"
               />
             </label>
+            <Disclosure title="Introduction" populated={!!editing.data.summary}>
+              <label>
+                Short description
+                <textarea
+                  name="summary"
+                  rows={2}
+                  value={data.summary || ''}
+                  onChange={(e) => update('summary', e.target.value || undefined)}
+                />
+              </label>
+            </Disclosure>
           </section>
           <section className="recipe-editor-section">
             <div className="recipe-section-heading">
               <h2>Ingredients</h2>
             </div>
             {data.ingredients.map((item, index) => (
-              <div className="recipe-ingredient-row" key={index}>
+              <div className="recipe-ingredient-row" key={rowKeys.current.ingredients[index]}>
                 <div className="recipe-ingredient-fields">
                   <label>
                     <span>Quantity</span>
@@ -493,50 +548,37 @@ function NetworkEditor({
                     />
                   </label>
                 </div>
-                <div className="recipe-row-bottom">
-                  <Disclosure
-                    title="Options"
-                    label={`Ingredient ${index + 1} options`}
-                    populated={
-                      !!(
-                        editing.data.ingredients[index]?.preparation ||
-                        editing.data.ingredients[index]?.group
-                      )
-                    }
-                  >
-                    <label>
-                      Preparation
-                      <input
-                        name={`ingredients.${index}.preparation`}
-                        placeholder="Finely chopped"
-                        value={item.preparation || ''}
-                        onChange={(e) =>
-                          ingredient(index, { preparation: e.target.value || undefined })
-                        }
-                      />
-                    </label>
-                    <label>
-                      Ingredient group
-                      <input
-                        name={`ingredients.${index}.group`}
-                        placeholder="For the dough"
-                        value={item.group || ''}
-                        onChange={(e) => ingredient(index, { group: e.target.value || undefined })}
-                      />
-                    </label>
-                    {rowActions(
-                      'ingredient',
-                      index,
-                      data.ingredients.length,
-                      (d) => update('ingredients', move(data.ingredients, index, d)),
-                      () =>
-                        update(
-                          'ingredients',
-                          data.ingredients.filter((_, i) => i !== index),
-                        ),
-                    )}
-                  </Disclosure>
-                </div>
+                <Disclosure
+                  title="Preparation"
+                  label={`Ingredient ${index + 1} preparation options`}
+                  populated={!!editing.data.ingredients[index]?.preparation}
+                >
+                  <label>
+                    <span className="sr-only">Ingredient {index + 1} preparation</span>
+                    <input
+                      name={`ingredients.${index}.preparation`}
+                      placeholder="Finely chopped"
+                      value={item.preparation || ''}
+                      onChange={(e) =>
+                        ingredient(index, { preparation: e.target.value || undefined })
+                      }
+                    />
+                  </label>
+                </Disclosure>
+                {rowActions(
+                  'ingredient',
+                  index,
+                  data.ingredients.length,
+                  (d) => reorderRow('ingredients', index, d),
+                  () => removeRow('ingredients', index),
+                )}
+                <RecipeCategory
+                  name={`ingredients.${index}.group`}
+                  label={`Ingredient ${index + 1} category`}
+                  value={item.group}
+                  categories={categorySuggestions('ingredients', index)}
+                  onChange={(group) => ingredient(index, { group })}
+                />
               </div>
             ))}
             <button
@@ -553,7 +595,7 @@ function NetworkEditor({
               <h2>Steps</h2>
             </div>
             {data.instructions.map((item, index) => (
-              <div className="recipe-method-row" key={index}>
+              <div className="recipe-method-row" key={rowKeys.current.instructions[index]}>
                 <span className="recipe-step-number">{index + 1}</span>
                 <div className="recipe-step-content">
                   <label>
@@ -566,35 +608,21 @@ function NetworkEditor({
                       onChange={(e) => step(index, { text: e.target.value })}
                     />
                   </label>
-                  <div className="recipe-row-bottom">
-                    <Disclosure
-                      title="Options"
-                      label={`Step ${index + 1} options`}
-                      populated={!!editing.data.instructions[index]?.group}
-                    >
-                      <label>
-                        Group name
-                        <input
-                          name={`instructions.${index}.group`}
-                          placeholder="Make the dough"
-                          value={item.group || ''}
-                          onChange={(e) => step(index, { group: e.target.value || undefined })}
-                        />
-                      </label>
-                      {rowActions(
-                        'step',
-                        index,
-                        data.instructions.length,
-                        (d) => update('instructions', move(data.instructions, index, d)),
-                        () =>
-                          update(
-                            'instructions',
-                            data.instructions.filter((_, i) => i !== index),
-                          ),
-                      )}
-                    </Disclosure>
-                  </div>
                 </div>
+                {rowActions(
+                  'step',
+                  index,
+                  data.instructions.length,
+                  (d) => reorderRow('instructions', index, d),
+                  () => removeRow('instructions', index),
+                )}
+                <RecipeCategory
+                  name={`instructions.${index}.group`}
+                  label={`Step ${index + 1} category`}
+                  value={item.group}
+                  categories={categorySuggestions('instructions', index)}
+                  onChange={(group) => step(index, { group })}
+                />
               </div>
             ))}
             <button
@@ -607,18 +635,7 @@ function NetworkEditor({
             </button>
           </section>
           <section className="recipe-editor-section recipe-extras">
-            <h2>Optional details</h2>
-            <Disclosure title="Introduction" populated={!!editing.data.summary}>
-              <label>
-                Short description
-                <textarea
-                  name="summary"
-                  rows={2}
-                  value={data.summary || ''}
-                  onChange={(e) => update('summary', e.target.value || undefined)}
-                />
-              </label>
-            </Disclosure>
+            <h2>Details</h2>
             <Disclosure
               title="Time & servings"
               populated={
@@ -923,7 +940,8 @@ function NetworkEditor({
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/avif"
                   multiple
-                  disabled={(data.images?.length || 0) >= 8}
+                  disabled={preview || (data.images?.length || 0) >= 8}
+                  title={preview ? 'Photo uploads are unavailable in preview' : undefined}
                   onChange={(e) => {
                     void upload(e.target.files);
                     e.target.value = '';
@@ -971,14 +989,26 @@ function NetworkEditor({
         </div>
         <footer className="recipe-editor-footer">
           <span role="status" aria-live="polite" aria-atomic="true">
-            {busy ? 'Saving…' : dirty ? recoveryStatus || 'Unsaved changes' : ''}
+            {preview
+              ? 'Preview only'
+              : busy
+                ? 'Saving…'
+                : dirty
+                  ? recoveryStatus || 'Unsaved changes'
+                  : ''}
           </span>
           <div className="network-actions">
             <button
               type="button"
               className="button secondary"
-              disabled={busy || !!published}
-              title={busy ? 'Please wait while we save.' : 'Save a private draft only you can see'}
+              disabled={preview || busy || !!published}
+              title={
+                preview
+                  ? 'Saving is unavailable in preview'
+                  : busy
+                    ? 'Please wait while we save.'
+                    : 'Save a private draft only you can see'
+              }
               onClick={() => void save(false)}
             >
               Save draft
@@ -986,20 +1016,22 @@ function NetworkEditor({
             <span
               className="disabled-hint"
               title={
-                busy
-                  ? 'Please wait while we save.'
-                  : !confirmed
-                    ? 'Check the publish box above to enable publishing.'
-                    : editing.original
-                      ? 'Publish your changes publicly'
-                      : 'Publish this recipe publicly'
+                preview
+                  ? 'Publishing is unavailable in preview'
+                  : busy
+                    ? 'Please wait while we save.'
+                    : !confirmed
+                      ? 'Check the publish box above to enable publishing.'
+                      : editing.original
+                        ? 'Publish your changes publicly'
+                        : 'Publish this recipe publicly'
               }
             >
               <button
                 type="submit"
                 className="button primary"
-                disabled={busy || !confirmed}
-                aria-describedby={!confirmed && !busy ? 'publish-hint' : undefined}
+                disabled={preview || busy || !confirmed}
+                aria-describedby={!preview && !confirmed && !busy ? 'publish-hint' : undefined}
               >
                 {published
                   ? 'Retry adding to meal plan'
@@ -1011,7 +1043,7 @@ function NetworkEditor({
               </button>
             </span>
           </div>
-          {!confirmed && !busy && (
+          {!preview && !confirmed && !busy && (
             <span id="publish-hint" className="button-hint">
               Confirm public sharing to publish.
             </span>
