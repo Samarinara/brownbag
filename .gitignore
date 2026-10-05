@@ -7,3 +7,5 @@ data/
 .vercel/
 *.sqlite*
 coverage/
+/test-results/
+/playwright-report/
