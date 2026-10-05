@@ -94,17 +94,19 @@ export function NetworkEditorPage(props: Props) {
 function Disclosure({
   title,
   hint,
+  label,
   populated,
   children,
 }: {
   title: string;
   hint?: string;
+  label?: string;
   populated?: boolean;
   children: ReactNode;
 }) {
   return (
     <details className="recipe-disclosure" open={populated || undefined}>
-      <summary>
+      <summary aria-label={label}>
         <span>{title}</span>
         {hint && <small>{hint}</small>}
       </summary>
@@ -147,7 +149,7 @@ function NetworkEditor({
     const saved = writeRecovery(deviceKey, data);
     setRecoveryStatus(
       saved
-        ? 'Changes backed up on this device. Save a private draft to sync them.'
+        ? 'Backed up on this device'
         : 'Device backup is unavailable. Save a private draft before leaving.',
     );
   }, [data, dirty, deviceKey, recovery]);
@@ -165,6 +167,18 @@ function NetworkEditor({
   };
   const update = <K extends keyof RecipeInput>(key: K, value: RecipeInput[K]) =>
     setData((old) => ({ ...old, [key]: value }));
+  const addRow = (kind: 'ingredients' | 'instructions') => {
+    const index = data[kind].length;
+    if (kind === 'ingredients') update(kind, [...data.ingredients, { name: '' }]);
+    else update(kind, [...data.instructions, { text: '' }]);
+    requestAnimationFrame(() => {
+      formRef.current
+        ?.querySelector<HTMLElement>(
+          `[name="${kind}.${index}.${kind === 'ingredients' ? 'name' : 'text'}"]`,
+        )
+        ?.focus();
+    });
+  };
   const ingredient = (index: number, patch: Partial<RecipeInput['ingredients'][number]>) =>
     update(
       'ingredients',
@@ -383,15 +397,7 @@ function NetworkEditor({
         <ArrowLeft size={16} /> {plannerTarget ? 'Back to Meal Planner' : 'Back to recipes'}
       </button>
       <header className="recipe-editor-heading">
-        <p className="eyebrow">YOUR COOKBOOK</p>
-        <h1>
-          {editing.original
-            ? 'A little refinement.'
-            : editing.draftId
-              ? 'Pick up where you left off.'
-              : 'Something worth keeping.'}
-        </h1>
-        <p>Start with the essentials. Add the little details that make it yours.</p>
+        <h1>{editing.original ? 'Edit recipe' : editing.draftId ? 'Edit draft' : 'New recipe'}</h1>
         {plannerTarget && (
           <div className="planner-editor-destination">
             <strong>
@@ -427,7 +433,6 @@ function NetworkEditor({
           </button>
         </div>
       )}
-      {recoveryStatus && <p role="status">{recoveryStatus}</p>}
       <form
         ref={formRef}
         className="network-editor"
@@ -446,33 +451,14 @@ function NetworkEditor({
                 name="title"
                 value={data.title}
                 onChange={(e) => update('title', e.target.value)}
-                placeholder="Sunday’s slow-roasted tomatoes"
+                placeholder="Lemon pasta"
               />
             </label>
-            <Disclosure
-              title="A little introduction"
-              hint="Optional"
-              populated={!!editing.data.summary}
-            >
-              <label>
-                What makes this recipe special?
-                <textarea
-                  name="summary"
-                  rows={2}
-                  value={data.summary || ''}
-                  onChange={(e) => update('summary', e.target.value || undefined)}
-                />
-              </label>
-            </Disclosure>
           </section>
           <section className="recipe-editor-section">
             <div className="recipe-section-heading">
               <h2>Ingredients</h2>
-              <span>{data.ingredients.length} / 64</span>
             </div>
-            <p className="muted">
-              A pinch, a handful, or an exact measure. Use what works for your recipe.
-            </p>
             {data.ingredients.map((item, index) => (
               <div className="recipe-ingredient-row" key={index}>
                 <div className="recipe-ingredient-fields">
@@ -509,7 +495,8 @@ function NetworkEditor({
                 </div>
                 <div className="recipe-row-bottom">
                   <Disclosure
-                    title="Preparation & group"
+                    title="Options"
+                    label={`Ingredient ${index + 1} options`}
                     populated={
                       !!(
                         editing.data.ingredients[index]?.preparation ||
@@ -521,7 +508,7 @@ function NetworkEditor({
                       Preparation
                       <input
                         name={`ingredients.${index}.preparation`}
-                        placeholder="Sifted, finely chopped, at room temperature…"
+                        placeholder="Finely chopped"
                         value={item.preparation || ''}
                         onChange={(e) =>
                           ingredient(index, { preparation: e.target.value || undefined })
@@ -537,18 +524,18 @@ function NetworkEditor({
                         onChange={(e) => ingredient(index, { group: e.target.value || undefined })}
                       />
                     </label>
+                    {rowActions(
+                      'ingredient',
+                      index,
+                      data.ingredients.length,
+                      (d) => update('ingredients', move(data.ingredients, index, d)),
+                      () =>
+                        update(
+                          'ingredients',
+                          data.ingredients.filter((_, i) => i !== index),
+                        ),
+                    )}
                   </Disclosure>
-                  {rowActions(
-                    'ingredient',
-                    index,
-                    data.ingredients.length,
-                    (d) => update('ingredients', move(data.ingredients, index, d)),
-                    () =>
-                      update(
-                        'ingredients',
-                        data.ingredients.filter((_, i) => i !== index),
-                      ),
-                  )}
                 </div>
               </div>
             ))}
@@ -556,15 +543,14 @@ function NetworkEditor({
               type="button"
               className="text-button"
               disabled={data.ingredients.length >= 64}
-              onClick={() => update('ingredients', [...data.ingredients, { name: '' }])}
+              onClick={() => addRow('ingredients')}
             >
               <Plus size={16} /> Add ingredient
             </button>
           </section>
           <section className="recipe-editor-section">
             <div className="recipe-section-heading">
-              <h2>Method</h2>
-              <span>{data.instructions.length} / 64</span>
+              <h2>Steps</h2>
             </div>
             {data.instructions.map((item, index) => (
               <div className="recipe-method-row" key={index}>
@@ -582,7 +568,8 @@ function NetworkEditor({
                   </label>
                   <div className="recipe-row-bottom">
                     <Disclosure
-                      title="Step group"
+                      title="Options"
+                      label={`Step ${index + 1} options`}
                       populated={!!editing.data.instructions[index]?.group}
                     >
                       <label>
@@ -594,18 +581,18 @@ function NetworkEditor({
                           onChange={(e) => step(index, { group: e.target.value || undefined })}
                         />
                       </label>
+                      {rowActions(
+                        'step',
+                        index,
+                        data.instructions.length,
+                        (d) => update('instructions', move(data.instructions, index, d)),
+                        () =>
+                          update(
+                            'instructions',
+                            data.instructions.filter((_, i) => i !== index),
+                          ),
+                      )}
                     </Disclosure>
-                    {rowActions(
-                      'step',
-                      index,
-                      data.instructions.length,
-                      (d) => update('instructions', move(data.instructions, index, d)),
-                      () =>
-                        update(
-                          'instructions',
-                          data.instructions.filter((_, i) => i !== index),
-                        ),
-                    )}
                   </div>
                 </div>
               </div>
@@ -614,17 +601,26 @@ function NetworkEditor({
               type="button"
               className="text-button"
               disabled={data.instructions.length >= 64}
-              onClick={() => update('instructions', [...data.instructions, { text: '' }])}
+              onClick={() => addRow('instructions')}
             >
               <Plus size={16} /> Add step
             </button>
           </section>
           <section className="recipe-editor-section recipe-extras">
-            <h2>The little details</h2>
-            <p className="muted">Everything here is optional.</p>
+            <h2>Optional details</h2>
+            <Disclosure title="Introduction" populated={!!editing.data.summary}>
+              <label>
+                Short description
+                <textarea
+                  name="summary"
+                  rows={2}
+                  value={data.summary || ''}
+                  onChange={(e) => update('summary', e.target.value || undefined)}
+                />
+              </label>
+            </Disclosure>
             <Disclosure
-              title="Time & yield"
-              hint="How long, how much"
+              title="Time & servings"
               populated={
                 !!(
                   editing.data.yield ||
@@ -655,7 +651,7 @@ function NetworkEditor({
                 Makes
                 <input
                   name="yield.display"
-                  placeholder="4–6 servings, one large loaf…"
+                  placeholder="4 servings"
                   value={data.yield?.display || ''}
                   onChange={(e) =>
                     update('yield', { ...data.yield, display: e.target.value || undefined })
@@ -692,13 +688,9 @@ function NetworkEditor({
                 </div>
               </Disclosure>
             </Disclosure>
-            <Disclosure
-              title="Story & cooking notes"
-              hint="Make it personal"
-              populated={!!editing.data.description}
-            >
+            <Disclosure title="Notes" populated={!!editing.data.description}>
               <label>
-                The story, serving suggestions, or a useful tip
+                Cooking notes
                 <textarea
                   name="description"
                   rows={6}
@@ -709,7 +701,6 @@ function NetworkEditor({
             </Disclosure>
             <Disclosure
               title="Tags & language"
-              hint="Help others find it"
               populated={!!(editing.data.tags?.length || editing.data.language)}
             >
               <div className="stack">
@@ -758,16 +749,26 @@ function NetworkEditor({
                 Recipe language
                 <input
                   name="language"
+                  list="recipe-languages"
                   placeholder="en, fr, es, zh-Hant…"
                   value={data.language || ''}
                   onChange={(e) => update('language', e.target.value || undefined)}
                 />
-                <small>Use a language code, such as en for English or fr for French.</small>
+                <datalist id="recipe-languages">
+                  <option value="en">English</option>
+                  <option value="fr">French</option>
+                  <option value="es">Spanish</option>
+                  <option value="de">German</option>
+                  <option value="it">Italian</option>
+                  <option value="pt">Portuguese</option>
+                  <option value="zh">Chinese</option>
+                  <option value="ja">Japanese</option>
+                </datalist>
+                <small>Choose a language or enter its code.</small>
               </label>
             </Disclosure>
             <Disclosure
               title="Source & inspiration"
-              hint="Give credit"
               populated={
                 !!(editing.data.source || editing.data.derivedFrom || editing.data.adaptationNote)
               }
@@ -776,7 +777,7 @@ function NetworkEditor({
                 Source name
                 <input
                   name="source.name"
-                  placeholder="A cookbook, a friend, a family tradition…"
+                  placeholder="Family cookbook"
                   value={data.source?.name || ''}
                   onChange={(e) =>
                     update('source', { ...data.source, name: e.target.value || undefined })
@@ -804,11 +805,7 @@ function NetworkEditor({
                   onChange={(e) => update('adaptationNote', e.target.value || undefined)}
                 />
               </label>
-              <Disclosure
-                title="Credit a Brownbag recipe"
-                hint="Original recipe reference"
-                populated={!!editing.data.derivedFrom}
-              >
+              <Disclosure title="Credit a Brownbag recipe" populated={!!editing.data.derivedFrom}>
                 <p className="muted">
                   “Make it your own” fills this in for you. You can also enter a recipe’s record
                   address and version.
@@ -936,12 +933,6 @@ function NetworkEditor({
             </Disclosure>
           </section>
           <section className="recipe-publish">
-            <h2>{editing.original ? 'Ready to update?' : 'Keep it, or share it.'}</h2>
-            <p className="muted">
-              {editing.original
-                ? 'Publish your changes, or save a separate private draft.'
-                : 'Save a private draft, or publish when you’re ready.'}
-            </p>
             <label className="network-consent">
               <input
                 type="checkbox"
@@ -980,7 +971,7 @@ function NetworkEditor({
         </div>
         <footer className="recipe-editor-footer">
           <span role="status" aria-live="polite" aria-atomic="true">
-            {busy ? 'Saving…' : dirty ? 'Unsaved changes' : 'Your recipe, your pace.'}
+            {busy ? 'Saving…' : dirty ? recoveryStatus || 'Unsaved changes' : ''}
           </span>
           <div className="network-actions">
             <button
@@ -990,7 +981,7 @@ function NetworkEditor({
               title={busy ? 'Please wait while we save.' : 'Save a private draft only you can see'}
               onClick={() => void save(false)}
             >
-              Save private draft
+              Save draft
             </button>
             <span
               className="disabled-hint"
@@ -1008,7 +999,7 @@ function NetworkEditor({
                 type="submit"
                 className="button primary"
                 disabled={busy || !confirmed}
-                aria-describedby="publish-hint"
+                aria-describedby={!confirmed && !busy ? 'publish-hint' : undefined}
               >
                 {published
                   ? 'Retry adding to meal plan'
@@ -1022,7 +1013,7 @@ function NetworkEditor({
           </div>
           {!confirmed && !busy && (
             <span id="publish-hint" className="button-hint">
-              Publishing stays disabled until you confirm the recipe can be public.
+              Confirm public sharing to publish.
             </span>
           )}
         </footer>
