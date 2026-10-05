@@ -69,6 +69,7 @@ const currentPlannerRoute = () =>
       : location.pathname + location.search
     : null;
 const currentEditorRoute = () =>
+  location.pathname === '/editor-preview' ||
   /^\/recipe\/(new|edit|adapt|draft)$/.test(location.pathname)
     ? location.pathname + location.search
     : null;
@@ -340,7 +341,7 @@ export function App() {
     document.title = plannerRoute
       ? 'Meal Planner — brownbag'
       : editorRoute
-        ? `${editorRoute.startsWith('/recipe/new') ? 'Add a recipe' : 'Edit recipe'} — brownbag`
+        ? `${editorRoute.startsWith('/editor-preview') ? 'Editor preview' : editorRoute.startsWith('/recipe/new') ? 'Add a recipe' : 'Edit recipe'} — brownbag`
         : recipe && uri
           ? `${recipe.record.title} — brownbag`
           : 'brownbag — Your recipes. All in one bag.';
@@ -766,7 +767,16 @@ export function App() {
           {plannerRoute ? 'Meal Planner opened.' : browseAnnouncement}
         </p>
         <Notice error={error} />
-        {configured === false ? (
+        {editorRoute?.split('?')[0] === '/editor-preview' ? (
+          <NetworkEditorPage
+            route={editorRoute}
+            userDid=""
+            preview
+            leaveGuard={leaveGuard}
+            close={() => go(null)}
+            done={() => {}}
+          />
+        ) : configured === false ? (
           <section className="empty-state">
             <Bag />
             <h1>A place for good food.</h1>
