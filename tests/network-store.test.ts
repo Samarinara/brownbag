@@ -380,3 +380,77 @@ test('cookbook combines posts and saves, persists private tags, paginates and re
     await pg.close();
   }
 });
+
+test('cookbook pagination preserves timestamps within a single millisecond', async () => {
+  const pg = new PGlite();
+  try {
+    for (const file of ['001_network.sql', '003_cookbook.sql'])
+      await pg.exec(await readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+    const store = new NetworkStore(adapt(pg));
+    await store.actor(alice);
+    await store.actor(bob);
+    const uris: string[] = [];
+    for (const [rkey, savedAt] of [
+      ['first', '2026-01-02T00:00:00.123900Z'],
+      ['second', '2026-01-02T00:00:00.123800Z'],
+      ['third', '2026-01-02T00:00:00.123800Z'],
+    ]) {
+      const recipeUri = `at://${bob}/${RECIPE_COLLECTION}/${rkey}`;
+      uris.push(recipeUri);
+      await store.index({
+        did: bob,
+        collection: RECIPE_COLLECTION,
+        rkey,
+        cid,
+        record,
+        rev: '3mabc234567ac',
+      });
+      await store.saveCookbook(alice, recipeUri);
+      await store.db.query('UPDATE bookmarks SET created_at=$3 WHERE did=$1 AND uri=$2', [
+        alice,
+        recipeUri,
+        savedAt,
+      ]);
+    }
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await store.recipes({ feed: 'cookbook', did: alice, limit: 1, cursor });
+      seen.push(...page.recipes.map((recipe) => recipe.uri));
+      cursor = page.nextCursor;
+    } while (cursor);
+    assert.deepEqual(seen, [uris[0], uris[2], uris[1]]);
+  } finally {
+    await pg.close();
+  }
+});
+
+test('recipe date projections follow accepted updates and reject stale revisions', async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(
+      await readFile(new URL('../migrations/001_network.sql', import.meta.url), 'utf8'),
+    );
+    const store = new NetworkStore(adapt(pg));
+    const event = {
+      did: alice,
+      collection: RECIPE_COLLECTION,
+      rkey: '3mabc234567ab',
+      cid,
+      record,
+      rev: '3mabc234567ac',
+    };
+    await store.index(event);
+    const createdAt = '2026-01-03T00:00:00.000Z';
+    await store.index({ ...event, rev: '3mabc234567ad', record: { ...record, createdAt } });
+    await store.index(event);
+    const [row] = await store.db.query(
+      'SELECT created_at,record FROM public_recipes WHERE uri=$1',
+      [uri],
+    );
+    assert.equal(new Date(row.created_at).toISOString(), createdAt);
+    assert.equal(row.record.createdAt, createdAt);
+  } finally {
+    await pg.close();
+  }
+});

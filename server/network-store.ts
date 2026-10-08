@@ -5,7 +5,6 @@ import {
   FOLLOW_COLLECTION,
   PROFILE_COLLECTION,
   draftInputSchema,
-  recipeRecordSchema,
   followRecordSchema,
   profileRecordSchema,
   type RecipeView,
@@ -82,7 +81,7 @@ export class NetworkStore {
           await tx.query(
             `INSERT INTO public_recipes(uri,did,cid,record,title,ingredient_text,search_document,created_at)
             VALUES ($1,$2,$3,$4::text::jsonb,$5,$6,setweight(to_tsvector('simple',$5),'A') || setweight(to_tsvector('simple',$6),'B'),$7)
-            ON CONFLICT(uri) DO UPDATE SET cid=excluded.cid,record=excluded.record,title=excluded.title,ingredient_text=excluded.ingredient_text,search_document=excluded.search_document`,
+            ON CONFLICT(uri) DO UPDATE SET cid=excluded.cid,record=excluded.record,title=excluded.title,ingredient_text=excluded.ingredient_text,search_document=excluded.search_document,created_at=excluded.created_at`,
             [uri, did, cid, JSON.stringify(record), record.title, ingredients, record.createdAt],
           );
         }
@@ -164,7 +163,11 @@ export class NetworkStore {
     if (cursor) {
       try {
         const value = JSON.parse(Buffer.from(cursor, 'base64url').toString());
-        if (typeof value.uri !== 'string' || !Number.isFinite(Date.parse(value.date)))
+        if (
+          typeof value.uri !== 'string' ||
+          typeof value.date !== 'string' ||
+          !Number.isFinite(Date.parse(value.date))
+        )
           throw new Error();
         where.push(`(${date},r.uri)<(${bind(value.date)}::timestamptz,${bind(value.uri)})`);
       } catch {
@@ -172,7 +175,7 @@ export class NetworkStore {
       }
     }
     const rows = await this.db.query(
-      `SELECT r.*,a.handle,a.profile->>'displayName' AS display_name,${date} AS cookbook_date${cookbook ? ',b.tags AS cookbook_tags' : ''} FROM public_recipes r JOIN actors a ON a.did=r.did ${join} WHERE ${where.join(' AND ')} ORDER BY ${date} DESC,r.uri DESC LIMIT ${bind(limit + 1)}`,
+      `SELECT r.*,a.handle,a.profile->>'displayName' AS display_name,${date} AS cookbook_date,to_char(${date} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_date${cookbook ? ',b.tags AS cookbook_tags' : ''} FROM public_recipes r JOIN actors a ON a.did=r.did ${join} WHERE ${where.join(' AND ')} ORDER BY ${date} DESC,r.uri DESC LIMIT ${bind(limit + 1)}`,
       params,
     );
     const page = rows.slice(0, limit);
@@ -182,7 +185,9 @@ export class NetworkStore {
       ...(rows.length > limit && last
         ? {
             nextCursor: Buffer.from(
-              JSON.stringify({ date: new Date(last.cookbook_date).toISOString(), uri: last.uri }),
+              // PostgreSQL timestamps have microsecond precision; JavaScript Dates do not.
+              // Keep the database value so entries saved within one millisecond are not skipped.
+              JSON.stringify({ date: last.cursor_date, uri: last.uri }),
             ).toString('base64url'),
           }
         : {}),

@@ -8,16 +8,22 @@ export class ApiError extends Error {
   }
 }
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const response = await fetch(`/api${path}`, {
     cache: 'no-store',
     ...options,
-    headers: {
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
+    headers,
   });
-  const data = await response.json();
-  if (!response.ok) throw new ApiError(response.status, data.error || 'Request failed.');
+  const data = await response.json().catch((error: unknown) => {
+    if (response.ok) throw error;
+    return undefined;
+  });
+  if (!response.ok)
+    throw new ApiError(
+      response.status,
+      typeof data?.error === 'string' && data.error ? data.error : 'Request failed.',
+    );
   if (path === '/auth/logout') {
     await clearDeviceData().catch(() => {
       /* Sign-out still succeeds if browser storage is blocked. */

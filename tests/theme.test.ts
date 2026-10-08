@@ -1,6 +1,36 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
+import { savedTheme, saveTheme } from '../src/theme';
+
+test('theme preferences fall back to the system and tolerate blocked storage', (t) => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  };
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true });
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, 'localStorage', original);
+    else delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
+  assert.equal(savedTheme(), 'system');
+  saveTheme('dark');
+  assert.equal(savedTheme(), 'dark');
+  saveTheme('light');
+  assert.equal(savedTheme(), 'light');
+  values.set('brownbag-theme', 'invalid');
+  assert.equal(savedTheme(), 'system');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get() {
+      throw new Error('Storage blocked');
+    },
+  });
+  assert.equal(savedTheme(), 'system');
+  assert.doesNotThrow(() => saveTheme('dark'));
+});
 
 const stylesPath = new URL('../src/styles.css', import.meta.url);
 const networkPath = new URL('../src/network.css', import.meta.url);

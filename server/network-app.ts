@@ -126,10 +126,12 @@ export function createNetworkApp(config: {
     const nonce = req.cookies?.brownbag_oauth;
     if (typeof nonce !== 'string') throw new HttpError(400, 'Sign-in expired. Please try again.');
     const result = await oauth.callback(new URL(req.originalUrl, config.origin).searchParams);
+    const stateBytes = typeof result.state === 'string' ? Buffer.from(result.state) : undefined;
+    const nonceBytes = Buffer.from(nonce);
     if (
-      typeof result.state !== 'string' ||
-      result.state.length !== nonce.length ||
-      !timingSafeEqual(Buffer.from(result.state), Buffer.from(nonce))
+      !stateBytes ||
+      stateBytes.length !== nonceBytes.length ||
+      !timingSafeEqual(stateBytes, nonceBytes)
     )
       throw new HttpError(400, 'Sign-in could not be verified. Please try again.');
     const did = result.session.did;
@@ -364,6 +366,10 @@ export function createNetworkApp(config: {
       res
         .status(400)
         .json({ error: err.issues.map((x) => `${x.path.join('.')}: ${x.message}`).join('; ') });
+      return;
+    }
+    if (err.type === 'entity.parse.failed' && err.status === 400) {
+      res.status(400).json({ error: 'Request body must be valid JSON.' });
       return;
     }
     const status =

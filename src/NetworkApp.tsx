@@ -35,6 +35,7 @@ import {
 import { type RecipeInput, type RecipeView, type SessionUser } from '../shared/atproto';
 import { NetworkEditorPage } from './NetworkEditor';
 import { NetworkAccount } from './NetworkAccount';
+import { savedTheme, saveTheme, type ThemePreference } from './theme';
 import { MealPlanner, PlanRecipeDialog, defaultPlannerUrl } from './MealPlanner';
 import { mealLabels, plannerUrl, targetFromRoute, type MealTarget } from '../shared/planner';
 import './network.css';
@@ -52,7 +53,6 @@ import {
 } from './RecipePresentation';
 
 type Feed = 'discover' | 'cookbook';
-type ThemePreference = 'system' | 'light' | 'dark';
 type Draft = { id: string; data: RecipeInput; updatedAt: string };
 export type Editing = { data: RecipeInput; original?: RecipeView; draftId?: string };
 const blank = (): RecipeInput => ({
@@ -81,11 +81,6 @@ const themeOptions: { value: ThemePreference; label: string; icon: typeof Monito
   { value: 'light', label: 'Light', icon: Sun },
   { value: 'dark', label: 'Dark', icon: Moon },
 ];
-
-function savedTheme(): ThemePreference {
-  const value = localStorage.getItem('brownbag-theme');
-  return value === 'light' || value === 'dark' ? value : 'system';
-}
 
 export function App() {
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -191,7 +186,7 @@ export function App() {
   }, [plannerRoute]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem('brownbag-theme', theme);
+    saveTheme(theme);
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const updateThemeColor = () => {
       const dark = theme === 'dark' || (theme === 'system' && media.matches);
