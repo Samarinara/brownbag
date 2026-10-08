@@ -29,6 +29,9 @@ const store = new NetworkStore(adapt(pg));
 await pg.exec(
   await readFile(new URL('../../migrations/004_meal_planner.sql', import.meta.url), 'utf8'),
 );
+await pg.exec(
+  await readFile(new URL('../../migrations/005_ingredient_index.sql', import.meta.url), 'utf8'),
+);
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa';
 const cid = 'bafyre' + 'a'.repeat(53);
 const records = new Map<string, unknown>();

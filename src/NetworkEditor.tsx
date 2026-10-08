@@ -1,5 +1,13 @@
 import { readRecovery, recoveryKey, removeRecovery, writeRecovery } from './offline-storage';
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { api, post } from './api';
 import { Notice } from './components';
@@ -21,6 +29,51 @@ import {
   photoSchema,
   recipeIssueLabel,
 } from './recipe-editor';
+
+function IngredientTextInput({
+  kind,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { kind: 'ingredient' | 'unit' }) {
+  const id = useId();
+  const [focused, setFocused] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!focused) return;
+    const controller = new AbortController();
+    setSuggestions([]);
+    const timer = setTimeout(() => {
+      void api<{ suggestions: { value: string }[] }>(
+        `/ingredients/suggestions?${new URLSearchParams({ kind, q: String(props.value || '') })}`,
+        { signal: controller.signal },
+      )
+        .then(({ suggestions }) => {
+          if (!controller.signal.aborted) setSuggestions(suggestions.map((item) => item.value));
+        })
+        .catch(() => {
+          // Text entry remains available offline or when suggestions cannot load.
+        });
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [focused, kind, props.value]);
+  return (
+    <>
+      <input
+        {...props}
+        list={id}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      />
+      <datalist id={id}>
+        {suggestions.map((value) => (
+          <option key={value} value={value} />
+        ))}
+      </datalist>
+    </>
+  );
+}
 
 type Props = {
   route: string;
@@ -529,7 +582,8 @@ function NetworkEditor({
                   </label>
                   <label>
                     Unit
-                    <input
+                    <IngredientTextInput
+                      kind="unit"
                       name={`ingredients.${index}.unit`}
                       aria-label={`Ingredient ${index + 1} unit`}
                       placeholder="cups"
@@ -539,7 +593,8 @@ function NetworkEditor({
                   </label>
                   <label className="recipe-ingredient-name">
                     Ingredient
-                    <input
+                    <IngredientTextInput
+                      kind="ingredient"
                       name={`ingredients.${index}.name`}
                       aria-label={`Ingredient ${index + 1} name`}
                       placeholder="Flour"

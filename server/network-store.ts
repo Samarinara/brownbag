@@ -130,9 +130,11 @@ export class NetworkStore {
       limit?: number;
       cursor?: string;
       tag?: string;
+      ingredient?: string;
+      unit?: string;
     } = {},
   ) {
-    const { q = '', feed = 'discover', did, limit = 24, cursor, tag } = options;
+    const { q = '', feed = 'discover', did, limit = 24, cursor, tag, ingredient, unit } = options;
     const params: any[] = [];
     const bind = (v: any) => {
       params.push(v);
@@ -144,6 +146,12 @@ export class NetworkStore {
       where.push(
         `(r.search_document @@ plainto_tsquery('simple',${p}) OR r.title ILIKE '%' || ${p} || '%')`,
       );
+    }
+    if (ingredient !== undefined || unit !== undefined) {
+      const match = ['i.recipe_uri=r.uri'];
+      if (ingredient !== undefined) match.push(`i.name_key=ingredient_key(${bind(ingredient)})`);
+      if (unit !== undefined) match.push(`i.unit_key=ingredient_key(${bind(unit)})`);
+      where.push(`EXISTS(SELECT 1 FROM recipe_ingredients i WHERE ${match.join(' AND ')})`);
     }
     if (feed !== 'discover' && !did) throw new HttpError(401, 'Sign in to see your cookbook.');
     const cookbook = feed === 'cookbook';
@@ -193,6 +201,41 @@ export class NetworkStore {
         : {}),
     };
   }
+  async ingredientSuggestions(kind: 'ingredient' | 'unit', q = '', limit = 12) {
+    const column = kind === 'ingredient' ? 'name_key' : 'unit_key';
+    // Escape LIKE metacharacters: free-text input is always a literal prefix.
+    const [prefix] = await this.db.query('SELECT ingredient_key($1) AS key', [q]);
+    const pattern = prefix.key.replace(/[\\%_]/g, '\\$&') + '%';
+    return this.db.query<{ value: string; recipeCount: number }>(
+      `SELECT i.${column} AS value, count(DISTINCT i.recipe_uri)::integer AS "recipeCount"
+       FROM recipe_ingredients i JOIN public_recipes r ON r.uri=i.recipe_uri
+       JOIN actors a ON a.did=r.did
+       WHERE a.active AND NOT r.hidden AND i.${column} <> '' AND i.${column} LIKE $1
+       GROUP BY i.${column} ORDER BY count(DISTINCT i.recipe_uri) DESC,i.${column} LIMIT $2`,
+      [pattern, limit],
+    );
+  }
+
+  async ingredientGroups(uris: string[]) {
+    return this.db.query(
+      `SELECT i.name_key AS ingredient,i.unit_key AS unit,
+       count(*)::integer AS "occurrences",
+       count(DISTINCT i.recipe_uri)::integer AS "recipeCount",
+       count(*) FILTER (WHERE i.quantity_value IS NULL)::integer AS "unquantifiedCount",
+       sum(i.quantity_value)::text AS "knownQuantity",
+       CASE WHEN count(*) FILTER (WHERE i.quantity_value IS NULL)=0
+         THEN sum(i.quantity_value)::text ELSE NULL END AS "totalQuantity",
+       jsonb_agg(jsonb_build_object('uri',i.recipe_uri,'position',i.position,
+         'quantity',i.quantity_text,'numericQuantity',i.quantity_value::text)
+         ORDER BY i.recipe_uri,i.position) AS entries
+       FROM recipe_ingredients i JOIN public_recipes r ON r.uri=i.recipe_uri
+       JOIN actors a ON a.did=r.did
+       WHERE i.recipe_uri=ANY($1::text[]) AND a.active AND NOT r.hidden
+       GROUP BY i.name_key,i.unit_key ORDER BY i.name_key,i.unit_key`,
+      [uris],
+    );
+  }
+
   async recipe(uri: string) {
     const [row] = await this.db.query(
       "SELECT r.*,a.handle,a.profile->>'displayName' AS display_name FROM public_recipes r JOIN actors a ON a.did=r.did WHERE r.uri=$1 AND a.active AND NOT r.hidden",

@@ -172,11 +172,32 @@ export function createNetworkApp(config: {
         limit: z.coerce.number().int().min(1).max(100).default(24),
         cursor: z.string().max(3000).optional(),
         tag: z.string().max(25).optional(),
+        ingredient: z.string().trim().min(1).max(300).optional(),
+        unit: z.string().max(50).optional(),
       })
       .parse(req.query);
     if (options.feed === 'discover')
       res.set('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=60');
     res.json(await store.recipes({ ...options, did: res.locals.user?.did }));
+  });
+  app.get('/api/ingredients/suggestions', async (req, res) => {
+    const { kind, q, limit } = z
+      .object({
+        kind: z.enum(['ingredient', 'unit']).default('ingredient'),
+        q: z.string().max(300).default(''),
+        limit: z.coerce.number().int().min(1).max(50).default(12),
+      })
+      .parse(req.query);
+    res.json({ suggestions: await store.ingredientSuggestions(kind, q, limit) });
+  });
+  app.post('/api/ingredients/group', async (req, res) => {
+    const { uris } = z
+      .object({
+        uris: z.array(strongRefSchema.shape.uri).min(1).max(100),
+      })
+      .strict()
+      .parse(req.body);
+    res.json({ groups: await store.ingredientGroups(uris) });
   });
   app.get('/api/recipe', async (req, res) => {
     const uri = z.string().max(3000).parse(req.query.uri);

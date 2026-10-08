@@ -5,6 +5,7 @@ A shared recipe platform at **brownbag.polli.page**. This branch replaces the se
 ## What works in this slice
 
 - Public discovery and PostgreSQL full-text search; personal, saved, and followed-cook feeds.
+- Text-based ingredient and unit autocomplete, case-insensitive exact filters, and indexed ingredient/unit groups with numeric quantity totals.
 - Existing-account OAuth, encrypted server-side credentials, durable refresh locks, and cookie sessions. No passwords, email signup, or hosted accounts.
 - Private drafts and bookmarks; public recipe publishing, optimistic-concurrency edits/deletes, and attributed adaptations.
 - Private Meal Planner: Sunday-first weeks, a mobile day agenda, a month week-picker, multiple recipes per meal, notes, and a cross-device default meal preference. Use the top-bar **Meal Planner** link or **Plan meal** on any recipe.
@@ -35,6 +36,16 @@ Public recipe data is portable; private drafts, bookmarks, assistant keys, and r
 Exact field names, limits, and optionality live in [shared/atproto.ts](shared/atproto.ts) and [lexicons](lexicons). Public records reject extra private fields. Drafts permit unfinished content; publishing requires complete valid content. Neither likes, comments, ratings, nor public recipe collections are implemented yet.
 
 Profiles also allow a banner, cuisine and dietary-interest lists, and a website. Before publishing these schemas as a stable ecosystem contract, finalize their versions and configure lexicon authority/discovery for the `page.polli.brownbag` namespace. This repository does not modify your DNS or publish schema records on your behalf.
+
+### Ingredient index
+
+Migration `005_ingredient_index.sql` backfills existing public recipes and maintains a separate `recipe_ingredients` projection through a database trigger. Apply it with `npm run db:migrate` before starting the updated API and indexer (Vercel applies migrations during its build). Published recipe text, drafts, and AT Protocol schemas retain their original format. Comparison keys lowercase names and units, trim surrounding whitespace, and collapse repeated whitespace. `carrots`, `CARROTS`, and `CaRRoTs` share a key; synonyms, singular/plural forms, and unit abbreviations are not merged. The editor offers optional suggestions from visible public recipes and continues to accept arbitrary text, including offline.
+
+- `GET /api/ingredients/suggestions?kind=ingredient&q=car&limit=12` returns `{ suggestions: [{ value, recipeCount }] }`. Use `kind=unit` for units. Queries match literal normalized prefixes; the maximum limit is 50. Hidden recipes, inactive authors, and private drafts do not contribute.
+- `GET /api/recipes?ingredient=CARROTS&unit=CUPS` filters by exact normalized ingredient and unit on the same ingredient row, alongside existing search/feed filters. Either filter is optional; `unit=` matches ingredients with no unit.
+- `POST /api/ingredients/group` with `{ "uris": ["at://..."] }` groups up to 100 selected public recipes by ingredient and unit. Duplicate URIs do not multiply quantities. Each group includes occurrence/recipe counts, original quantity entries, `knownQuantity`, `totalQuantity`, and `unquantifiedCount`. Hidden, inactive, deleted, and unknown recipes contribute nothing. This read endpoint does not save a shopping list.
+
+The projection stores decimal quantities, fractions (`1/2`), mixed fractions (`1 1/2`), and Unicode fractions (`1½`, `⅜`) as PostgreSQL numeric values for sorting and totals. Zero is valid. Ranges, negative values, prose, and ambiguous comma-separated values remain unquantified. `knownQuantity` sums parsed values; `totalQuantity` is null when any entry in the group is unquantified. Numeric results are returned as decimal strings to preserve database precision. Units are case-insensitive but are not converted: cups and grams stay in separate groups, and an empty unit remains its own group. Future shopping lists can use these groups and numeric columns; conversions, serving multipliers, ingredient aliases, and shopping-list UI remain separate features.
 
 ## Mobile app
 

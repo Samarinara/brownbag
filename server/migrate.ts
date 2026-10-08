@@ -15,6 +15,7 @@ try {
       '002_normalize_jsonb.sql',
       '003_cookbook.sql',
       '004_meal_planner.sql',
+      '005_ingredient_index.sql',
     ]) {
       const version = Number(migration.slice(0, 3));
       const done = await tx.query('SELECT version FROM schema_migrations WHERE version=$1', [
