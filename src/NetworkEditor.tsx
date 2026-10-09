@@ -1,5 +1,13 @@
 import { readRecovery, recoveryKey, removeRecovery, writeRecovery } from './offline-storage';
 import {
+  readPublicationIntent,
+  persistPublicationIntent,
+  removePublicationIntent,
+  releaseConfirmedPublicationConflict,
+  type PublicationIntent,
+} from './publication-operation';
+import { ApiError } from './api';
+import {
   useEffect,
   useId,
   useRef,
@@ -94,6 +102,9 @@ export function NetworkEditorPage(props: Props) {
       const url = new URL(props.route, location.origin);
       if (props.preview || url.pathname === '/recipe/new') return { data: blankRecipe() };
       if (url.pathname === '/recipe/draft') {
+        const intent = readPublicationIntent(recoveryKey(props.userDid, props.route));
+        if (intent?.draftId === url.searchParams.get('id'))
+          return { data: intent.recipe, draftId: intent.draftId };
         const { drafts } = await api<{ drafts: { id: string; data: RecipeInput }[] }>('/drafts');
         const draft = drafts.find((item) => item.id === url.searchParams.get('id'));
         if (!draft) throw new Error('This draft could not be found.');
@@ -190,7 +201,12 @@ function NetworkEditor({
   });
   const initial = useRef(JSON.stringify(data));
   const deviceKey = recoveryKey(userDid, route);
-  const [recovery, setRecovery] = useState(() => (preview ? undefined : readRecovery(deviceKey)));
+  const publicationIntent = useRef<PublicationIntent | undefined>(
+    preview ? undefined : readPublicationIntent(deviceKey),
+  );
+  const [recovery, setRecovery] = useState(() =>
+    preview ? undefined : readRecovery(deviceKey) || publicationIntent.current?.recipe,
+  );
   const [recoveryStatus, setRecoveryStatus] = useState('');
   const completed = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -203,7 +219,7 @@ function NetworkEditor({
   const dirty = JSON.stringify(data) !== initial.current;
   useEffect(() => {
     if (preview || recovery || completed.current) return;
-    if (!dirty) {
+    if (!dirty && !publicationIntent.current) {
       removeRecovery(deviceKey);
       return;
     }
@@ -216,6 +232,7 @@ function NetworkEditor({
   }, [data, dirty, deviceKey, recovery, preview]);
   useEffect(() => {
     const cleared = () => {
+      publicationIntent.current = undefined;
       setRecovery(undefined);
       setRecoveryStatus('Device backup cleared.');
     };
@@ -225,6 +242,8 @@ function NetworkEditor({
   const finishRecovery = () => {
     completed.current = true;
     removeRecovery(deviceKey);
+    removePublicationIntent(deviceKey);
+    publicationIntent.current = undefined;
   };
   const update = <K extends keyof RecipeInput>(key: K, value: RecipeInput[K]) =>
     setData((old) => ({ ...old, [key]: value }));
@@ -362,16 +381,44 @@ function NetworkEditor({
     try {
       let result: RecipeView | undefined;
       if (publish) {
-        result = editing.original
-          ? await api<RecipeView>('/recipe', {
-              method: 'PUT',
-              body: JSON.stringify({
-                uri: editing.original.uri,
-                cid: editing.original.cid,
-                recipe: checked.data,
-              }),
-            })
-          : await post<RecipeView>('/recipes', { recipe: checked.data, draftId: editing.draftId });
+        const sendIntent = (intent: PublicationIntent) =>
+          intent.existing
+            ? api<RecipeView>('/recipe', {
+                method: 'PUT',
+                headers: { 'Idempotency-Key': intent.id },
+                body: JSON.stringify({ ...intent.existing, recipe: intent.recipe }),
+              })
+            : post<RecipeView>('/recipes', {
+                recipe: intent.recipe,
+                draftId: intent.draftId,
+                operationId: intent.id,
+              });
+        let intent = publicationIntent.current;
+        if (!intent) {
+          intent = {
+            id: crypto.randomUUID(),
+            recipe: checked.data,
+            ...(editing.original
+              ? { existing: { uri: editing.original.uri, cid: editing.original.cid } }
+              : {}),
+            ...(editing.draftId ? { draftId: editing.draftId } : {}),
+          };
+          persistPublicationIntent(deviceKey, intent);
+          publicationIntent.current = intent;
+        }
+        result = await sendIntent(intent);
+        // If content changed after an uncertain response, confirm the earlier
+        // operation first, then save the new content to that same recipe.
+        if (JSON.stringify(intent.recipe) !== JSON.stringify(checked.data)) {
+          intent = {
+            id: crypto.randomUUID(),
+            recipe: checked.data,
+            existing: { uri: result.uri, cid: result.cid },
+          };
+          persistPublicationIntent(deviceKey, intent);
+          publicationIntent.current = intent;
+          result = await sendIntent(intent);
+        }
         finishRecovery();
         if (plannerTarget) {
           setPublished(result);
@@ -384,17 +431,41 @@ function NetworkEditor({
             return;
           }
         }
+      } else if (publicationIntent.current) {
+        throw new Error(
+          'An earlier publication has not been confirmed. Retry Publish to recover it before saving a private draft.',
+        );
       } else if (editing.draftId) {
-        await api(`/drafts/${encodeURIComponent(editing.draftId)}`, {
-          method: 'PUT',
-          body: JSON.stringify({ data: checked.data }),
-        });
+        try {
+          await api(`/drafts/${encodeURIComponent(editing.draftId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ data: checked.data }),
+          });
+        } catch (error) {
+          // A confirmed earlier create may already have removed its private draft.
+          if (!(error instanceof ApiError) || error.status !== 404) throw error;
+          await post('/drafts', { data: checked.data });
+        }
       } else await post('/drafts', { data: checked.data });
       leaveGuard.current = () => true;
       finishRecovery();
       done(result);
     } catch (e) {
-      setError(message(e));
+      const intent = publicationIntent.current;
+      if (
+        e instanceof ApiError &&
+        e.status === 409 &&
+        intent &&
+        (await releaseConfirmedPublicationConflict(deviceKey, intent, (id) =>
+          api(`/publication-operations/${encodeURIComponent(id)}`),
+        ))
+      ) {
+        if (publicationIntent.current?.id === intent.id) publicationIntent.current = undefined;
+        writeRecovery(deviceKey, data);
+        setError(
+          `${message(e)} Your edits are preserved. Save a private draft or reload the current recipe before publishing again.`,
+        );
+      } else setError(message(e));
     } finally {
       setBusy(false);
     }
@@ -523,6 +594,12 @@ function NetworkEditor({
           <button
             className="text-button"
             onClick={() => {
+              if (publicationIntent.current) {
+                setError(
+                  'An earlier publication has not been confirmed. Restore changes and retry Publish before discarding this backup.',
+                );
+                return;
+              }
               removeRecovery(deviceKey);
               setRecovery(undefined);
             }}
