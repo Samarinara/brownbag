@@ -123,6 +123,7 @@ export function ShoppingList({
     }
   }
   const current = list?.from === from && list.days === days && !loading;
+  const boughtCount = list?.items.filter((item) => item.checked).length ?? 0;
   return (
     <section className="meal-planner shopping-list">
       <a
@@ -150,7 +151,13 @@ export function ShoppingList({
         </button>
       </div>
       <div className="shopping-range">
-        <label htmlFor="shopping-days">Days to shop for</label>
+        <div className="shopping-range-heading">
+          <label htmlFor="shopping-days">Days to shop for</label>
+          <p>
+            {displayDate(from, { month: 'short', day: 'numeric' })} –{' '}
+            {displayDate(to, { month: 'short', day: 'numeric', year: 'numeric' })}
+          </p>
+        </div>
         <div className="shopping-range-inputs">
           <input
             type="range"
@@ -160,32 +167,37 @@ export function ShoppingList({
             value={days}
             onChange={(event) => changeDays(event.target.value)}
           />
-          <input
-            id="shopping-days"
-            type="number"
-            min="1"
-            max="93"
-            step="1"
-            value={dayInput}
-            onChange={(event) => changeDays(event.target.value)}
-            onBlur={() => setDayInput(String(days))}
-          />
+          <div className="shopping-day-count">
+            <input
+              id="shopping-days"
+              type="number"
+              min="1"
+              max="93"
+              step="1"
+              value={dayInput}
+              onChange={(event) => changeDays(event.target.value)}
+              onBlur={() => setDayInput(String(days))}
+            />
+            <span aria-hidden="true">{days === 1 ? 'day' : 'days'}</span>
+          </div>
         </div>
-        <p>
-          {displayDate(from, { month: 'short', day: 'numeric', year: 'numeric' })} –{' '}
-          {displayDate(to, { month: 'short', day: 'numeric', year: 'numeric' })} · {days}{' '}
-          {days === 1 ? 'day' : 'days'}
-        </p>
       </div>
       <Notice error={error} />
-      <p className="planner-status" role="status" aria-live="polite">
-        {loading
-          ? 'Building your shopping list…'
-          : notice ||
-            (current
-              ? `${list.items.filter((item) => item.checked).length} of ${list.items.length} items bought · ${list.mealCount} planned meals`
-              : '')}
-      </p>
+      <div className="shopping-summary">
+        <p role="status" aria-live="polite">
+          {loading
+            ? 'Building your shopping list…'
+            : current
+              ? `${boughtCount} of ${list.items.length} items bought`
+              : ''}
+          {notice && <span className="sr-only"> · {notice}</span>}
+        </p>
+        {current && (
+          <span>
+            {list.mealCount} planned {list.mealCount === 1 ? 'meal' : 'meals'}
+          </span>
+        )}
+      </div>
       {current &&
         (list.items.length ? (
           <ul className="shopping-items">
@@ -215,14 +227,17 @@ export function ShoppingList({
             <p>Add recipes to your Meal Planner to build your shopping list.</p>
           </div>
         ))}
-      <p className="hint">
-        Quantities cover each planned recipe in full. Compatible units are combined; cups and spoons
-        use US measures. Weight and volume stay separate.
-      </p>
-      <p className="hint">
-        Purchases stay checked. Extra quantities appear as separate items to buy. Quantities leave
-        the list after their planned meal date.
-      </p>
+      <details className="shopping-help">
+        <summary>About this list</summary>
+        <p className="hint">
+          Quantities cover each planned recipe in full. Compatible units are combined; cups and
+          spoons use US measures. Weight and volume stay separate.
+        </p>
+        <p className="hint">
+          Purchases stay checked. Extra quantities appear as separate items to buy. Quantities leave
+          the list after their planned meal date.
+        </p>
+      </details>
     </section>
   );
 }
