@@ -1,8 +1,6 @@
 // Local-only UI fixture. Never imported by production entrypoints.
 // Run after npm run build: npx tsx tests/support/preview.ts
-import { PGlite } from '@electric-sql/pglite';
 import { TID } from '@atproto/common-web';
-import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import express from 'express';
@@ -10,32 +8,15 @@ import { NetworkStore } from '../../server/network-store.js';
 import { createNetworkApp } from '../../server/network-app.js';
 import { createRecipeRecord } from '../../server/atproto/records.js';
 import { RECIPE_COLLECTION } from '../../shared/atproto.js';
-import type { Database } from '../../server/db.js';
+import { createTestDatabase } from './database.js';
 import { PlannerStore } from '../../server/planner.js';
 import { addDays, localDate, weekStart } from '../../shared/planner.js';
 
 const previewPort = Number(process.env.BROWNBAG_PREVIEW_PORT || 3001);
 const previewOrigin = `http://127.0.0.1:${previewPort}`;
-const pg = new PGlite();
-await pg.exec(await readFile(new URL('../../migrations/001_network.sql', import.meta.url), 'utf8'));
-const adapt = (p: any): Database => ({
-  query: async (sql, params = []) => (await p.query(sql, params)).rows,
-  transaction: (fn) => p.transaction((tx: any) => fn(adapt(tx))),
-});
-await pg.exec(
-  await readFile(new URL('../../migrations/003_cookbook.sql', import.meta.url), 'utf8'),
-);
-const store = new NetworkStore(adapt(pg));
-await pg.exec(
-  await readFile(new URL('../../migrations/004_meal_planner.sql', import.meta.url), 'utf8'),
-);
-await pg.exec(
-  await readFile(new URL('../../migrations/005_ingredient_index.sql', import.meta.url), 'utf8'),
-);
+const { db } = await createTestDatabase();
+const store = new NetworkStore(db);
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa';
-await pg.exec(
-  await readFile(new URL('../../migrations/006_shopping_list.sql', import.meta.url), 'utf8'),
-);
 const cid = 'bafyre' + 'a'.repeat(53);
 const records = new Map<string, unknown>();
 const input = {
