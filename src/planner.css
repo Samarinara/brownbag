@@ -21,9 +21,6 @@
   margin: 8px 0;
   letter-spacing: -1.3px;
 }
-.planner-heading .eyebrow {
-  font-size: 10px;
-}
 .planner-toggle {
   display: flex;
   border: 1px solid var(--line);
@@ -377,9 +374,6 @@
   }
   .planner-heading h1 {
     font-size: 31px;
-  }
-  .planner-heading .eyebrow {
-    display: none;
   }
   .planner-toggle button {
     padding: 8px 10px;

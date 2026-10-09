@@ -37,6 +37,7 @@ import { NetworkEditorPage } from './NetworkEditor';
 import { NetworkAccount } from './NetworkAccount';
 import { savedTheme, saveTheme, type ThemePreference } from './theme';
 import { MealPlanner, PlanRecipeDialog, defaultPlannerUrl } from './MealPlanner';
+import { ShoppingList } from './ShoppingList';
 import { mealLabels, plannerUrl, targetFromRoute, type MealTarget } from '../shared/planner';
 import './network.css';
 import { useRecipeSwipe } from './useRecipeSwipe';
@@ -63,7 +64,7 @@ const blank = (): RecipeInput => ({
 const recipeUrl = (uri: string) => `/recipe?uri=${encodeURIComponent(uri)}`;
 const currentUri = () => new URLSearchParams(location.search).get('uri');
 const currentPlannerRoute = () =>
-  /^\/meal-planner(?:\/day)?$/.test(location.pathname)
+  /^\/meal-planner(?:\/day|\/shopping-list)?$/.test(location.pathname)
     ? location.pathname === '/meal-planner' && !location.search
       ? defaultPlannerUrl()
       : location.pathname + location.search
@@ -118,6 +119,8 @@ export function App() {
   const [theme, setTheme] = useState<ThemePreference>(savedTheme);
   const [editorRoute, setEditorRoute] = useState(currentEditorRoute);
   const [plannerRoute, setPlannerRoute] = useState(currentPlannerRoute);
+  const shoppingPage = plannerRoute?.split('?')[0] === '/meal-planner/shopping-list';
+  const plannerTitle = shoppingPage ? 'Shopping list' : 'Meal Planner';
   const [planRecipe, setPlanRecipe] = useState(false);
   const recipeReturn = useRef<string | null>(null);
   const leaveGuard = useRef<() => boolean>(() => true);
@@ -334,13 +337,13 @@ export function App() {
   ]);
   useEffect(() => {
     document.title = plannerRoute
-      ? 'Meal Planner — brownbag'
+      ? `${plannerTitle} — brownbag`
       : editorRoute
         ? `${editorRoute.startsWith('/editor-preview') ? 'Editor preview' : editorRoute.startsWith('/recipe/new') ? 'Add a recipe' : 'Edit recipe'} — brownbag`
         : recipe && uri
           ? `${recipe.record.title} — brownbag`
           : 'brownbag — Your recipes. All in one bag.';
-  }, [editorRoute, recipe, uri, plannerRoute]);
+  }, [editorRoute, recipe, uri, plannerRoute, plannerTitle]);
   useEffect(() => {
     if (!user) {
       setTags([]);
@@ -756,10 +759,10 @@ export function App() {
         id="main-content"
         className="network-main"
         tabIndex={-1}
-        aria-label={plannerRoute ? 'Meal Planner' : 'Recipe content'}
+        aria-label={plannerRoute ? plannerTitle : 'Recipe content'}
       >
         <p className="sr-only" role="status" aria-atomic="true">
-          {plannerRoute ? 'Meal Planner opened.' : browseAnnouncement}
+          {plannerRoute ? `${plannerTitle} opened.` : browseAnnouncement}
         </p>
         <Notice error={error} />
         {editorRoute?.split('?')[0] === '/editor-preview' ? (
@@ -782,22 +785,30 @@ export function App() {
           </section>
         ) : plannerRoute ? (
           !ready ? (
-            <p role="status">Opening your Meal Planner…</p>
+            <p role="status">Opening your {plannerTitle}…</p>
           ) : user ? (
-            <MealPlanner
-              key={user.did}
-              route={plannerRoute}
-              navigate={navigatePlanner}
-              createRecipe={createPlannedRecipe}
-              openRecipe={(uri) => {
-                recipeReturn.current = plannerRoute;
-                go(uri);
-              }}
-            />
+            shoppingPage ? (
+              <ShoppingList key={user.did} route={plannerRoute} navigate={navigatePlanner} />
+            ) : (
+              <MealPlanner
+                key={user.did}
+                route={plannerRoute}
+                navigate={navigatePlanner}
+                createRecipe={createPlannedRecipe}
+                openRecipe={(uri) => {
+                  recipeReturn.current = plannerRoute;
+                  go(uri);
+                }}
+              />
+            )
           ) : (
             <section className="empty-state">
-              <h1>Meal Planner</h1>
-              <p>Sign in to plan your meals.</p>
+              <h1>{plannerTitle}</h1>
+              <p>
+                {shoppingPage
+                  ? 'Sign in to view your shopping list.'
+                  : 'Sign in to plan your meals.'}
+              </p>
               <button className="button primary" onClick={() => setLogin(true)}>
                 Sign in
               </button>

@@ -33,6 +33,9 @@ await pg.exec(
   await readFile(new URL('../../migrations/005_ingredient_index.sql', import.meta.url), 'utf8'),
 );
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa';
+await pg.exec(
+  await readFile(new URL('../../migrations/006_shopping_list.sql', import.meta.url), 'utf8'),
+);
 const cid = 'bafyre' + 'a'.repeat(53);
 const records = new Map<string, unknown>();
 const input = {

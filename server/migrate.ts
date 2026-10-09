@@ -16,6 +16,7 @@ try {
       '003_cookbook.sql',
       '004_meal_planner.sql',
       '005_ingredient_index.sql',
+      '006_shopping_list.sql',
     ]) {
       const version = Number(migration.slice(0, 3));
       const done = await tx.query('SELECT version FROM schema_migrations WHERE version=$1', [

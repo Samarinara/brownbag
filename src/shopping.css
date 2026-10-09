@@ -1,0 +1,127 @@
+.shopping-list {
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.shopping-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--green);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.shopping-list .planner-heading {
+  margin-bottom: 22px;
+}
+.shopping-list .planner-heading p {
+  margin: 10px 0 0;
+}
+.shopping-range {
+  padding: 20px;
+  background: var(--color-surface-selected);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.shopping-range > label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.shopping-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 12px;
+}
+.shopping-range-inputs input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  accent-color: var(--green);
+}
+.shopping-range-inputs input[type='number'] {
+  width: 85px;
+}
+.shopping-range > p {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 12px 0 0;
+}
+.shopping-items {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--paper);
+}
+.shopping-items li + li {
+  border-top: 1px solid var(--line);
+}
+.shopping-items label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 65px;
+  padding: 15px 20px;
+  cursor: pointer;
+}
+.shopping-items input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--green);
+}
+.shopping-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.shopping-item-name small {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.shopping-item-amount {
+  max-width: 40%;
+  text-align: right;
+  overflow-wrap: anywhere;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+.shopping-items .is-bought {
+  background: var(--color-surface-selected);
+}
+.is-bought .shopping-item-name,
+.is-bought .shopping-item-amount {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.shopping-empty {
+  padding: 35px 20px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  margin-bottom: 25px;
+}
+.shopping-empty h2 {
+  font:
+    24px Georgia,
+    serif;
+}
+.shopping-empty p {
+  color: var(--muted);
+}
+@media (max-width: 700px) {
+  .shopping-range,
+  .shopping-items label {
+    padding: 15px;
+  }
+  .shopping-list .planner-heading {
+    align-items: center;
+  }
+}
