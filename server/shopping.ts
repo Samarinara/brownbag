@@ -223,7 +223,11 @@ export class ShoppingStore {
 export function mountShopping(app: Express, store: NetworkStore, requireUser: RequestHandler) {
   const shopping = new ShoppingStore(store);
   app.get('/api/planner/shopping-list', requireUser, async (req, res) => {
-    const { from, days } = shoppingRangeSchema.parse(req.query);
+    // Hosting rewrites can add routing metadata such as `path` to the query.
+    const { from, days } = shoppingRangeSchema.parse({
+      from: req.query.from,
+      days: req.query.days,
+    });
     res.json(await shopping.list(res.locals.user.did, from, days));
   });
   app.put('/api/planner/shopping-list/check', requireUser, async (req, res) => {
