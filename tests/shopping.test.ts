@@ -126,6 +126,17 @@ test('shopping APIs combine every meal, convert units, and persist private range
       assert.equal((await request(`?from=${from}&days=${days}`)).status, 400);
     assert.equal((await request('?from=2026-02-30')).status, 400);
     const list: ShoppingList = await (await request(query)).json();
+    const routedResponse = await request(query + '&path=planner%2Fshopping-list');
+    assert.equal(routedResponse.status, 200, 'routing metadata does not reject a valid range');
+    assert.deepEqual(await routedResponse.json(), list);
+    const defaultRangeResponse = await request(`?from=${from}&path=planner%2Fshopping-list`);
+    assert.equal(defaultRangeResponse.status, 200);
+    assert.deepEqual(await defaultRangeResponse.json(), list);
+    assert.equal(
+      (await request(`?from=${from}&days=0&path=planner%2Fshopping-list`)).status,
+      400,
+      'routing metadata does not bypass range validation',
+    );
     assert.equal(list.to, addDays(from, 6));
     assert.equal(list.mealCount, 3);
     const item = (ingredient: string, unit = '') =>
@@ -156,6 +167,16 @@ test('shopping APIs combine every meal, convert units, and persist private range
       fingerprint: carrots.fingerprint,
       checked: true,
     };
+    assert.equal(
+      (
+        await request('/check', 'alice-token', 'PUT', {
+          ...check,
+          path: 'planner/shopping-list/check',
+        })
+      ).status,
+      400,
+      'purchase bodies still reject unrecognized fields',
+    );
     const salt = item('salt');
     await shopping.setChecked(alice, { ...check, key: salt.key, fingerprint: salt.fingerprint });
     const nextDaySalt = (await shopping.list(alice, addDays(from, 1), 6)).items.find(
