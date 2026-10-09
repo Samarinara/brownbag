@@ -1,9 +1,17 @@
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
+import { setTimeout as wait } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import WebSocket from 'ws';
 import { connectDatabase } from './db.js';
 import { ingestEvent, jetstreamUrl, persistCursor } from './atproto/ingestion.js';
 import { pruneMealPlans } from './planner.js';
+import {
+  enqueueSync,
+  enqueueKnownActorRepairs,
+  processSyncBatch,
+  workerHeartbeat,
+} from './sync-jobs.js';
 
 export async function runIndexer(signal: AbortSignal) {
   const { db, sql } = connectDatabase();
@@ -12,6 +20,36 @@ export async function runIndexer(signal: AbortSignal) {
   if (!Number.isSafeInteger(overlap) || overlap < 0)
     throw new Error('Invalid JETSTREAM_REPLAY_OVERLAP_US');
   let delay = 1000;
+  let connected = false;
+  let known = new Set<string>();
+  const worker = randomUUID();
+  const background = new AbortController();
+  const workerSignal = AbortSignal.any([signal, background.signal]);
+  const repairs = (async () => {
+    let repairAt = 0;
+    let heartbeatAt = 0;
+    while (!workerSignal.aborted) {
+      try {
+        if (Date.now() - heartbeatAt >= 30_000) {
+          await workerHeartbeat(db, worker, source, connected);
+          // Sign-ins can add actors while a WebSocket remains connected for days.
+          for (const row of await db.query('SELECT did FROM actors')) known.add(String(row.did));
+          heartbeatAt = Date.now();
+        }
+        if (Date.now() - repairAt >= 3_600_000) {
+          await enqueueKnownActorRepairs(db);
+          repairAt = Date.now();
+        }
+        await processSyncBatch(db, { signal: workerSignal });
+      } catch (error) {
+        console.error(
+          'Background reconciliation failed:',
+          error instanceof Error ? error.message : 'unknown error',
+        );
+      }
+      await wait(1000, undefined, { signal: workerSignal }).catch(() => {});
+    }
+  })();
   // Run independently of traffic so inactive accounts also expire old plans.
   const cleanup = () =>
     pruneMealPlans(db).catch((error) => console.error('Meal plan cleanup failed:', error));
@@ -22,9 +60,7 @@ export async function runIndexer(signal: AbortSignal) {
   try {
     while (!signal.aborted) {
       try {
-        const known = new Set(
-          (await db.query('SELECT did FROM actors')).map((row) => String(row.did)),
-        );
+        known = new Set((await db.query('SELECT did FROM actors')).map((row) => String(row.did)));
         const [saved] = await db.query('SELECT cursor FROM sync_cursors WHERE source=$1', [source]);
         const initial = saved ? Number(saved.cursor) : Date.now() * 1000;
         let cursor = initial;
@@ -49,6 +85,7 @@ export async function runIndexer(signal: AbortSignal) {
             lastPong = Date.now();
           });
           socket.on('open', () => {
+            connected = true;
             console.log('Indexer connected');
           });
           socket.on('message', (raw) => {
@@ -72,7 +109,23 @@ export async function runIndexer(signal: AbortSignal) {
                 } catch {
                   value = { malformed: raw.toString().slice(0, 4000) };
                 }
+                const actor =
+                  value &&
+                  typeof value === 'object' &&
+                  'did' in value &&
+                  typeof value.did === 'string'
+                    ? value.did
+                    : undefined;
+                const wasKnown = actor ? known.has(actor) : false;
                 const result = await ingestEvent(db, value, source, known);
+                if (actor && !wasKnown && known.has(actor)) {
+                  try {
+                    await enqueueSync(db, actor, 'discovered');
+                  } catch (error) {
+                    known.delete(actor);
+                    throw error;
+                  }
+                }
                 if (result.cursor !== undefined) cursor = Math.max(cursor, result.cursor);
                 // No database heartbeat; sparse global identity traffic checkpoints at most every ten minutes.
                 if (result.applied || Date.now() - checkpointAt >= 600000) {
@@ -94,6 +147,7 @@ export async function runIndexer(signal: AbortSignal) {
             socket.terminate();
           });
           socket.on('close', () => {
+            connected = false;
             clearInterval(heartbeat);
             signal.removeEventListener('abort', stop);
             void pending
@@ -123,7 +177,13 @@ export async function runIndexer(signal: AbortSignal) {
     }
   } finally {
     clearInterval(cleanupTimer);
-    await sql.end({ timeout: 5 });
+    background.abort();
+    await repairs;
+    try {
+      await db.query('DELETE FROM worker_heartbeats WHERE worker=$1', [worker]);
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
   }
 }
 
