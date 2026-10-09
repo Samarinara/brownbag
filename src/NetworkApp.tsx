@@ -9,14 +9,9 @@ import {
   Check,
   Link2,
   PanelsTopLeft,
-  LogOut,
-  Monitor,
-  Moon,
   Plus,
   Search,
-  Settings,
   Share2,
-  Sun,
   Tags,
   UserRound,
   X,
@@ -25,18 +20,26 @@ import { api, ApiError, post } from './api';
 import {
   Bag,
   ConfirmDialog,
-  Modal,
   Notice,
   SkeletonCards,
   SkeletonDetail,
   Toast,
   type ToastData,
 } from './components';
-import { type RecipeInput, type RecipeView, type SessionUser } from '../shared/atproto';
+import { type RecipeView, type SessionUser } from '../shared/atproto';
+import { blankRecipe, type Draft, type Editing } from './recipe-editor';
+import { message } from './errors';
+import { currentEditorRoute, currentPlannerRoute, currentUri, recipeUrl } from './routes';
+import { AccountMenu } from './features/account/AccountMenu';
+import { LoginDialog } from './features/account/LoginDialog';
+import { useAppearance } from './features/account/useAppearance';
+import { TagDialog } from './features/cookbook/TagDialog';
 import { NetworkEditorPage } from './NetworkEditor';
 import { NetworkAccount } from './NetworkAccount';
-import { savedTheme, saveTheme, type ThemePreference } from './theme';
-import { MealPlanner, PlanRecipeDialog, defaultPlannerUrl } from './MealPlanner';
+import { savedTheme, type ThemePreference } from './theme';
+import { MealPlanner } from './MealPlanner';
+import { PlanRecipeDialog } from './features/planner/PlannerDialogs';
+import { defaultPlannerUrl } from './features/planner/navigation';
 import { ShoppingList } from './ShoppingList';
 import { mealLabels, plannerUrl, targetFromRoute, type MealTarget } from '../shared/planner';
 import './network.css';
@@ -54,34 +57,6 @@ import {
 } from './RecipePresentation';
 
 type Feed = 'discover' | 'cookbook';
-type Draft = { id: string; data: RecipeInput; updatedAt: string };
-export type Editing = { data: RecipeInput; original?: RecipeView; draftId?: string };
-const blank = (): RecipeInput => ({
-  title: '',
-  ingredients: [{ name: '' }],
-  instructions: [{ text: '' }],
-});
-const recipeUrl = (uri: string) => `/recipe?uri=${encodeURIComponent(uri)}`;
-const currentUri = () => new URLSearchParams(location.search).get('uri');
-const currentPlannerRoute = () =>
-  /^\/meal-planner(?:\/day|\/shopping-list)?$/.test(location.pathname)
-    ? location.pathname === '/meal-planner' && !location.search
-      ? defaultPlannerUrl()
-      : location.pathname + location.search
-    : null;
-const currentEditorRoute = () =>
-  location.pathname === '/editor-preview' ||
-  /^\/recipe\/(new|edit|adapt|draft)$/.test(location.pathname)
-    ? location.pathname + location.search
-    : null;
-export const message = (error: unknown) =>
-  error instanceof Error ? error.message : 'Something went wrong. Please try again.';
-
-const themeOptions: { value: ThemePreference; label: string; icon: typeof Monitor }[] = [
-  { value: 'system', label: 'System', icon: Monitor },
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-];
 
 export function App() {
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -187,21 +162,7 @@ export function App() {
       activeUrl.current = plannerRoute;
     }
   }, [plannerRoute]);
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    saveTheme(theme);
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const updateThemeColor = () => {
-      const dark = theme === 'dark' || (theme === 'system' && media.matches);
-      document.documentElement.dataset.resolvedTheme = dark ? 'dark' : 'light';
-      document
-        .querySelector('meta[name="theme-color"]')
-        ?.setAttribute('content', dark ? '#20241f' : '#f7f5ee');
-    };
-    updateThemeColor();
-    if (theme === 'system') media.addEventListener('change', updateThemeColor);
-    return () => media.removeEventListener('change', updateThemeColor);
-  }, [theme]);
+  useAppearance(theme);
   useEffect(() => {
     const pop = () => {
       if (!leaveGuard.current()) {
@@ -1310,7 +1271,7 @@ export function App() {
                     <button
                       className="button secondary"
                       disabled={configured !== true}
-                      onClick={() => edit({ data: blank() })}
+                      onClick={() => edit({ data: blankRecipe() })}
                     >
                       <Plus size={18} />
                       Add a recipe
@@ -1491,7 +1452,7 @@ export function App() {
                                     ? 'Adding recipes is unavailable until setup is complete.'
                                     : 'Add your first recipe'
                                 }
-                                onClick={() => edit({ data: blank() })}
+                                onClick={() => edit({ data: blankRecipe() })}
                               >
                                 <Plus size={16} />
                                 Add a recipe
@@ -1690,277 +1651,5 @@ export function App() {
         />
       )}
     </div>
-  );
-}
-
-function AccountMenu({
-  user,
-  theme,
-  setTheme,
-  close,
-  manage,
-  signOut,
-}: {
-  user: SessionUser;
-  theme: ThemePreference;
-  setTheme: (theme: ThemePreference) => void;
-  close: (restoreFocus?: boolean) => void;
-  manage: () => void;
-  signOut: () => Promise<void>;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  useEffect(() => {
-    const dismiss = (event: MouseEvent) => {
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        !ref.current?.contains(target) &&
-        !target.closest('.network-account-button')
-      )
-        close(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
-    };
-    document.addEventListener('mousedown', dismiss);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('mousedown', dismiss);
-      document.removeEventListener('keydown', escape);
-    };
-  }, [close]);
-  const moveMenuFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-    const items = Array.from(
-      ref.current?.querySelectorAll<HTMLElement>('button:not([disabled])') || [],
-    );
-    const index = items.indexOf(document.activeElement as HTMLElement);
-    if (!items.length) return;
-    event.preventDefault();
-    const next =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? items.length - 1
-          : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-    items[next]?.focus();
-  };
-  return (
-    <div
-      className="account-menu"
-      role="menu"
-      ref={ref}
-      onKeyDown={moveMenuFocus}
-      aria-label="Account menu"
-    >
-      <div className="account-menu-profile">
-        <span className="account-menu-avatar">
-          {(user.handle?.replace(/^@/, '')[0] || 'A').toUpperCase()}
-        </span>
-        <div>
-          <strong>{user.handle ? `@${user.handle.replace(/^@/, '')}` : 'Your account'}</strong>
-          <span>Your brownbag</span>
-        </div>
-      </div>
-      <div className="theme-picker" role="radiogroup" aria-label="Appearance">
-        {themeOptions.map(({ value, label, icon: Icon }) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={theme === value}
-            className={theme === value ? 'active' : ''}
-            onClick={() => setTheme(value)}
-            title={`${label} theme`}
-          >
-            <Icon size={15} />
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
-      <div className="account-menu-actions">
-        <button role="menuitem" onClick={manage}>
-          <Settings size={16} />
-          <span>Manage account</span>
-        </button>
-        <button
-          role="menuitem"
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            setError('');
-            void signOut().catch((e) => {
-              setError(message(e));
-              setBusy(false);
-            });
-          }}
-        >
-          <LogOut size={16} />
-          <span>{busy ? 'Signing out…' : 'Sign out'}</span>
-        </button>
-      </div>
-      {error && (
-        <p className="account-menu-error" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function LoginDialog({ close }: { close: () => void }) {
-  const [handle, setHandle] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  return (
-    <Modal title="Your cookbook starts here" close={close}>
-      <form
-        className="stack"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          setBusy(true);
-          setError('');
-          try {
-            const result = await post<{ url: string }>('/auth/login', {
-              handle: handle.trim().replace(/^@/, ''),
-            });
-            location.assign(result.url);
-          } catch (e) {
-            setError(message(e));
-            setBusy(false);
-          }
-        }}
-      >
-        <p>
-          Bring your existing Bluesky or compatible account. Your recipes stay connected to you
-          wherever you go.
-        </p>
-        <label>
-          Your handle
-          <input
-            autoFocus
-            required
-            value={handle}
-            onChange={(e) => setHandle(e.target.value)}
-            placeholder="you.bsky.social or your domain"
-            autoCapitalize="none"
-            autoCorrect="off"
-          />
-        </label>
-        <p className="muted">
-          You’ll sign in securely with your account provider. Brownbag never sees your password.
-        </p>
-        <Notice error={error} />
-        <button className="button primary" disabled={busy}>
-          {busy ? 'Opening sign in…' : 'Continue'}
-        </button>
-      </form>
-    </Modal>
-  );
-}
-
-function TagDialog({
-  existing,
-  selected,
-  saved,
-  close,
-  done,
-}: {
-  existing: string[];
-  selected: string[];
-  saved: boolean;
-  close: () => void;
-  done: (tags: string[]) => Promise<void>;
-}) {
-  const [choices, setChoices] = useState([...new Set([...existing, ...selected])]);
-  const [selection, setSelection] = useState(selected);
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const add = () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const value = choices.find((tag) => tag.toLowerCase() === trimmed.toLowerCase()) || trimmed;
-    setChoices((old) => [...new Set([...old, value])]);
-    setSelection((old) => [...new Set([...old, value])]);
-    setName('');
-  };
-  return (
-    <Modal
-      title={saved ? 'Recipe tags' : 'Save to cookbook'}
-      close={() => {
-        if (!busy) close();
-      }}
-    >
-      <form
-        className="stack"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          setBusy(true);
-          setError('');
-          try {
-            const trimmed = name.trim();
-            const value =
-              choices.find((tag) => tag.toLowerCase() === trimmed.toLowerCase()) || trimmed;
-            await done([...new Set([...selection, ...(value ? [value] : [])])]);
-          } catch (e) {
-            setError(message(e));
-            setBusy(false);
-          }
-        }}
-      >
-        <fieldset className="network-tag-options" disabled={busy}>
-          <legend>Choose tags</legend>
-          <div className="network-tag-chits">
-            {choices.map((tag) => (
-              <button
-                type="button"
-                key={tag}
-                aria-pressed={selection.includes(tag)}
-                className={selection.includes(tag) ? 'active' : ''}
-                onClick={() =>
-                  setSelection((old) =>
-                    old.includes(tag) ? old.filter((value) => value !== tag) : [...old, tag],
-                  )
-                }
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <label>
-          New tag <span className="muted">(25 characters max)</span>
-          <div className="network-new-tag">
-            <input
-              maxLength={25}
-              value={name}
-              disabled={busy}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  add();
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="button secondary"
-              disabled={busy || !name.trim()}
-              onClick={add}
-            >
-              Add
-            </button>
-          </div>
-        </label>
-        <Notice error={error} />
-        <button className="button primary" disabled={busy}>
-          {busy ? 'Saving…' : saved ? 'Done' : 'Save recipe'}
-        </button>
-      </form>
-    </Modal>
   );
 }

@@ -13,16 +13,17 @@ import { api, post } from './api';
 import { Notice } from './components';
 import { RecipeCategory } from './RecipeCategory';
 import { mealLabels, retentionStart, targetFromRoute } from '../shared/planner';
-import { displayDate } from './MealPlanner';
+import { displayDate } from './features/planner/navigation';
 import {
   draftInputSchema,
   recipeInputSchema,
   type RecipeInput,
   type RecipeView,
 } from '../shared/atproto';
-import { message, type Editing } from './NetworkApp';
+import { message } from './errors';
 import {
   adaptRecipe,
+  type Editing,
   blankRecipe,
   editableRecipe,
   fitsPublishedRecord,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, post } from './api';
 import { ConfirmDialog, Modal, Notice } from './components';
-import { PlannerPreferences } from './MealPlanner';
+import { PlannerPreferences } from './features/planner/PlannerDialogs';
 
 type Key = { id: string; name: string; prefix: string };
 type Proposal = {

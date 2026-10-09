@@ -4,7 +4,11 @@ import {
   recipeInputSchema,
   type RecipeInput,
   type RecipeRecord,
+  type RecipeView,
 } from '../shared/atproto';
+
+export type Draft = { id: string; data: RecipeInput; updatedAt: string };
+export type Editing = { data: RecipeInput; original?: RecipeView; draftId?: string };
 
 export const blankRecipe = (): RecipeInput => ({
   title: '',

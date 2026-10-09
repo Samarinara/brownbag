@@ -1,6 +1,6 @@
 # Archived self-hosted design
 
-Historical documentation for the SQLite app, not the active decentralized branch. See the root README for current setup. No automatic migration or publication of old private recipes is performed.
+Historical documentation for the retired SQLite app. Its runtime sources, email-authentication scripts, and legacy tests have been removed, so the commands below cannot be used with the current checkout. See [the root README](../README.md) for current AT Protocol setup. No automatic migration or publication of old private recipes is performed.
 
 A private recipe collection for people and their AI agents. One search box, a random recipe button, and a place to save the keepers.
 

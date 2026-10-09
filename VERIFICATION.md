@@ -1,4 +1,6 @@
-# Verification — September 10, 2026
+# Archived verification — September 10, 2026
+
+This record describes the retired SQLite and email-authentication implementation. Its sources, tests, and Compose smoke script have been removed; the results below apply to that historical release, not the current AT Protocol application. See [README.md](README.md) for current setup and verification commands.
 
 ## Automated
 
@@ -36,7 +38,7 @@ The shared browser needed the workspace machine's network address rather than it
 
 ## Container compatibility
 
-Verified locally with rootless Podman 5.8.4 and podman-compose 1.6.0 using `HOST_PORT=33001 bash scripts/smoke-compose.sh podman`:
+The retired release was verified locally with rootless Podman 5.8.4 and podman-compose 1.6.0 using a disposable Compose smoke script. That script was removed with the SQLite runtime. Historical results:
 
 - The shared `compose.yaml` parses, and missing required SMTP configuration is rejected.
 - The production image builds from the shared `Dockerfile`, including type checking and frontend/server bundling.
