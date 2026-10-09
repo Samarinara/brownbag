@@ -38,3 +38,19 @@ export function removePublicationIntent(key: string) {
     /* Already published. */
   }
 }
+
+/** A busy 409 is ambiguous. Only an account-scoped terminal state releases identity. */
+export async function releaseConfirmedPublicationConflict(
+  key: string,
+  intent: PublicationIntent,
+  readStatus: (id: string) => Promise<{ status: string }>,
+): Promise<boolean> {
+  try {
+    const state = await readStatus(intent.id);
+    if (state.status !== 'conflict' || readPublicationIntent(key)?.id !== intent.id) return false;
+    removePublicationIntent(key);
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -3,8 +3,10 @@ import {
   readPublicationIntent,
   persistPublicationIntent,
   removePublicationIntent,
+  releaseConfirmedPublicationConflict,
   type PublicationIntent,
 } from './publication-operation';
+import { ApiError } from './api';
 import {
   useEffect,
   useId,
@@ -433,16 +435,36 @@ function NetworkEditor({
           'An earlier publication has not been confirmed. Retry Publish to recover it before saving a private draft.',
         );
       } else if (editing.draftId) {
-        await api(`/drafts/${encodeURIComponent(editing.draftId)}`, {
-          method: 'PUT',
-          body: JSON.stringify({ data: checked.data }),
-        });
+        try {
+          await api(`/drafts/${encodeURIComponent(editing.draftId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ data: checked.data }),
+          });
+        } catch (error) {
+          // A confirmed earlier create may already have removed its private draft.
+          if (!(error instanceof ApiError) || error.status !== 404) throw error;
+          await post('/drafts', { data: checked.data });
+        }
       } else await post('/drafts', { data: checked.data });
       leaveGuard.current = () => true;
       finishRecovery();
       done(result);
     } catch (e) {
-      setError(message(e));
+      const intent = publicationIntent.current;
+      if (
+        e instanceof ApiError &&
+        e.status === 409 &&
+        intent &&
+        (await releaseConfirmedPublicationConflict(deviceKey, intent, (id) =>
+          api(`/publication-operations/${encodeURIComponent(id)}`),
+        ))
+      ) {
+        if (publicationIntent.current?.id === intent.id) publicationIntent.current = undefined;
+        writeRecovery(deviceKey, data);
+        setError(
+          `${message(e)} Your edits are preserved. Save a private draft or reload the current recipe before publishing again.`,
+        );
+      } else setError(message(e));
     } finally {
       setBusy(false);
     }

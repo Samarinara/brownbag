@@ -304,6 +304,18 @@ export function createNetworkApp(config: {
     ]);
     res.json({ ok: true });
   });
+  app.get('/api/publication-operations/:id', requireUser, async (req, res) => {
+    const id = z
+      .string()
+      .regex(/^[A-Za-z0-9._:-]{1,200}$/)
+      .parse(req.params.id);
+    const [operation] = await store.db.query(
+      'SELECT status FROM publication_operations WHERE did=$1 AND operation_key=$2',
+      [res.locals.user.did, id],
+    );
+    if (!operation) throw new HttpError(404, 'Publication operation not found.');
+    res.json({ status: operation.status });
+  });
   app.post('/api/recipes', async (req, res) => {
     const { recipe, draftId, operationId } = z
       .object({

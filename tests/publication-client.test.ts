@@ -5,8 +5,9 @@ import {
   readPublicationIntent,
   persistPublicationIntent,
   removePublicationIntent,
+  releaseConfirmedPublicationConflict,
 } from '../src/publication-operation';
-import { recoveryKey, clearDeviceData } from '../src/offline-storage';
+import { recoveryKey, clearDeviceData, writeRecovery, readRecovery } from '../src/offline-storage';
 const storage: Record<string, string> = {};
 Object.defineProperty(globalThis, 'localStorage', {
   value: {
@@ -43,4 +44,42 @@ test('publication identity and frozen input survive restore, remain account/draf
   await clearDeviceData();
   assert.equal(readPublicationIntent(key), undefined);
   assert.equal(localStorage.getItem('brownbag-theme'), 'dark');
+});
+
+test('confirmed conflicts release intent while preserving edits; busy and failed status checks retain identity', async () => {
+  const key = recoveryKey('did:plc:alice', '/recipe/edit?uri=one');
+  const intent = {
+    id: '00000000-0000-4000-8000-000000000007',
+    recipe: {
+      title: 'Original',
+      ingredients: [{ name: 'water' }],
+      instructions: [{ text: 'Boil.' }],
+    },
+  };
+  const edits = { ...intent.recipe, title: 'My newer edits' };
+  writeRecovery(key, edits);
+  persistPublicationIntent(key, intent);
+  for (const status of ['pending', 'uncertain', 'succeeded']) {
+    assert.equal(
+      await releaseConfirmedPublicationConflict(key, intent, async () => ({ status })),
+      false,
+    );
+    assert.equal(readPublicationIntent(key)?.id, intent.id);
+  }
+  assert.equal(
+    await releaseConfirmedPublicationConflict(key, intent, async () => {
+      throw new Error('offline');
+    }),
+    false,
+  );
+  assert.equal(readPublicationIntent(key)?.id, intent.id);
+  assert.equal(
+    await releaseConfirmedPublicationConflict(key, intent, async (id) => {
+      assert.equal(id, intent.id);
+      return { status: 'conflict' };
+    }),
+    true,
+  );
+  assert.equal(readPublicationIntent(key), undefined);
+  assert.deepEqual(readRecovery(key), edits);
 });
