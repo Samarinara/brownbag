@@ -101,34 +101,20 @@ export function mountNetworkMcp(
     if (!claimed.length) throw new HttpError(409, 'This proposal has already been reviewed.');
     let recipe: RecipeView | undefined;
     try {
-      if (payload.action === 'delete') await publisher.delete(did, payload.uri, payload.cid);
+      if (payload.action === 'delete')
+        await publisher.delete(did, payload.uri, payload.cid, `proposal:${id}`);
       else
         recipe = await publisher.publish(
           did,
           payload.recipe,
           payload.action === 'update' ? { uri: payload.uri, cid: payload.cid } : undefined,
+          `proposal:${id}`,
         );
     } catch (error) {
-      // Publisher's explicit HttpErrors occur before attempting a remote write.
-      // Do not infer failure from generic HTTP errors or transport timeouts.
-      if (error instanceof HttpError && [400, 403, 409].includes(error.status)) {
-        await store.db.query(
-          "UPDATE proposals SET status='pending' WHERE id=$1 AND did=$2 AND status='applying'",
-          [id, did],
-        );
-      }
+      await releaseUnattemptedProposal(store, id, did, error);
       throw error;
     }
-    await store.db.transaction(async (tx) => {
-      await tx.query(
-        "UPDATE proposals SET status='approved',result=$3::text::jsonb WHERE id=$1 AND did=$2 AND status='applying'",
-        [id, did, JSON.stringify(recipe || { deleted: true })],
-      );
-      await tx.query(
-        "INSERT INTO audit_events(did,event,detail) VALUES ($1,'proposal.approved',$2::text::jsonb)",
-        [did, JSON.stringify({ id, action: payload.action })],
-      );
-    });
+    await completeProposal(store, id, did, payload.action, recipe);
     res.json({ status: 'approved', ...(recipe ? { recipe } : {}) });
   });
 
@@ -292,5 +278,113 @@ export function mountNetworkMcp(
   });
   app.all('/mcp', authenticate, (_req, res) =>
     res.status(405).set('Allow', 'POST').json({ error: 'Use POST for stateless Streamable HTTP.' }),
+  );
+}
+
+// Conditional finalization makes a recovered approval and its audit event atomic.
+export async function completeProposal(
+  store: NetworkStore,
+  id: string,
+  did: string,
+  action: string,
+  recipe?: RecipeView,
+) {
+  await store.db.transaction(async (tx) => {
+    const changed = await tx.query(
+      "UPDATE proposals SET status='approved',result=$3::text::jsonb WHERE id=$1 AND did=$2 AND status='applying' RETURNING id",
+      [id, did, JSON.stringify(recipe || { deleted: true })],
+    );
+    if (changed.length)
+      await tx.query(
+        "INSERT INTO audit_events(did,event,detail) VALUES ($1,'proposal.approved',$2::text::jsonb)",
+        [did, JSON.stringify({ id, action })],
+      );
+  });
+}
+
+/** Schedule from a worker or operator task to recover after restart. Never approves pending proposals. */
+export async function recoverPublications(store: NetworkStore, publisher: Publisher, limit = 50) {
+  const proposals = await store.db.query(
+    "SELECT id,did,payload FROM proposals WHERE status='applying' ORDER BY created_at LIMIT $1",
+    [limit],
+  );
+  const outcomes: { key: string; recovered: boolean; error?: string }[] = [];
+  for (const proposal of proposals) {
+    const key = `proposal:${proposal.id}`;
+    try {
+      const payload = proposalSchema.parse(proposal.payload);
+      // Also covers a process that stopped after claiming approval but before
+      // persisting its operation. Its approved intent is already durable.
+      let recipe: RecipeView | undefined;
+      if (payload.action === 'delete')
+        await publisher.delete(proposal.did, payload.uri, payload.cid, key);
+      else
+        recipe = await publisher.publish(
+          proposal.did,
+          payload.recipe,
+          payload.action === 'update' ? { uri: payload.uri, cid: payload.cid } : undefined,
+          key,
+        );
+      await completeProposal(store, proposal.id, proposal.did, payload.action, recipe);
+      outcomes.push({ key, recovered: true });
+    } catch (error) {
+      await releaseUnattemptedProposal(store, proposal.id, proposal.did, error);
+      outcomes.push({
+        key,
+        recovered: false,
+        error: error instanceof Error ? error.message : 'Recovery failed',
+      });
+    }
+  }
+  const operations = await store.db.query(
+    `SELECT did,operation_key FROM publication_operations
+     WHERE (status IN ('pending','uncertain') OR projection_pending)
+     AND (lease_until IS NULL OR lease_until<now()) AND (operation_key NOT LIKE 'proposal:%' OR status='succeeded')
+     ORDER BY updated_at LIMIT $1`,
+    [limit],
+  );
+  for (const operation of operations) {
+    try {
+      await publisher.recover(operation.did, operation.operation_key);
+      const [state] = await store.db.query(
+        'SELECT projection_pending FROM publication_operations WHERE did=$1 AND operation_key=$2',
+        [operation.did, operation.operation_key],
+      );
+      outcomes.push({
+        key: operation.operation_key,
+        recovered: !state.projection_pending,
+        ...(state.projection_pending
+          ? { error: 'Publication succeeded; projection repair still pending' }
+          : {}),
+      });
+    } catch (error) {
+      outcomes.push({
+        key: operation.operation_key,
+        recovered: false,
+        error: error instanceof Error ? error.message : 'Recovery failed',
+      });
+    }
+  }
+  return outcomes;
+}
+
+async function releaseUnattemptedProposal(
+  store: NetworkStore,
+  id: string,
+  did: string,
+  error: unknown,
+) {
+  if (!(error instanceof HttpError) || ![400, 403, 409].includes(error.status)) return;
+  const [operation] = await store.db.query(
+    'SELECT attempted,status FROM publication_operations WHERE did=$1 AND operation_key=$2',
+    [did, `proposal:${id}`],
+  );
+  // A lease owner may still be preparing an authorized write even when attempted
+  // is false. Never reopen review on a busy operation: that would allow rejection
+  // while the original worker proceeds. Only a terminal conflict can be released.
+  if (operation && operation.status !== 'conflict') return;
+  await store.db.query(
+    "UPDATE proposals SET status='pending' WHERE id=$1 AND did=$2 AND status='applying'",
+    [id, did],
   );
 }

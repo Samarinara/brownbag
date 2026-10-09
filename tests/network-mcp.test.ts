@@ -1,26 +1,18 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import express from 'express';
-import { PGlite } from '@electric-sql/pglite';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { mountNetworkMcp } from '../server/network-mcp.js';
 import { NetworkStore, HttpError } from '../server/network-store.js';
-import type { Database } from '../server/db.js';
+import { createTestDatabase } from './support/database.js';
 import type { Publisher } from '../server/publishing.js';
 import { RECIPE_COLLECTION } from '../shared/atproto.js';
 
 test('agent writes require owner review, claims prevent duplicate publication, and ambiguous failures cannot be replayed', async () => {
-  const pg = new PGlite();
-  await pg.exec(await readFile(new URL('../migrations/001_network.sql', import.meta.url), 'utf8'));
-  const wrap = (connection: Pick<PGlite, 'query' | 'transaction'>): Database => ({
-    query: async (text, params) => (await connection.query(text, params)).rows as any,
-    transaction: (fn) => connection.transaction((tx) => fn(wrap(tx as unknown as PGlite))),
-  });
-  await pg.exec(await readFile(new URL('../migrations/003_cookbook.sql', import.meta.url), 'utf8'));
-  const store = new NetworkStore(wrap(pg));
+  const { pg, db } = await createTestDatabase();
+  const store = new NetworkStore(db);
   await store.actor('did:plc:alice');
   await store.actor('did:plc:bob');
   let writes = 0;

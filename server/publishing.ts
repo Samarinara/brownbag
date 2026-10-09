@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
-import { TID } from '@atproto/common-web';
+import { createHash, randomUUID } from 'node:crypto';
 import { Agent } from '@atproto/api';
 import { RECIPE_COLLECTION, FOLLOW_COLLECTION, type RecipeView } from '../shared/atproto.js';
-import { createRecipeRecord, parseRecipeUri, validateRecipeRecord } from './atproto/records.js';
+import { createRecipeRecord, parseRecipeUri } from './atproto/records.js';
+import { PublicationOperations } from './publication-operations.js';
 import { HttpError, NetworkStore } from './network-store.js';
 
 export type AgentFactory = (did: string) => Promise<Agent>;
@@ -29,34 +29,23 @@ export class Publisher {
     did: string,
     raw: unknown,
     existing?: { uri: string; cid: string },
+    operationKey: string = randomUUID(),
   ): Promise<RecipeView> {
-    const rkey = existing ? this.ownedUri(existing.uri, did).rkey : TID.nextStr();
-    const agent = await this.getAgent(did);
-    const previous = existing
-      ? await agent.com.atproto.repo.getRecord({ repo: did, collection: RECIPE_COLLECTION, rkey })
+    const target = existing
+      ? { rkey: this.ownedUri(existing.uri, did).rkey, cid: existing.cid }
       : undefined;
-    if (existing && previous?.data.cid !== existing.cid)
-      throw new HttpError(409, 'This recipe has changed. Reload it before saving.');
-    const record = createRecipeRecord(
-      raw,
-      previous ? validateRecipeRecord(previous.data.value) : undefined,
-    );
-    const result = await agent.com.atproto.repo.putRecord({
-      repo: did,
-      collection: RECIPE_COLLECTION,
-      rkey,
-      record,
-      swapRecord: existing?.cid ?? null,
-    });
-    await this.project({
+    // Validate before persisting an intent. The stored record freezes timestamps on retries.
+    createRecipeRecord(raw);
+    return (await new PublicationOperations(this.store, this.getAgent).run(
       did,
-      collection: RECIPE_COLLECTION,
-      rkey,
-      cid: result.data.cid,
-      record,
-      rev: result.data.commit?.rev || '',
-    });
-    return { uri: result.data.uri, cid: result.data.cid, authorDid: did, record };
+      operationKey,
+      existing ? 'update' : 'create',
+      raw,
+      target,
+    ))!;
+  }
+  recover(did: string, operationKey: string) {
+    return new PublicationOperations(this.store, this.getAgent).recover(did, operationKey);
   }
   private ownedUri(uri: string, did: string) {
     try {
@@ -65,22 +54,15 @@ export class Publisher {
       throw new HttpError(403, 'You can only change your own recipes.');
     }
   }
-  async delete(did: string, uri: string, cid: string) {
+  async delete(did: string, uri: string, cid: string, operationKey: string = randomUUID()) {
     const { rkey } = this.ownedUri(uri, did);
-    const agent = await this.getAgent(did);
-    const result = await agent.com.atproto.repo.deleteRecord({
-      repo: did,
-      collection: RECIPE_COLLECTION,
-      rkey,
-      swapRecord: cid,
-    });
-    await this.project({
+    await new PublicationOperations(this.store, this.getAgent).run(
       did,
-      collection: RECIPE_COLLECTION,
-      rkey,
-      rev: result.data.commit?.rev || '',
-      deleted: true,
-    });
+      operationKey,
+      'delete',
+      { uri, cid },
+      { rkey, cid },
+    );
   }
   async follow(did: string, subject: string, remove = false) {
     if (did === subject) throw new HttpError(400, 'You cannot follow yourself.');

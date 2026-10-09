@@ -305,10 +305,29 @@ export function createNetworkApp(config: {
     res.json({ ok: true });
   });
   app.post('/api/recipes', async (req, res) => {
-    const { recipe, draftId } = z
-      .object({ recipe: recipeInputSchema, draftId: z.string().uuid().optional() })
+    const { recipe, draftId, operationId } = z
+      .object({
+        recipe: recipeInputSchema,
+        draftId: z.string().uuid().optional(),
+        operationId: z.string().uuid().optional(),
+      })
       .strict()
       .parse(req.body);
+    const operationKey = operationId || req.get('Idempotency-Key');
+    if (draftId && operationKey) {
+      // A response can be lost after successful draft cleanup. Validate the persisted
+      // operation's account and payload on retry instead of requiring the deleted draft.
+      const [operation] = await store.db.query(
+        'SELECT status FROM publication_operations WHERE did=$1 AND operation_key=$2',
+        [res.locals.user.did, operationKey],
+      );
+      if (operation) {
+        res
+          .status(201)
+          .json(await publisher.publish(res.locals.user.did, recipe, undefined, operationKey));
+        return;
+      }
+    }
     if (draftId) {
       const own = await store.db.query('SELECT id FROM drafts WHERE id=$1 AND did=$2', [
         draftId,
@@ -316,7 +335,7 @@ export function createNetworkApp(config: {
       ]);
       if (!own.length) throw new HttpError(404, 'Draft not found.');
     }
-    const result = await publisher.publish(res.locals.user.did, recipe);
+    const result = await publisher.publish(res.locals.user.did, recipe, undefined, operationKey);
     if (draftId) {
       // A concurrently edited draft should never be silently discarded after publication.
       try {
@@ -336,11 +355,18 @@ export function createNetworkApp(config: {
       .extend({ recipe: recipeInputSchema })
       .strict()
       .parse(req.body);
-    res.json(await publisher.publish(res.locals.user.did, recipe, { uri, cid }));
+    res.json(
+      await publisher.publish(
+        res.locals.user.did,
+        recipe,
+        { uri, cid },
+        req.get('Idempotency-Key'),
+      ),
+    );
   });
   app.delete('/api/recipe', async (req, res) => {
     const { uri, cid } = strongRefSchema.parse(req.body);
-    await publisher.delete(res.locals.user.did, uri, cid);
+    await publisher.delete(res.locals.user.did, uri, cid, req.get('Idempotency-Key'));
     res.json({ ok: true });
   });
   app.get('/api/cookbook/tags', requireUser, async (_req, res) => {
