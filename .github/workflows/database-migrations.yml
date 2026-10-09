@@ -1,0 +1,42 @@
+name: Apply reviewed database migrations
+run-name: Migrate database-${{ inputs.target }} at ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Database environment to migrate
+        required: true
+        type: choice
+        options: [preview, production]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-operations-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: database-${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Apply migrations to selected database
+        run: |
+          test -n "$DATABASE_URL" || { echo 'Set DATABASE_URL in the selected GitHub environment.'; exit 1; }
+          npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

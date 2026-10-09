@@ -1,3 +1,4 @@
+import { mountPrivateData } from './private-data.js';
 import { cookbookTagsSchema, defaultCookbookTags } from '../shared/atproto.js';
 import express, { type ErrorRequestHandler, type RequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
@@ -12,6 +13,7 @@ import {
   strongRefSchema,
 } from '../shared/atproto.js';
 import { reconcileRepository } from './atproto/reconcile.js';
+import { enqueueSync, syncJobStatus } from './sync-jobs.js';
 import type { OAuthService } from './atproto/oauth.js';
 import { HttpError, NetworkStore } from './network-store.js';
 import { Publisher } from './publishing.js';
@@ -138,6 +140,7 @@ export function createNetworkApp(config: {
     const did = result.session.did;
     const identity = await oauth.identity(did);
     await store.actor(did, identity.handle === 'handle.invalid' ? undefined : identity.handle);
+    await enqueueSync(store.db, did, 'onboarding');
     const token = randomBytes(32).toString('base64url');
     await store.db.query(
       "INSERT INTO app_sessions(hash,did,expires_at) VALUES ($1,$2,now()+interval '30 days')",
@@ -155,15 +158,29 @@ export function createNetworkApp(config: {
     res.clearCookie('brownbag_session', cookie).json({ ok: true });
   });
   app.get('/api/me', requireUser, (_req, res) => res.json(res.locals.user));
+  app.get('/api/sync/jobs', requireUser, async (_req, res) => {
+    res.json({ job: await syncJobStatus(store.db, res.locals.user.did) });
+  });
+  app.post('/api/sync/jobs', requireUser, async (_req, res) => {
+    await store.rateLimit(`sync:${res.locals.user.did}`, 4, 3600);
+    res.status(202).json({ job: await enqueueSync(store.db, res.locals.user.did, 'manual') });
+  });
   app.post('/api/sync', requireUser, async (_req, res) => {
     await store.rateLimit(`sync:${res.locals.user.did}`, 4, 3600);
-    res.json(
-      await reconcileRepository(
-        store.db,
-        await oauth.agent(res.locals.user.did),
-        res.locals.user.did,
-      ),
-    );
+    // Keep the existing immediate counts/refresh contract. Large repositories
+    // can use /sync/jobs; a failed bounded sync also leaves durable repair work.
+    try {
+      res.json(
+        await reconcileRepository(
+          store.db,
+          await oauth.agent(res.locals.user.did),
+          res.locals.user.did,
+        ),
+      );
+    } catch (error) {
+      await enqueueSync(store.db, res.locals.user.did, 'sync-failed');
+      throw error;
+    }
   });
   app.get('/api/recipes', async (req, res) => {
     const options = z
@@ -304,11 +321,42 @@ export function createNetworkApp(config: {
     ]);
     res.json({ ok: true });
   });
+  app.get('/api/publication-operations/:id', requireUser, async (req, res) => {
+    const id = z
+      .string()
+      .regex(/^[A-Za-z0-9._:-]{1,200}$/)
+      .parse(req.params.id);
+    const [operation] = await store.db.query(
+      'SELECT status FROM publication_operations WHERE did=$1 AND operation_key=$2',
+      [res.locals.user.did, id],
+    );
+    if (!operation) throw new HttpError(404, 'Publication operation not found.');
+    res.json({ status: operation.status });
+  });
   app.post('/api/recipes', async (req, res) => {
-    const { recipe, draftId } = z
-      .object({ recipe: recipeInputSchema, draftId: z.string().uuid().optional() })
+    const { recipe, draftId, operationId } = z
+      .object({
+        recipe: recipeInputSchema,
+        draftId: z.string().uuid().optional(),
+        operationId: z.string().uuid().optional(),
+      })
       .strict()
       .parse(req.body);
+    const operationKey = operationId || req.get('Idempotency-Key');
+    if (draftId && operationKey) {
+      // A response can be lost after successful draft cleanup. Validate the persisted
+      // operation's account and payload on retry instead of requiring the deleted draft.
+      const [operation] = await store.db.query(
+        'SELECT status FROM publication_operations WHERE did=$1 AND operation_key=$2',
+        [res.locals.user.did, operationKey],
+      );
+      if (operation) {
+        res
+          .status(201)
+          .json(await publisher.publish(res.locals.user.did, recipe, undefined, operationKey));
+        return;
+      }
+    }
     if (draftId) {
       const own = await store.db.query('SELECT id FROM drafts WHERE id=$1 AND did=$2', [
         draftId,
@@ -316,7 +364,7 @@ export function createNetworkApp(config: {
       ]);
       if (!own.length) throw new HttpError(404, 'Draft not found.');
     }
-    const result = await publisher.publish(res.locals.user.did, recipe);
+    const result = await publisher.publish(res.locals.user.did, recipe, undefined, operationKey);
     if (draftId) {
       // A concurrently edited draft should never be silently discarded after publication.
       try {
@@ -336,11 +384,18 @@ export function createNetworkApp(config: {
       .extend({ recipe: recipeInputSchema })
       .strict()
       .parse(req.body);
-    res.json(await publisher.publish(res.locals.user.did, recipe, { uri, cid }));
+    res.json(
+      await publisher.publish(
+        res.locals.user.did,
+        recipe,
+        { uri, cid },
+        req.get('Idempotency-Key'),
+      ),
+    );
   });
   app.delete('/api/recipe', async (req, res) => {
     const { uri, cid } = strongRefSchema.parse(req.body);
-    await publisher.delete(res.locals.user.did, uri, cid);
+    await publisher.delete(res.locals.user.did, uri, cid, req.get('Idempotency-Key'));
     res.json({ ok: true });
   });
   app.get('/api/cookbook/tags', requireUser, async (_req, res) => {
@@ -380,6 +435,7 @@ export function createNetworkApp(config: {
       await publisher.follow(res.locals.user.did, did, method === 'delete');
       res.json({ ok: true });
     });
+  mountPrivateData(app, store, requireUser);
   mountPlanner(app, store, requireUser);
   mountShopping(app, store, requireUser);
   mountNetworkMcp(app, store, publisher, requireUser);

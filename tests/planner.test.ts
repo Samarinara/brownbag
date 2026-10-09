@@ -1,9 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { PGlite } from '@electric-sql/pglite';
 import { NetworkStore } from '../server/network-store.js';
 import { PlannerStore, pruneMealPlans } from '../server/planner.js';
 import { createNetworkApp } from '../server/network-app.js';
@@ -16,7 +14,7 @@ import {
   retentionStart,
   weekStart,
 } from '../shared/planner.js';
-import type { Database } from '../server/db.js';
+import { createTestDatabase } from './support/database.js';
 
 test('planner calendar arithmetic validates dates and starts weeks on Sunday', () => {
   assert.equal(weekStart('2026-09-24'), '2026-09-20');
@@ -29,14 +27,8 @@ test('planner calendar arithmetic validates dates and starts weeks on Sunday', (
 });
 
 test('private planner APIs preserve duplicates, notes, order, settings and retention; recipe deletion cascades', async () => {
-  const pg = new PGlite();
-  const adapt = (pg: any): Database => ({
-    query: async (sql, params = []) => (await pg.query(sql, params)).rows,
-    transaction: (fn) => pg.transaction((tx: any) => fn(adapt(tx))),
-  });
-  for (const name of ['001_network', '003_cookbook', '004_meal_planner'])
-    await pg.exec(await readFile(new URL(`../migrations/${name}.sql`, import.meta.url), 'utf8'));
-  const store = new NetworkStore(adapt(pg));
+  const fixture = await createTestDatabase();
+  const store = new NetworkStore(fixture.db);
   const planner = new PlannerStore(store);
   const alice = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa';
   const bob = 'did:plc:bbbbbbbbbbbbbbbbbbbbbbbb';
@@ -206,6 +198,6 @@ test('private planner APIs preserve duplicates, notes, order, settings and reten
     );
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await pg.close();
+    await fixture.close();
   }
 });

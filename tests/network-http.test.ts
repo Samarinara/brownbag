@@ -9,6 +9,7 @@ async function fixture(t: TestContext, state?: string) {
   const sessions: unknown[][] = [];
   const store = {
     db: {
+      transaction: async (fn: (db: NetworkStore['db']) => Promise<unknown>) => fn(store.db),
       query: async (sql: string, params: unknown[]) => {
         if (sql.startsWith('INSERT INTO app_sessions')) sessions.push(params);
         return [];

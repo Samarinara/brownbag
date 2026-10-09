@@ -3,7 +3,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { api } from './api';
 import { Notice } from './components';
 import './shopping.css';
-import { defaultPlannerUrl, displayDate } from './MealPlanner';
+import { defaultPlannerUrl, displayDate } from './features/planner/navigation';
 import { localDate } from '../shared/planner';
 import {
   shoppingEnd,

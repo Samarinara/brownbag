@@ -8,7 +8,7 @@ import {
   type MealEntry,
   type PlannerSettings,
 } from '../shared/planner.js';
-import { HttpError, type NetworkStore } from './network-store.js';
+import { HttpError, NetworkStore } from './network-store.js';
 import type { Database } from './db.js';
 
 // Calendar dates are retained for one calendar month, with a stable UTC cutoff.
@@ -36,9 +36,10 @@ export class PlannerStore {
   async list(did: string, from: string, to: string): Promise<MealEntry[]> {
     await pruneMealPlans(this.store.db);
     const rows = await this.store.db.query(
-      `SELECT m.id,m.planned_date::text AS date,m.slot,m.note,r.uri,r.cid,r.did,r.record,a.handle
-      FROM meal_entries m JOIN public_recipes r ON r.uri=m.uri JOIN actors a ON a.did=r.did
-      WHERE m.did=$1 AND m.planned_date BETWEEN $2::date AND $3::date AND a.active AND NOT r.hidden
+      `SELECT m.id,m.planned_date::text AS date,m.slot,m.note,m.uri,coalesce(r.cid,n.cid,m.recipe_cid) AS cid,n.did,coalesce(r.record,n.record,m.recipe_record) AS record,a.handle
+      FROM meal_entries m JOIN network_records n ON n.uri=m.uri
+      LEFT JOIN public_recipes r ON r.uri=m.uri JOIN actors a ON a.did=n.did
+      WHERE m.did=$1 AND m.planned_date BETWEEN $2::date AND $3::date AND a.active AND NOT n.deleted AND NOT n.recipe_hidden AND NOT coalesce(r.hidden,false)
       ORDER BY m.planned_date,m.position`,
       [did, from, to],
     );
@@ -67,20 +68,32 @@ export class PlannerStore {
   async add(did: string, raw: unknown) {
     const input = mealInputSchema.parse(raw);
     await this.validateDate(input.date);
-    await this.store.recipe(input.uri);
-    const rows = await this.store.db.query(
-      `INSERT INTO meal_entries(id,did,uri,planned_date,slot,note) VALUES ($1,$2,$3,$4::date,$5,$6)
+    await this.store.db.transaction(async (tx) => {
+      await tx.query('SELECT uri FROM network_records WHERE uri=$1 FOR UPDATE', [input.uri]);
+      const recipe = await new NetworkStore(tx).recipe(input.uri);
+      const rows = await tx.query(
+        `INSERT INTO meal_entries(id,did,uri,planned_date,slot,note,recipe_cid,recipe_record) VALUES ($1,$2,$3,$4::date,$5,$6,$7,$8::text::jsonb)
       ON CONFLICT(id) DO NOTHING RETURNING id`,
-      [input.id, did, input.uri, input.date, input.slot, input.note],
-    );
-    if (!rows.length) {
-      const [existing] = await this.store.db.query(
-        'SELECT id FROM meal_entries WHERE id=$1 AND did=$2 AND uri=$3 AND planned_date=$4::date AND slot=$5 AND note=$6',
-        [input.id, did, input.uri, input.date, input.slot, input.note],
+        [
+          input.id,
+          did,
+          input.uri,
+          input.date,
+          input.slot,
+          input.note,
+          recipe.cid,
+          JSON.stringify(recipe.record),
+        ],
       );
-      if (!existing)
-        throw new HttpError(409, 'This meal changed. Refresh the planner and try again.');
-    }
+      if (!rows.length) {
+        const [existing] = await tx.query(
+          'SELECT id FROM meal_entries WHERE id=$1 AND did=$2 AND uri=$3 AND planned_date=$4::date AND slot=$5 AND note=$6',
+          [input.id, did, input.uri, input.date, input.slot, input.note],
+        );
+        if (!existing)
+          throw new HttpError(409, 'This meal changed. Refresh the planner and try again.');
+      }
+    });
     return { id: input.id };
   }
   async update(did: string, id: string, raw: unknown) {
