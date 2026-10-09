@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Menu, Plus } from 'lucide-react';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Menu,
+  Plus,
+  ShoppingBasket,
+} from 'lucide-react';
+import { shoppingUrl } from '../shared/shopping';
 import { api, post } from './api';
 import { Modal, Notice } from './components';
 import { RecipeImage, recipeTime } from './RecipePresentation';
@@ -611,8 +620,17 @@ export function MealPlanner({
     <section className={`meal-planner ${day ? 'is-day' : 'is-week'}`}>
       <div className="planner-heading">
         <div>
-          <p className="eyebrow">A LITTLE PLANNING, GOOD FOOD ALL WEEK</p>
           <h1>Meal Planner</h1>
+          <a
+            className="button secondary"
+            href={shoppingUrl()}
+            onClick={(event) => {
+              event.preventDefault();
+              navigate(shoppingUrl());
+            }}
+          >
+            <ShoppingBasket size={16} aria-hidden="true" /> Shopping list
+          </a>
         </div>
         <div className="planner-toggle" role="group" aria-label="Planner view">
           <button aria-pressed={!day} onClick={() => navigate(plannerUrl(date))}>
