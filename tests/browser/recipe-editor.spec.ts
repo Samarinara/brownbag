@@ -31,6 +31,9 @@ test('essentials, row options, validation, draft and publication', async ({ page
   await page.getByLabel('Step 2', { exact: true }).fill('Toss with lemon.');
   await page.getByRole('button', { name: 'Move step 2 up', exact: true }).click();
   await expect(page.getByLabel('Step 1', { exact: true })).toHaveValue('Toss with lemon.');
+  await expect(page.getByLabel('Step 2', { exact: true })).toHaveValue('Cook the pasta.');
+  await page.getByText('Step 1', { exact: true }).click();
+  await expect(page.getByLabel('Step 1', { exact: true })).toBeFocused();
 
   await page.getByText('Time & servings', { exact: true }).click();
   await page.getByLabel('Prep time (minutes)', { exact: true }).fill('0');

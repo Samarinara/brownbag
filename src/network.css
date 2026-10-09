@@ -1078,6 +1078,9 @@
   padding-top: 26px;
 }
 .recipe-step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }

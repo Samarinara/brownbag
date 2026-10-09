@@ -653,16 +653,17 @@ function NetworkEditor({
               <div className="recipe-method-row" key={rowKeys.current.instructions[index]}>
                 <span className="recipe-step-number">{index + 1}</span>
                 <div className="recipe-step-content">
-                  <label>
+                  <label htmlFor={`recipe-step-${rowKeys.current.instructions[index]}`}>
                     Step {index + 1}
-                    <textarea
-                      name={`instructions.${index}.text`}
-                      rows={3}
-                      placeholder="What happens next?"
-                      value={item.text}
-                      onChange={(e) => step(index, { text: e.target.value })}
-                    />
                   </label>
+                  <textarea
+                    id={`recipe-step-${rowKeys.current.instructions[index]}`}
+                    name={`instructions.${index}.text`}
+                    rows={3}
+                    placeholder="What happens next?"
+                    value={item.text}
+                    onChange={(e) => step(index, { text: e.target.value })}
+                  />
                 </div>
                 {rowActions(
                   'step',
