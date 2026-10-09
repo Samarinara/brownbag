@@ -87,9 +87,10 @@ export class ShoppingStore {
        AND a.active AND NOT r.hidden`,
       [did, from, to],
     );
+    // Serialized JSON must bind as text so Postgres.js doesn't JSON-encode it again.
     const rows = await db.query<DailyIngredient>(
       `WITH units AS (
-         SELECT * FROM jsonb_to_recordset($4::jsonb) AS u(alias text,unit text,factor numeric)
+         SELECT * FROM jsonb_to_recordset($4::text::jsonb) AS u(alias text,unit text,factor numeric)
        ), ingredients AS (
          SELECT m.planned_date::text AS date,i.name_key AS ingredient,coalesce(u.unit,i.unit_key) AS unit,
            i.quantity_value * coalesce(u.factor,1) AS quantity,
@@ -205,7 +206,7 @@ export class ShoppingStore {
           ).remaining;
           if (quantity === '0' && !unspecified.length && required !== '0') continue;
           await db.query(
-            `INSERT INTO shopping_purchases(did,planned_date,item_key,quantity,unspecified) VALUES ($1,$2::date,$3,$4::numeric,$5::jsonb)
+            `INSERT INTO shopping_purchases(did,planned_date,item_key,quantity,unspecified) VALUES ($1,$2::date,$3,$4::numeric,$5::text::jsonb)
              ON CONFLICT(did,planned_date,item_key) DO UPDATE SET quantity=shopping_purchases.quantity+excluded.quantity,unspecified=shopping_purchases.unspecified || excluded.unspecified`,
             [did, row.date, item.groupKey, quantity, JSON.stringify(unspecified)],
           );
