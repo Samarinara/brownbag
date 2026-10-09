@@ -15,11 +15,12 @@ test('account appearance and planner preferences survive their extracted feature
   await page.getByRole('button', { name: 'Open account menu' }).click();
   await page.getByRole('menuitem', { name: 'Manage account' }).click();
   const dialog = page.getByRole('dialog', { name: 'Your account', exact: true });
-  await dialog.getByLabel('Meal', { exact: true }).selectOption('lunch');
+  const defaultMeal = dialog.getByRole('combobox', { name: /^Meal\b/ });
+  await defaultMeal.selectOption('lunch');
   await expect(dialog.getByText('Default meal saved.', { exact: true })).toBeVisible();
   const settings = await (await page.request.get('/api/planner/settings')).json();
   expect(settings.defaultSlot).toBe('lunch');
-  await dialog.getByLabel('Meal', { exact: true }).selectOption('dinner');
+  await defaultMeal.selectOption('dinner');
   await expect(dialog.getByText('Default meal saved.', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Close dialog' }).click();
   await expect(page.getByRole('button', { name: 'Open account menu' })).toBeFocused();
