@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { PGlite } from '@electric-sql/pglite';
+import postgres from 'postgres';
 import type { Database } from '../server/db.js';
 import { NetworkStore } from '../server/network-store.js';
 import { PlannerStore } from '../server/planner.js';
@@ -23,8 +24,14 @@ test('shopping ranges default to seven inclusive days and reject invalid bounds'
 
 test('shopping APIs combine every meal, convert units, and persist private range checks safely', async () => {
   const pg = new PGlite();
+  // Use the production driver's JSON serializers, not PGlite's permissive defaults.
+  const driver = postgres({ prepare: false });
+  const serializers = {
+    114: (value: unknown) => String(driver.options.serializers[114](value)),
+    3802: (value: unknown) => String(driver.options.serializers[3802](value)),
+  };
   const adapt = (p: any): Database => ({
-    query: async (sql, params = []) => (await p.query(sql, params)).rows,
+    query: async (sql, params = []) => (await p.query(sql, params, { serializers })).rows,
     transaction: (fn) => p.transaction((tx: any) => fn(adapt(tx))),
   });
   for (const name of [
@@ -299,5 +306,6 @@ test('shopping APIs combine every meal, convert units, and persist private range
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await pg.close();
+    await driver.end();
   }
 });
