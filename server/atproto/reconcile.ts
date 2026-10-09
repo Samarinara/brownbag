@@ -33,6 +33,26 @@ export interface ReconciliationAgent {
   };
 }
 
+export function validateListedRecord(
+  did: string,
+  collection: string,
+  record: { uri: string; cid: string; value: unknown },
+) {
+  const prefix = `at://${did}/${collection}/`;
+  if (!record.uri.startsWith(prefix)) throw new Error('PDS returned a foreign record URI');
+  const rkey = record.uri.slice(prefix.length);
+  if (!/^[A-Za-z0-9._~:-]{1,512}$/.test(rkey) || rkey === '.' || rkey === '..')
+    throw new Error('Invalid record key');
+  if (collection === PROFILE_COLLECTION && rkey !== 'self') throw new Error('Invalid profile key');
+  z.string()
+    .regex(/^bafyre[a-z2-7]{53}$/)
+    .parse(record.cid);
+  if (collection === RECIPE_COLLECTION) validateRecipeRecord(record.value);
+  else if (collection === PROFILE_COLLECTION) profileRecordSchema.parse(record.value);
+  else followRecordSchema.parse(record.value);
+  return { uri: record.uri, cid: record.cid, record: record.value, collection, rkey };
+}
+
 export async function reconcileRepository(
   db: Database,
   agent: ReconciliationAgent,
@@ -63,22 +83,10 @@ export async function reconcileRepository(
         )
       ).data;
       for (const record of page.records) {
-        const prefix = `at://${did}/${collection}/`;
-        if (!record.uri.startsWith(prefix)) throw new Error('PDS returned a foreign record URI');
-        const rkey = record.uri.slice(prefix.length);
-        if (!/^[A-Za-z0-9._~:-]{1,512}$/.test(rkey) || rkey === '.' || rkey === '..')
-          throw new Error('Invalid record key');
-        if (collection === PROFILE_COLLECTION && rkey !== 'self')
-          throw new Error('Invalid profile key');
-        z.string()
-          .regex(/^bafyre[a-z2-7]{53}$/)
-          .parse(record.cid);
-        if (collection === RECIPE_COLLECTION) validateRecipeRecord(record.value);
-        else if (collection === PROFILE_COLLECTION) profileRecordSchema.parse(record.value);
-        else followRecordSchema.parse(record.value);
+        const validated = validateListedRecord(did, collection, record);
         if (seen.has(record.uri)) throw new Error('Duplicate record in PDS listing');
         seen.add(record.uri);
-        records.push({ uri: record.uri, cid: record.cid, record: record.value, collection, rkey });
+        records.push(validated);
         if (records.length > maxRecords)
           throw new Error(
             'Repository exceeds bounded reconciliation limit; use a background backfill',

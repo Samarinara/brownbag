@@ -13,6 +13,7 @@ import {
   strongRefSchema,
 } from '../shared/atproto.js';
 import { reconcileRepository } from './atproto/reconcile.js';
+import { enqueueSync, syncJobStatus } from './sync-jobs.js';
 import type { OAuthService } from './atproto/oauth.js';
 import { HttpError, NetworkStore } from './network-store.js';
 import { Publisher } from './publishing.js';
@@ -139,6 +140,7 @@ export function createNetworkApp(config: {
     const did = result.session.did;
     const identity = await oauth.identity(did);
     await store.actor(did, identity.handle === 'handle.invalid' ? undefined : identity.handle);
+    await enqueueSync(store.db, did, 'onboarding');
     const token = randomBytes(32).toString('base64url');
     await store.db.query(
       "INSERT INTO app_sessions(hash,did,expires_at) VALUES ($1,$2,now()+interval '30 days')",
@@ -156,15 +158,29 @@ export function createNetworkApp(config: {
     res.clearCookie('brownbag_session', cookie).json({ ok: true });
   });
   app.get('/api/me', requireUser, (_req, res) => res.json(res.locals.user));
+  app.get('/api/sync/jobs', requireUser, async (_req, res) => {
+    res.json({ job: await syncJobStatus(store.db, res.locals.user.did) });
+  });
+  app.post('/api/sync/jobs', requireUser, async (_req, res) => {
+    await store.rateLimit(`sync:${res.locals.user.did}`, 4, 3600);
+    res.status(202).json({ job: await enqueueSync(store.db, res.locals.user.did, 'manual') });
+  });
   app.post('/api/sync', requireUser, async (_req, res) => {
     await store.rateLimit(`sync:${res.locals.user.did}`, 4, 3600);
-    res.json(
-      await reconcileRepository(
-        store.db,
-        await oauth.agent(res.locals.user.did),
-        res.locals.user.did,
-      ),
-    );
+    // Keep the existing immediate counts/refresh contract. Large repositories
+    // can use /sync/jobs; a failed bounded sync also leaves durable repair work.
+    try {
+      res.json(
+        await reconcileRepository(
+          store.db,
+          await oauth.agent(res.locals.user.did),
+          res.locals.user.did,
+        ),
+      );
+    } catch (error) {
+      await enqueueSync(store.db, res.locals.user.did, 'sync-failed');
+      throw error;
+    }
   });
   app.get('/api/recipes', async (req, res) => {
     const options = z
