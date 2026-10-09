@@ -1,3 +1,4 @@
+import { mountPrivateData } from './private-data.js';
 import { cookbookTagsSchema, defaultCookbookTags } from '../shared/atproto.js';
 import express, { type ErrorRequestHandler, type RequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
@@ -380,6 +381,7 @@ export function createNetworkApp(config: {
       await publisher.follow(res.locals.user.did, did, method === 'delete');
       res.json({ ok: true });
     });
+  mountPrivateData(app, store, requireUser);
   mountPlanner(app, store, requireUser);
   mountShopping(app, store, requireUser);
   mountNetworkMcp(app, store, publisher, requireUser);
