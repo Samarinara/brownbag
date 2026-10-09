@@ -1,8 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { PGlite } from '@electric-sql/pglite';
-import type { Database } from '../server/db.js';
+import { applyTestMigrations, createTestDatabase } from './support/database.js';
 import { NetworkStore } from '../server/network-store.js';
 import { createNetworkApp } from '../server/network-app.js';
 import { createRecipeRecord } from '../server/atproto/records.js';
@@ -10,12 +8,6 @@ import { RECIPE_COLLECTION } from '../shared/atproto.js';
 
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa';
 const cid = 'bafyre' + 'a'.repeat(53);
-const adapt = (pg: any): Database => ({
-  query: async (text, params = []) => (await pg.query(text, params)).rows,
-  transaction: (fn) => pg.transaction((tx: any) => fn(adapt(tx))),
-});
-const migration = async (pg: PGlite, file: string) =>
-  pg.exec(await readFile(new URL(`../migrations/${file}.sql`, import.meta.url), 'utf8'));
 const event = (
   rkey: string,
   ingredients: { name: string; unit?: string; quantity?: string }[],
@@ -34,10 +26,9 @@ const event = (
 const uri = (rkey: string) => `at://${did}/${RECIPE_COLLECTION}/${rkey}`;
 
 test('ingredient migration backfills text, parses quantities and maintains revision-safe projections', async () => {
-  const pg = new PGlite();
+  const { pg, db } = await createTestDatabase({ versions: [1] });
   try {
-    await migration(pg, '001_network');
-    const store = new NetworkStore(adapt(pg));
+    const store = new NetworkStore(db);
     const first = event('first', [
       { name: '  CaRRoTs  ', unit: '  CUPS ', quantity: '1 ½' },
       { name: 'carrots', unit: 'cups', quantity: '1/2' },
@@ -46,7 +37,7 @@ test('ingredient migration backfills text, parses quantities and maintains revis
       { name: 'SALT', quantity: '1' },
     ]);
     await store.index(first);
-    await migration(pg, '005_ingredient_index');
+    await applyTestMigrations(db, [5]);
     assert.deepEqual(
       (await store.recipe(uri('first'))).record.ingredients,
       first.record.ingredients,
@@ -128,12 +119,10 @@ test('ingredient migration backfills text, parses quantities and maintains revis
 });
 
 test('ingredient HTTP endpoints expose suggestions, filters and safe grouping with bounded input', async () => {
-  const pg = new PGlite();
+  const { pg, db } = await createTestDatabase();
   let server: ReturnType<ReturnType<typeof createNetworkApp>['listen']> | undefined;
   try {
-    for (const name of ['001_network', '003_cookbook', '005_ingredient_index'])
-      await migration(pg, name);
-    const store = new NetworkStore(adapt(pg));
+    const store = new NetworkStore(db);
     await store.index(event('first', [{ name: 'CARROTS', unit: 'CUPS', quantity: '1/2' }]));
     server = createNetworkApp({ origin: 'http://localhost', store, oauth: {} as any }).listen(
       0,

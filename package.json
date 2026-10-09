@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch server/index.ts",
-    "build": "tsc --noEmit && vite build && esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js && esbuild server/indexer.ts server/migrate.ts server/prune-meal-plans.ts --bundle --platform=node --format=esm --packages=external --outdir=dist",
+    "build": "tsc --noEmit && vite build && npm run build:server",
     "start": "NODE_ENV=production node dist/server.js",
     "test": "tsx --test tests/*.test.ts",
     "email:check": "tsx server/check-mail.ts",
@@ -19,7 +19,8 @@
     "icons:generate": "node scripts/generate-icons.mjs",
     "android:debug": "node scripts/android-build.mjs debug",
     "android:unsigned": "node scripts/android-build.mjs unsigned",
-    "android:assetlinks": "node scripts/android-assetlinks.mjs"
+    "android:assetlinks": "node scripts/android-assetlinks.mjs",
+    "build:server": "node scripts/build-server.mjs"
   },
   "dependencies": {
     "@atproto-labs/fetch-node": "^0.4.0",
