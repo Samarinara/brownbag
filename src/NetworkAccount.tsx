@@ -1,3 +1,4 @@
+import { Button, Input, Label, Disclosure } from './ui';
 import { useEffect, useState } from 'react';
 import { api, post } from './api';
 import { ConfirmDialog, Modal, Notice } from './components';
@@ -58,7 +59,7 @@ export function NetworkAccount({
         <section>
           <h3>Your cookbook</h3>
           <p>Missing recipes you published elsewhere? Refresh your account’s public records.</p>
-          <button
+          <Button
             className="button secondary"
             disabled={busy}
             onClick={() =>
@@ -69,13 +70,10 @@ export function NetworkAccount({
             }
           >
             Refresh cookbook
-          </button>
+          </Button>
         </section>
         <section>
-          <details className="recipe-disclosure">
-            <summary>
-              <h3>Connected assistants</h3>
-            </summary>
+          <Disclosure className="recipe-disclosure" title="Connected assistants">
             <div className="stack">
               <p>
                 Assistants can read recipes and suggest changes. Only you can approve publication
@@ -92,23 +90,23 @@ export function NetworkAccount({
                   });
                 }}
               >
-                <label>
+                <Label>
                   Assistant name
-                  <input
+                  <Input
                     required
                     maxLength={100}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
-                </label>
-                <button
+                </Label>
+                <Button
                   className="button secondary"
                   disabled={busy}
                   title={busy ? 'Please wait while we work.' : 'Create a new assistant key'}
                   type="submit"
                 >
                   Create assistant key
-                </button>
+                </Button>
               </form>
               {token && (
                 <div>
@@ -116,14 +114,14 @@ export function NetworkAccount({
                     Copy this key now; it won’t be shown again. Use it as a Bearer token at{' '}
                     {location.origin}/mcp.
                   </p>
-                  <input
+                  <Input
                     aria-label="New assistant key"
                     readOnly
                     value={token}
                     onFocus={(e) => e.target.select()}
                   />
                   <div className="network-actions">
-                    <button
+                    <Button
                       type="button"
                       className="button secondary"
                       title="Copy the new key to the clipboard"
@@ -140,32 +138,32 @@ export function NetworkAccount({
                       }}
                     >
                       {copied ? 'Copied!' : 'Copy key'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       className="button secondary"
                       onClick={() => setToken('')}
                       title="Hide the new key"
                     >
                       Hide key
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
               {keys.map((key) => (
                 <p key={key.id}>
                   {key.name} · {key.prefix}…{' '}
-                  <button
+                  <Button
                     className="button secondary danger"
                     disabled={busy}
                     title={`Revoke access for ${key.name}. Assistants using this key will stop working.`}
                     onClick={() => setPendingKey(key)}
                   >
                     Revoke
-                  </button>
+                  </Button>
                 </p>
               ))}
             </div>
-          </details>
+          </Disclosure>
         </section>
         <section>
           <h3>Suggested changes</h3>
@@ -180,23 +178,22 @@ export function NetworkAccount({
                 {proposal.payload.action}: {proposal.payload.recipe?.title || 'Recipe'} ·{' '}
                 {proposal.status}
               </h4>
-              <details>
-                <summary>Inspect complete suggestion</summary>
+              <Disclosure title="Inspect complete suggestion">
                 <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                   {JSON.stringify(proposal.payload, null, 2)}
                 </pre>
-              </details>
+              </Disclosure>
               {proposal.status === 'pending' && (
                 <div className="network-actions">
-                  <button
+                  <Button
                     className="button primary"
                     disabled={busy}
                     title="Publish this suggested change to your public cookbook"
                     onClick={() => setPendingProposal(proposal)}
                   >
                     Approve public change
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     className="button secondary"
                     disabled={busy}
                     title="Dismiss this suggestion without publishing"
@@ -205,7 +202,7 @@ export function NetworkAccount({
                     }
                   >
                     Reject
-                  </button>
+                  </Button>
                 </div>
               )}
               {proposal.status === 'applying' && (
@@ -218,7 +215,7 @@ export function NetworkAccount({
           ))}
         </section>
         <section className="network-account-signout">
-          <button
+          <Button
             className="button secondary"
             disabled={busy}
             title="Sign out of brownbag on this device"
@@ -232,7 +229,7 @@ export function NetworkAccount({
             }}
           >
             Sign out
-          </button>
+          </Button>
         </section>
       </div>
       {pendingKey && (

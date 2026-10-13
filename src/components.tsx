@@ -1,4 +1,7 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { Button } from './ui';
+import { useRef, type ReactNode } from 'react';
+import { Dialog, DialogContent, DialogTitle } from '@samarinara/polli-ui/components/dialog';
+import { Alert, Skeleton, Surface } from '@samarinara/polli-ui/components/layout';
 import { X, Check, AlertTriangle } from 'lucide-react';
 
 export function Bag({ small = false }: { small?: boolean }) {
@@ -33,58 +36,33 @@ export function Modal({
   close: () => void;
   wide?: boolean;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const opener = useRef<HTMLElement | null>(null);
-  const titleId = useId();
-  useEffect(() => {
-    const dialog = ref.current!;
-    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialog.showModal();
-    return () => {
-      if (dialog.open) dialog.close();
-      // Native dialogs generally restore focus, but retaining this explicitly also
-      // covers dialog removal after an async action or route change.
-      requestAnimationFrame(() => opener.current?.focus());
-    };
-  }, []);
+  const opener = useRef(
+    document.activeElement instanceof HTMLElement ? document.activeElement : null,
+  );
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby={titleId}
-      aria-modal="true"
-      className={wide ? 'modal wide' : 'modal'}
-      onCancel={(event) => {
-        event.preventDefault();
-        close();
-      }}
-      onClick={(e) => {
-        if (e.target === ref.current) {
-          const bounds = ref.current.getBoundingClientRect();
-          if (
-            e.clientX < bounds.left ||
-            e.clientX > bounds.right ||
-            e.clientY < bounds.top ||
-            e.clientY > bounds.bottom
-          )
-            close();
-        }
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) close();
       }}
     >
-      <div className="modal-head">
-        <h2 id={titleId}>{title}</h2>
-        <button
-          className="icon-button"
-          onClick={close}
-          aria-label="Close dialog"
-          title="Close dialog"
-        >
-          <X size={21} />
-        </button>
-      </div>
-      <div className="modal-body">{children}</div>
-    </dialog>
+      <DialogContent
+        className={wide ? 'modal wide' : 'modal'}
+        aria-describedby={undefined}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          opener.current?.focus();
+        }}
+      >
+        <div className="modal-head">
+          <DialogTitle>{title}</DialogTitle>
+        </div>
+        <div className="modal-body">{children}</div>
+      </DialogContent>
+    </Dialog>
   );
 }
+
 export type ToastData = {
   kind: 'success' | 'error';
   text: string;
@@ -93,15 +71,15 @@ export type ToastData = {
 };
 export function Toast({ toast, dismiss }: { toast: ToastData; dismiss: () => void }) {
   return (
-    <div
+    <Alert
+      title={toast.text}
       className={`network-toast ${toast.kind}`}
       role={toast.kind === 'error' ? 'alert' : 'status'}
       aria-live={toast.kind === 'error' ? 'assertive' : 'polite'}
     >
       {toast.kind === 'error' ? <AlertTriangle size={17} /> : <Check size={17} />}
-      <span className="toast-text">{toast.text}</span>
       {toast.actionLabel && toast.onAction && (
-        <button
+        <Button
           type="button"
           className="toast-action"
           onClick={() => {
@@ -109,9 +87,9 @@ export function Toast({ toast, dismiss }: { toast: ToastData; dismiss: () => voi
           }}
         >
           {toast.actionLabel}
-        </button>
+        </Button>
       )}
-      <button
+      <Button
         type="button"
         className="toast-close"
         onClick={dismiss}
@@ -119,8 +97,8 @@ export function Toast({ toast, dismiss }: { toast: ToastData; dismiss: () => voi
         title="Dismiss notification"
       >
         <X size={15} />
-      </button>
-    </div>
+      </Button>
+    </Alert>
   );
 }
 export function ConfirmDialog({
@@ -145,10 +123,10 @@ export function ConfirmDialog({
       <div className="stack">
         <div className="confirm-body">{children}</div>
         <div className="modal-footer">
-          <button type="button" className="button secondary" onClick={close} disabled={busy}>
+          <Button type="button" className="button secondary" onClick={close} disabled={busy}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             autoFocus
             className={danger ? 'button danger' : 'button primary'}
@@ -156,7 +134,7 @@ export function ConfirmDialog({
             disabled={busy}
           >
             {busy ? 'Working…' : confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>
@@ -166,14 +144,14 @@ export function SkeletonCards({ count = 6 }: { count?: number }) {
   return (
     <div className="network-grid" aria-hidden="true">
       {Array.from({ length: count }).map((_, i) => (
-        <div className="network-card skeleton-card" key={i}>
+        <Surface className="network-card skeleton-card" key={i}>
           <div className="network-card-body">
-            <div className="skeleton skeleton-line short" />
-            <div className="skeleton skeleton-line title" />
-            <div className="skeleton skeleton-line" />
-            <div className="skeleton skeleton-line narrow" />
+            <Skeleton className="skeleton skeleton-line short" />
+            <Skeleton className="skeleton skeleton-line title" />
+            <Skeleton className="skeleton skeleton-line" />
+            <Skeleton className="skeleton skeleton-line narrow" />
           </div>
-        </div>
+        </Surface>
       ))}
     </div>
   );
@@ -181,17 +159,17 @@ export function SkeletonCards({ count = 6 }: { count?: number }) {
 export function SkeletonDetail() {
   return (
     <div className="skeleton-detail" aria-hidden="true">
-      <div className="skeleton skeleton-line short" />
-      <div className="skeleton skeleton-line hero" />
-      <div className="skeleton skeleton-line" />
-      <div className="skeleton skeleton-line narrow" />
+      <Skeleton className="skeleton skeleton-line short" />
+      <Skeleton className="skeleton skeleton-line hero" />
+      <Skeleton className="skeleton skeleton-line" />
+      <Skeleton className="skeleton skeleton-line narrow" />
     </div>
   );
 }
 export function Notice({ error }: { error: string }) {
   return error ? (
-    <p className="error" role="alert">
+    <Alert title="Please try again" className="error" role="alert">
       {error}
-    </p>
+    </Alert>
   ) : null;
 }

@@ -33,7 +33,7 @@
       "destination": "/api"
     },
     {
-      "source": "/((?!assets/|icons/|favicon\\.svg$|manifest\\.webmanifest$|sw\\.js$|workbox-[^/]+\\.js$|\\.well-known/).*)",
+      "source": "/((?!assets/|fonts/|icons/|favicon\\.svg$|manifest\\.webmanifest$|sw\\.js$|workbox-[^/]+\\.js$|\\.well-known/).*)",
       "destination": "/index.html"
     }
   ],

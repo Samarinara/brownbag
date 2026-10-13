@@ -6,7 +6,7 @@ test('account appearance and planner preferences survive their extracted feature
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Open account menu' }).click();
-  await page.getByRole('radio', { name: 'Dark' }).click();
+  await page.getByRole('tab', { name: 'Dark' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-resolved-theme', 'dark');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Open account menu' })).toBeFocused();
@@ -39,13 +39,13 @@ test('planner selection and note editing persist across dialogs and navigation',
     .first()
     .click();
   const picker = page.getByRole('dialog', { name: 'Choose recipes' });
-  await picker.getByRole('button', { name: 'Discover', exact: true }).click();
+  await picker.getByRole('tab', { name: 'Discover', exact: true }).click();
   await picker.getByRole('button', { name: 'Add Sunday lemon pasta', exact: true }).click();
   await expect(picker.getByText(/Added Sunday lemon pasta to Breakfast/)).toBeVisible();
   await picker.getByRole('button', { name: 'Done', exact: true }).click();
   const entry = page.locator('.planner-entry').filter({ hasText: 'Sunday lemon pasta' }).first();
   await entry.getByRole('button', { name: 'Options for Sunday lemon pasta' }).click();
-  await entry.getByRole('button', { name: 'Edit note', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit note', exact: true }).click();
   const note = page.getByRole('dialog', { name: 'Recipe note', exact: true });
   await note.getByLabel(/^Note/).fill('Pack leftovers for lunch.');
   await note.getByRole('button', { name: 'Save note', exact: true }).click();

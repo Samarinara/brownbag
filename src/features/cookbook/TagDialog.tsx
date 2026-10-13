@@ -1,3 +1,4 @@
+import { Button, Input, Label } from '../../ui';
 import { useState } from 'react';
 import { Modal, Notice } from '../../components';
 import { message } from '../../errors';
@@ -56,7 +57,7 @@ export function TagDialog({
           <legend>Choose tags</legend>
           <div className="network-tag-chits">
             {choices.map((tag) => (
-              <button
+              <Button
                 type="button"
                 key={tag}
                 aria-pressed={selection.includes(tag)}
@@ -68,14 +69,14 @@ export function TagDialog({
                 }
               >
                 {tag}
-              </button>
+              </Button>
             ))}
           </div>
         </fieldset>
-        <label>
+        <Label>
           New tag <span className="muted">(25 characters max)</span>
           <div className="network-new-tag">
-            <input
+            <Input
               maxLength={25}
               value={name}
               disabled={busy}
@@ -87,20 +88,20 @@ export function TagDialog({
                 }
               }}
             />
-            <button
+            <Button
               type="button"
               className="button secondary"
               disabled={busy || !name.trim()}
               onClick={add}
             >
               Add
-            </button>
+            </Button>
           </div>
-        </label>
+        </Label>
         <Notice error={error} />
-        <button className="button primary" disabled={busy}>
+        <Button className="button primary" disabled={busy}>
           {busy ? 'Saving…' : saved ? 'Done' : 'Save recipe'}
-        </button>
+        </Button>
       </form>
     </Modal>
   );

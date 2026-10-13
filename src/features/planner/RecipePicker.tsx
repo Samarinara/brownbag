@@ -1,3 +1,14 @@
+import {
+  Button,
+  Input,
+  Label,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  ListRow,
+  EmptyState,
+} from '../../ui';
 import { retryMessage as errorMessage } from '../../errors';
 import { useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
@@ -87,104 +98,108 @@ export function RecipePicker({
         if (!busy) close();
       }}
     >
-      <p className="muted">
-        {displayDate(target.date)} · {mealLabels[target.slot]}
-      </p>
-      <div className="planner-picker-toolbar">
-        <div className="planner-toggle" role="group" aria-label="Recipe collection">
-          {(['cookbook', 'discover'] as const).map((value) => (
-            <button
-              key={value}
-              disabled={busy}
-              aria-pressed={feed === value}
-              onClick={() => setFeed(value)}
-            >
-              {value === 'cookbook' ? 'Cookbook' : 'Discover'}
-            </button>
-          ))}
+      <Tabs value={feed} onValueChange={(value) => setFeed(value as typeof feed)}>
+        <p className="muted">
+          {displayDate(target.date)} · {mealLabels[target.slot]}
+        </p>
+        <div className="planner-picker-toolbar">
+          <TabsList className="planner-toggle" aria-label="Recipe collection">
+            {(['cookbook', 'discover'] as const).map((value) => (
+              <TabsTrigger value={value} key={value} disabled={busy}>
+                {value === 'cookbook' ? 'Cookbook' : 'Discover'}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <Button className="button secondary" disabled={busy} onClick={create}>
+            <Plus size={16} /> Create new recipe
+          </Button>
         </div>
-        <button className="button secondary" disabled={busy} onClick={create}>
-          <Plus size={16} /> Create new recipe
-        </button>
-      </div>
-      <label className="planner-search">
-        Search recipes
-        <input
-          type="search"
-          placeholder="Search by title or ingredient…"
-          value={query}
-          disabled={busy}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
-      <Notice error={error} />
-      <p role="status" className="planner-picker-notice">
-        {notice || (loading ? 'Loading recipes…' : '')}
-      </p>
-      <div className="planner-picker-results" aria-busy={loading}>
-        {!loading && !recipes.length && (
-          <p className="muted">
-            No recipes found. Try Discover, another search, or create a recipe.
-          </p>
-        )}
-        {recipes.map((recipe) => {
-          const time = recipeTime(recipe.record);
-          return (
-            <div className="planner-picker-recipe" key={recipe.uri}>
-              <div>
-                <strong>{recipe.record.title}</strong>
-                <small>
-                  {recipe.authorHandle ? `@${recipe.authorHandle}` : 'Community cook'}
-                  {time ? ` · ${time.minutes} min` : ''}
-                </small>
-              </div>
-              <button
+        <Label className="planner-search">
+          Search recipes
+          <Input
+            type="search"
+            placeholder="Search by title or ingredient…"
+            value={query}
+            disabled={busy}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </Label>
+        <Notice error={error} />
+        <p role="status" className="planner-picker-notice">
+          {notice || (loading ? 'Loading recipes…' : '')}
+        </p>
+        <TabsContent value={feed} asChild>
+          <div className="planner-picker-results" aria-busy={loading}>
+            {!loading && !recipes.length && (
+              <EmptyState
+                title="No recipes found"
+                description="Try Discover, another search, or create a recipe."
+              />
+            )}
+            {recipes.map((recipe) => {
+              const time = recipeTime(recipe.record);
+              return (
+                <ListRow
+                  className="planner-picker-recipe"
+                  key={recipe.uri}
+                  title={<strong>{recipe.record.title}</strong>}
+                  description={
+                    <small>
+                      {recipe.authorHandle ? `@${recipe.authorHandle}` : 'Community cook'}
+                      {time ? ` · ${time.minutes} min` : ''}
+                    </small>
+                  }
+                  trailing={
+                    <Button
+                      className="button secondary"
+                      disabled={busy || loading}
+                      aria-label={`Add ${recipe.record.title}`}
+                      onClick={() => void add(recipe)}
+                    >
+                      <Plus size={16} /> Add
+                    </Button>
+                  }
+                />
+              );
+            })}
+            {cursor && (
+              <Button
                 className="button secondary"
                 disabled={busy || loading}
-                aria-label={`Add ${recipe.record.title}`}
-                onClick={() => void add(recipe)}
+                onClick={async () => {
+                  const current = request.current;
+                  setBusy(true);
+                  try {
+                    const result = await api<{ recipes: RecipeView[]; nextCursor?: string }>(
+                      `/recipes?${new URLSearchParams({ feed, q: search, limit: '24', cursor })}`,
+                    );
+                    if (current === request.current) {
+                      setRecipes((items) => [
+                        ...items,
+                        ...result.recipes.filter(
+                          (recipe) => !items.some((item) => item.uri === recipe.uri),
+                        ),
+                      ]);
+                      setCursor(result.nextCursor);
+                    }
+                  } catch (error) {
+                    setError(errorMessage(error));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
               >
-                <Plus size={16} /> Add
-              </button>
-            </div>
-          );
-        })}
-        {cursor && (
-          <button
-            className="button secondary"
-            disabled={busy || loading}
-            onClick={async () => {
-              const current = request.current;
-              setBusy(true);
-              try {
-                const result = await api<{ recipes: RecipeView[]; nextCursor?: string }>(
-                  `/recipes?${new URLSearchParams({ feed, q: search, limit: '24', cursor })}`,
-                );
-                if (current === request.current) {
-                  setRecipes((items) => [
-                    ...items,
-                    ...result.recipes.filter(
-                      (recipe) => !items.some((item) => item.uri === recipe.uri),
-                    ),
-                  ]);
-                  setCursor(result.nextCursor);
-                }
-              } catch (error) {
-                setError(errorMessage(error));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Load more
-          </button>
-        )}
-      </div>
-      <div className="modal-footer">
-        <button className="button primary" disabled={busy} onClick={close}>
-          Done
-        </button>
-      </div>
+                Load more
+              </Button>
+            )}
+          </div>
+        </TabsContent>
+        <div className="modal-footer">
+          <Button className="button primary" disabled={busy} onClick={close}>
+            Done
+          </Button>
+        </div>
+      </Tabs>
     </Modal>
   );
 }

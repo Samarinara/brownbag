@@ -18,6 +18,10 @@ Meal Planner data lives only in PostgreSQL, scoped to the signed-in account’s 
 
 Plans before the date one calendar month ago are permanently deleted using a UTC date boundary, while future dates have no planning horizon. Cleanup runs on planner reads and hourly in the indexer, including for inactive accounts. Deployments without the indexer should schedule `node dist/prune-meal-plans.js` daily (`npm run planner:prune` in development). Local sample plans are included in the isolated, in-memory preview fixture: after `npm run build`, run `npx tsx tests/support/preview.ts` and open port 3001. The fixture never writes to a real account or database.
 
+## UI and public previews
+
+Brownbag uses the shared Polli UI components, self-hosted Lora / Inter / Patrick Hand fonts, and Polli theme tokens. Open `/ui-preview` for interactive recipe, editor, cookbook, feed, planner, shopping and account demos without signing in. See [UI setup and automatic dependency PRs](docs/polli-ui.md).
+
 ## Architecture and storage
 
 The browser calls a same-origin Node API on Vercel. The API authenticates with the cook’s existing account provider and writes public records to their Personal Data Server (PDS). One **Neon PostgreSQL database** stores the queryable public index and private application state. No Redis, second database, or hosted PDS is needed for this slice.

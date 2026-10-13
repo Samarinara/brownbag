@@ -19,7 +19,8 @@
     "android:debug": "node scripts/android-build.mjs debug",
     "android:unsigned": "node scripts/android-build.mjs unsigned",
     "android:assetlinks": "node scripts/android-assetlinks.mjs",
-    "build:server": "node scripts/build-server.mjs"
+    "build:server": "node scripts/build-server.mjs",
+    "polli:update": "node scripts/update-polli-ui.mjs"
   },
   "dependencies": {
     "@atproto-labs/fetch-node": "^0.4.0",
@@ -30,6 +31,7 @@
     "@atproto/oauth-client-node": "^0.5.7",
     "@atproto/syntax": "^0.7.6",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@samarinara/polli-ui": "0.1.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

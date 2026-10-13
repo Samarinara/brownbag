@@ -1,3 +1,4 @@
+import { Button, Input, Label } from '../../ui';
 import { useState } from 'react';
 import { Modal, Notice } from '../../components';
 import { post } from '../../api';
@@ -30,9 +31,9 @@ export function LoginDialog({ close }: { close: () => void }) {
           Bring your existing Bluesky or compatible account. Your recipes stay connected to you
           wherever you go.
         </p>
-        <label>
+        <Label>
           Your handle
-          <input
+          <Input
             autoFocus
             required
             value={handle}
@@ -41,14 +42,14 @@ export function LoginDialog({ close }: { close: () => void }) {
             autoCapitalize="none"
             autoCorrect="off"
           />
-        </label>
+        </Label>
         <p className="muted">
           You’ll sign in securely with your account provider. Brownbag never sees your password.
         </p>
         <Notice error={error} />
-        <button className="button primary" disabled={busy}>
+        <Button className="button primary" disabled={busy}>
           {busy ? 'Opening sign in…' : 'Continue'}
-        </button>
+        </Button>
       </form>
     </Modal>
   );

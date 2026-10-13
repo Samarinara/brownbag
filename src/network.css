@@ -21,7 +21,7 @@
   color: var(--green);
 }
 .network-brand > span {
-  font-family: Georgia, serif;
+  font-family: var(--polli-font-heading);
   font-size: 32px;
   font-weight: 700;
   letter-spacing: -1.8px;
@@ -100,7 +100,7 @@
   font-size: 13px;
 }
 .account-menu-profile div span {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 13px;
 }
 .theme-picker {
@@ -119,7 +119,7 @@
   gap: 6px;
   min-height: 44px;
   padding: 8px 5px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -159,7 +159,7 @@
   background: var(--soft);
 }
 .account-menu-actions button:last-child {
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .account-menu-error {
   margin: 5px 8px 3px;
@@ -207,7 +207,7 @@
 .network-bag-word {
   position: relative;
   color: var(--green);
-  font-style: italic;
+  font-style: normal;
 }
 .network-bag-word svg {
   position: absolute;
@@ -278,14 +278,9 @@
   border: 0;
   padding: 0;
   background: transparent;
-  outline: none;
   height: 100%;
   min-width: 0;
   flex: 1;
-}
-.network-search:focus-within {
-  border-color: var(--color-focus);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 15%, transparent);
 }
 .network-search-submit {
   border: 1px solid var(--line);
@@ -345,7 +340,7 @@
 }
 .network-image-placeholder {
   padding: 12px 0 0;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .network-card-body {
   padding: 16px 0 20px;
@@ -366,7 +361,7 @@
   margin: 0;
 }
 .network-card-summary {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 13px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -379,7 +374,7 @@
   flex-wrap: wrap;
   gap: 8px 16px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   margin-top: auto;
   padding-top: 8px;
 }
@@ -401,7 +396,7 @@
   margin: 0;
 }
 .network-tags li {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -410,11 +405,11 @@
 .network-tags li + li::before {
   content: '·';
   margin-right: 6px;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .network-tags .network-tags-more {
   background: transparent;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .network-card-meta {
   display: flex;
@@ -429,7 +424,7 @@
 .network-loading {
   text-align: center;
   padding: 55px 0;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .network-toast {
   position: fixed;
@@ -471,13 +466,13 @@
   margin: 0;
 }
 .recipe-title-time {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   white-space: nowrap;
 }
 .network-summary {
   font-size: 19px;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .network-detail > .eyebrow {
   overflow-wrap: anywhere;
@@ -498,7 +493,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   margin-bottom: 9px;
 }
 .network-recipe-facts dd {
@@ -513,7 +508,7 @@
 }
 .network-recipe-facts .network-fact-note {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   margin-top: 7px;
 }
 .network-detail-actions {
@@ -537,7 +532,7 @@
   border-block: 1px solid var(--line);
   margin-top: 20px;
 }
-.network-story summary {
+.network-story [data-polli='accordion-trigger'] {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -546,10 +541,10 @@
   list-style: none;
   cursor: pointer;
 }
-.network-story summary::-webkit-details-marker {
+.network-story [data-polli='accordion-trigger']::-webkit-details-marker {
   display: none;
 }
-.network-story summary strong {
+.network-story [data-polli='accordion-trigger'] strong {
   font-weight: 500;
   color: var(--green-dark);
 }
@@ -557,13 +552,13 @@
   display: block;
   font-size: 12px;
   font-weight: normal;
-  color: var(--muted);
+  color: var(--color-text-muted);
   margin-top: 5px;
 }
-.network-story[open] > summary {
+.network-story[data-state='open'] [data-polli='accordion-trigger'] {
   margin-bottom: 0;
 }
-.network-story[open] summary svg {
+.network-story[data-state='open'] [data-polli='accordion-trigger'] svg {
   transform: rotate(180deg);
 }
 .network-story .network-prose {
@@ -652,7 +647,7 @@
   margin-bottom: 25px;
 }
 .network-steps li::marker {
-  font-family: Georgia, serif;
+  font-family: var(--polli-font-heading);
   font-size: 22px;
   color: var(--green);
 }
@@ -853,7 +848,7 @@
   margin-bottom: 0;
 }
 .recipe-editor-heading > p:last-child {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 16px;
 }
 .network-editor .recipe-editor-fields {
@@ -882,7 +877,7 @@
   gap: 16px;
 }
 .recipe-section-heading > span {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 14px;
 }
 .network-editor label {
@@ -892,11 +887,11 @@
 .network-editor textarea {
   border-radius: 3px;
   background: transparent;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--polli-font-body);
   font-weight: 400;
 }
 .network-editor input[name='title'] {
-  font-family: Georgia, serif;
+  font-family: var(--polli-font-heading);
   font-size: 25px;
   padding: 16px;
 }
@@ -923,9 +918,9 @@
   min-width: 32px;
   min-height: 32px;
   padding: 6px;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
-.recipe-disclosure > summary {
+.recipe-disclosure [data-polli='accordion-trigger'] {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -935,24 +930,15 @@
   color: var(--green);
   cursor: pointer;
 }
-.recipe-disclosure > summary::-webkit-details-marker {
+.recipe-disclosure [data-polli='accordion-trigger']::-webkit-details-marker {
   display: none;
 }
-.recipe-disclosure > summary::before {
-  content: '+';
-  font-family: Arial, sans-serif;
-  width: 14px;
-  flex-shrink: 0;
-}
-.recipe-disclosure[open] > summary::before {
-  content: '−';
-}
-.recipe-disclosure > summary small {
-  color: var(--muted);
+.recipe-disclosure [data-polli='accordion-trigger'] small {
+  color: var(--color-text-muted);
   font-size: 14px;
   margin-left: auto;
 }
-.recipe-disclosure[open] > summary {
+.recipe-disclosure[data-state='open'] [data-polli='accordion-trigger'] {
   margin-bottom: 8px;
 }
 .recipe-disclosure > .stack {
@@ -968,15 +954,15 @@
 .recipe-ingredient-fields {
   grid-column: 1;
 }
-.recipe-ingredient-row > .recipe-disclosure {
+.recipe-ingredient-row .recipe-disclosure {
   grid-column: 1;
   grid-row: 2;
 }
-.recipe-ingredient-row > .recipe-disclosure > summary {
+.recipe-ingredient-row .recipe-disclosure [data-polli='accordion-trigger'] {
   font-size: 13px;
   padding: 6px 0;
 }
-.recipe-ingredient-row > .recipe-disclosure > .stack {
+.recipe-ingredient-row .recipe-disclosure > .stack {
   padding: 0 0 8px;
 }
 .recipe-ingredient-row > .recipe-row-actions,
@@ -997,22 +983,18 @@
   font-size: 13px;
   margin: 8px 0;
 }
-.recipe-method-row > .recipe-category {
+.recipe-method-row .recipe-category {
   grid-column: 2 / -1;
 }
-.recipe-category > summary {
+.recipe-category [data-polli='accordion-trigger'] {
   color: var(--green);
   list-style: none;
   cursor: pointer;
   padding: 6px 0;
   overflow-wrap: anywhere;
 }
-.recipe-category > summary::-webkit-details-marker {
+.recipe-category [data-polli='accordion-trigger']::-webkit-details-marker {
   display: none;
-}
-.recipe-category > summary:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 3px;
 }
 .recipe-category-selector {
   position: relative;
@@ -1055,25 +1037,25 @@
     width: 176px;
     margin: 0;
   }
-  .recipe-category:not([open]):not([data-populated]) > summary {
+  .recipe-category:not([data-state='open']):not([data-populated]) [data-polli='accordion-trigger'] {
     opacity: 0;
   }
-  .recipe-ingredient-row:hover .recipe-category > summary,
-  .recipe-method-row:hover .recipe-category > summary,
-  .recipe-ingredient-row:focus-within .recipe-category > summary,
-  .recipe-method-row:focus-within .recipe-category > summary {
+  .recipe-ingredient-row:hover .recipe-category [data-polli='accordion-trigger'],
+  .recipe-method-row:hover .recipe-category [data-polli='accordion-trigger'],
+  .recipe-ingredient-row:focus-within .recipe-category [data-polli='accordion-trigger'],
+  .recipe-method-row:focus-within .recipe-category [data-polli='accordion-trigger'] {
     opacity: 1;
   }
 }
 @media (hover: none) {
-  .recipe-category:not([open]):not([data-populated]) > summary {
+  .recipe-category:not([data-state='open']):not([data-populated]) [data-polli='accordion-trigger'] {
     opacity: 1;
   }
 }
 .recipe-step-number {
-  font-family: Georgia, serif;
+  font-family: var(--polli-font-heading);
   font-size: 26px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   min-width: 24px;
   padding-top: 26px;
 }
@@ -1084,11 +1066,11 @@
   flex: 1;
   min-width: 0;
 }
-.recipe-extras > .recipe-disclosure {
+.recipe-extras .recipe-disclosure {
   border-bottom: 1px solid var(--line);
   padding: 5px 0;
 }
-.recipe-extras > .recipe-disclosure > summary {
+.recipe-extras .recipe-disclosure [data-polli='accordion-trigger'] {
   font-size: 16px;
 }
 .recipe-fields-pair {
@@ -1136,18 +1118,13 @@
   border-top: 1px solid var(--line);
 }
 .recipe-editor-footer > span {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 14px;
 }
 
 .recipe-editor-section h2 {
   font-size: 24px;
   margin-bottom: 16px;
-}
-
-.recipe-disclosure > summary:focus-visible {
-  outline: 2px solid var(--green);
-  outline-offset: 4px;
 }
 
 .recipe-editor-footer > span:empty {
@@ -1168,7 +1145,7 @@
 .recipe-facts {
   display: flex;
   gap: 24px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   padding: 8px 0;
 }
 .recipe-facts > span {
@@ -1193,8 +1170,8 @@
   position: relative;
   margin-left: auto;
 }
-.recipe-more-actions > summary {
-  color: var(--muted);
+.recipe-more-actions [data-polli='accordion-trigger'] {
+  color: var(--color-text-muted);
   padding: 12px;
 }
 .recipe-more-actions > div {
@@ -1240,7 +1217,7 @@
   background: none;
   border: 0;
   padding-left: 0;
-  font-family: Georgia, serif;
+  font-family: var(--polli-font-heading);
   font-size: 20px;
   text-align: left;
 }
@@ -1252,7 +1229,7 @@
   align-self: flex-start;
   border: 0;
   background: transparent;
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   margin: 0 10px 10px;
 }
@@ -1264,11 +1241,11 @@
   padding-top: 0;
 }
 .network-account-content h3 {
-  font-family: Georgia, serif;
+  font-family: var(--polli-font-heading);
   font-size: 25px;
 }
 .network-account-content p {
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .network-account-content .recipe-disclosure h3 {
   margin-bottom: 0;
@@ -1279,10 +1256,6 @@
 }
 .network-account-content .network-account-signout {
   border: 0;
-}
-.network-search:focus-within {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
 }
 @media (max-width: 580px) {
   .network-editor-page {
@@ -1498,11 +1471,11 @@
 .network-shell .icon-button:active:not(:disabled) {
   transform: translateY(1px) scale(0.985);
 }
-.network-shell .button:focus-visible,
-.network-shell .icon-button:focus-visible,
-.network-shell .network-search-submit:focus-visible,
-.network-shell .network-toolbar nav button:focus-visible,
-.network-shell .network-tag-chits button:focus-visible,
+.network-shell .button:not([data-polli]):focus-visible,
+.network-shell .icon-button:not([data-polli]):focus-visible,
+.network-shell .network-search-submit:not([data-polli]):focus-visible,
+.network-shell .network-toolbar nav button:not([data-polli]):focus-visible,
+.network-shell .network-tag-chits button:not([data-polli]):focus-visible,
 .network-shell .network-cookbook-link:focus-visible,
 .network-shell .network-brand:focus-visible,
 .network-shell .network-card a:focus-visible {
@@ -1524,7 +1497,7 @@
 }
 .network-shell .icon-button {
   border: 1px solid transparent;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .network-shell .icon-button:hover:not(:disabled) {
   background: var(--soft);
@@ -1597,7 +1570,7 @@
   display: block;
   margin-top: 8px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   line-height: 1.5;
 }
 
@@ -1614,7 +1587,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--muted);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 .search-clear:hover:not(:disabled) {
@@ -1622,7 +1595,7 @@
   border-color: var(--line);
   color: var(--ink);
 }
-.search-clear:focus-visible {
+.search-clear:not([data-polli]):focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
@@ -1634,7 +1607,7 @@
   margin: 0 auto 18px;
   max-width: 760px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .network-main > .result-count-row:first-of-type {
   max-width: none;
@@ -1741,7 +1714,7 @@
 }
 .skeleton-grid-label {
   text-align: center;
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   margin-bottom: 18px;
 }
@@ -1773,7 +1746,7 @@
 .confirm-body ul {
   margin: 10px 0 0;
   padding-left: 20px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.7;
 }
@@ -1848,7 +1821,7 @@
   margin-top: 28px;
 }
 .ingredient-yield {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 14px;
   margin: 0 0 16px;
 }
@@ -1856,7 +1829,7 @@
   margin-top: 18px;
 }
 .ingredient-group h3 {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -1882,7 +1855,7 @@
 }
 .recipe-details-footer {
   margin-top: 36px;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .recipe-details-footer .network-recipe-facts {
   grid-template-columns: minmax(0, 1fr);
@@ -2038,7 +2011,7 @@
     border: 0;
     border-radius: 14px;
     background: transparent;
-    color: var(--muted);
+    color: var(--color-text-muted);
     text-decoration: none;
   }
   .network-header .network-cookbook-link svg {
@@ -2066,8 +2039,8 @@
     background: var(--color-surface);
     box-shadow: 0 3px 10px rgb(0 0 0 / 10%);
   }
-  .network-mobile-feed:focus-visible,
-  .network-mobile-search:focus-visible {
+  .network-mobile-feed:not([data-polli]):focus-visible,
+  .network-mobile-search:not([data-polli]):focus-visible {
     outline: 2px solid var(--green);
     outline-offset: 3px;
   }

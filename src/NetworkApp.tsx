@@ -1,3 +1,5 @@
+import { DropdownMenu, DropdownMenuTrigger } from '@samarinara/polli-ui/components/menu';
+import { Button, Input, Skeleton, Surface, EmptyState } from './ui';
 import { PwaTools, OfflineRecipeButton } from './PwaTools';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -16,7 +18,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import { api, ApiError, post } from './api';
+import { api, ApiError, post, recipeImageUrl } from './api';
 import {
   Bag,
   ConfirmDialog,
@@ -30,6 +32,7 @@ import { type RecipeView, type SessionUser } from '../shared/atproto';
 import { blankRecipe, type Draft, type Editing } from './recipe-editor';
 import { message } from './errors';
 import { currentEditorRoute, currentPlannerRoute, currentUri, recipeUrl } from './routes';
+import { appPath, appUrl } from './routes';
 import { AccountMenu } from './features/account/AccountMenu';
 import { LoginDialog } from './features/account/LoginDialog';
 import { useAppearance } from './features/account/useAppearance';
@@ -58,14 +61,12 @@ import {
 
 type Feed = 'discover' | 'cookbook';
 
-export function App() {
+export function App({ demo = false }: { demo?: boolean } = {}) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [ready, setReady] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
-  const [feed, setFeed] = useState<Feed>(
-    location.pathname === '/cookbook' ? 'cookbook' : 'discover',
-  );
-  const [feedPage, setFeedPage] = useState(location.pathname === '/feed');
+  const [feed, setFeed] = useState<Feed>(appPath() === '/cookbook' ? 'cookbook' : 'discover');
+  const [feedPage, setFeedPage] = useState(appPath() === '/feed');
   const [feedEnd, setFeedEnd] = useState(false);
   const preparedRecipe = useRef<{
     recipe: RecipeView;
@@ -89,7 +90,7 @@ export function App() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState<ToastData | null>(null);
   const [login, setLogin] = useState(false);
-  const [account, setAccount] = useState(false);
+  const [account, setAccount] = useState(() => demo && appPath() === '/account');
   const [accountMenu, setAccountMenu] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>(savedTheme);
   const [editorRoute, setEditorRoute] = useState(currentEditorRoute);
@@ -99,7 +100,7 @@ export function App() {
   const [planRecipe, setPlanRecipe] = useState(false);
   const recipeReturn = useRef<string | null>(null);
   const leaveGuard = useRef<() => boolean>(() => true);
-  const activeUrl = useRef(location.pathname + location.search);
+  const activeUrl = useRef(appPath() + location.search);
   const [busy, setBusy] = useState(false);
   const [nextCursor, setNextCursor] = useState<string>();
   const [confirmDeleteRecipe, setConfirmDeleteRecipe] = useState(false);
@@ -119,7 +120,7 @@ export function App() {
         : '/';
     setFeedPage(!!next && inFeed);
     setFeedEnd(false);
-    history.pushState(null, '', url);
+    history.pushState(null, '', appUrl(url));
     activeUrl.current = url;
     setEditorRoute(null);
     setPlannerRoute(null);
@@ -133,7 +134,7 @@ export function App() {
       return;
     }
     if (!leaveGuard.current()) return;
-    history.pushState(null, '', url);
+    history.pushState(null, '', appUrl(url));
     activeUrl.current = url;
     setPlannerRoute(url);
     setFeedPage(false);
@@ -145,7 +146,7 @@ export function App() {
   const createPlannedRecipe = (target: MealTarget) => {
     if (!leaveGuard.current()) return;
     const url = `/recipe/new?planDate=${target.date}&planSlot=${target.slot}`;
-    history.pushState(null, '', url);
+    history.pushState(null, '', appUrl(url));
     activeUrl.current = url;
     setPlannerRoute(null);
     setEditorRoute(url);
@@ -155,31 +156,31 @@ export function App() {
   useEffect(() => {
     if (
       plannerRoute &&
-      location.pathname.startsWith('/meal-planner') &&
-      location.pathname + location.search !== plannerRoute
+      appPath().startsWith('/meal-planner') &&
+      appPath() + location.search !== plannerRoute
     ) {
-      history.replaceState(null, '', plannerRoute);
+      history.replaceState(null, '', appUrl(plannerRoute));
       activeUrl.current = plannerRoute;
     }
   }, [plannerRoute]);
-  useAppearance(theme);
+  useAppearance(theme, !demo);
   useEffect(() => {
     const pop = () => {
       if (!leaveGuard.current()) {
-        history.pushState(null, '', activeUrl.current);
+        history.pushState(null, '', appUrl(activeUrl.current));
         return;
       }
-      activeUrl.current = location.pathname + location.search;
+      activeUrl.current = appPath() + location.search;
       setEditorRoute(currentEditorRoute());
       setPlannerRoute(currentPlannerRoute());
       setUri(currentUri());
-      setFeedPage(location.pathname === '/feed');
-      if (location.pathname === '/feed') {
+      setFeedPage(appPath() === '/feed');
+      if (appPath() === '/feed') {
         setRecipes([]);
         setNextCursor(undefined);
       }
       setFeedEnd(false);
-      if (!currentUri()) setFeed(location.pathname === '/cookbook' ? 'cookbook' : 'discover');
+      if (!currentUri()) setFeed(appPath() === '/cookbook' ? 'cookbook' : 'discover');
     };
     window.addEventListener('popstate', pop);
     api<{ configured: boolean }>('/config')
@@ -261,7 +262,7 @@ export function App() {
             if (feedPage && result.recipes[0]) {
               const first = result.recipes[0];
               const url = `/feed?uri=${encodeURIComponent(first.uri)}`;
-              history.replaceState(null, '', url);
+              history.replaceState(null, '', appUrl(url));
               activeUrl.current = url;
               setUri(first.uri);
             }
@@ -361,7 +362,7 @@ export function App() {
   };
   const openFeed = () => {
     if (!leaveGuard.current()) return;
-    history.pushState(null, '', '/feed');
+    history.pushState(null, '', appUrl('/feed'));
     activeUrl.current = '/feed';
     recipeReturn.current = null;
     setFeed('discover');
@@ -557,7 +558,7 @@ export function App() {
         : data.data.derivedFrom
           ? `/recipe/adapt?uri=${encodeURIComponent(data.data.derivedFrom.uri)}`
           : '/recipe/new';
-    history.pushState(null, '', url);
+    history.pushState(null, '', appUrl(url));
     activeUrl.current = url;
     setEditorRoute(url);
     setFeedPage(false);
@@ -567,13 +568,13 @@ export function App() {
   };
   const titleTime = recipe ? recipeTime(recipe.record) : null;
   return (
-    <div className={`network-shell ${feedPage ? 'has-recipe-feed' : ''}`}>
+    <div className={`polli-root network-shell ${feedPage ? 'has-recipe-feed' : ''}`}>
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
       <header className="network-header" aria-label="Site header">
         <a
-          href="/"
+          href={appUrl('/')}
           className="network-brand"
           onClick={(e) => {
             e.preventDefault();
@@ -587,7 +588,7 @@ export function App() {
         </a>
         <nav className="network-actions" aria-label="Main navigation">
           <a
-            href="/feed"
+            href={appUrl('/feed')}
             className="network-cookbook-link network-feed-link"
             aria-current={feedPage ? 'page' : undefined}
             onClick={(e) => {
@@ -599,7 +600,7 @@ export function App() {
             <span>Recipe feed</span>
           </a>
           <a
-            href="/cookbook"
+            href={appUrl('/cookbook')}
             className="network-cookbook-link network-library-link"
             aria-label="Cookbook"
             aria-current={
@@ -614,7 +615,7 @@ export function App() {
             <span>Cookbook</span>
           </a>
           <a
-            href="/meal-planner"
+            href={appUrl('/meal-planner')}
             className="network-cookbook-link network-planner-link"
             aria-label="Meal Planner"
             aria-current={plannerRoute ? 'page' : undefined}
@@ -627,7 +628,7 @@ export function App() {
             <span>Meal Planner</span>
           </a>
           <a
-            href="/feed"
+            href={appUrl('/feed')}
             className="network-mobile-feed"
             aria-label="Brownbag recipe feed"
             aria-current={feedPage ? 'page' : undefined}
@@ -639,7 +640,7 @@ export function App() {
             <Bag small />
           </a>
           <a
-            href="/"
+            href={appUrl('/')}
             className="network-mobile-search"
             aria-label="Search recipes"
             aria-current={
@@ -656,47 +657,50 @@ export function App() {
           </a>
           {user ? (
             <div className="account-menu-wrap">
-              <button
-                ref={accountButtonRef}
-                className="network-account-button"
-                onClick={() => setAccountMenu((open) => !open)}
-                aria-label="Open account menu"
-                aria-haspopup="menu"
-                aria-expanded={accountMenu}
-                title={user.handle ? `@${user.handle}` : 'Account'}
-              >
-                <UserRound size={22} aria-hidden="true" />
-              </button>
-              {accountMenu && (
-                <AccountMenu
-                  user={user}
-                  theme={theme}
-                  setTheme={setTheme}
-                  close={(restoreFocus = true) => {
-                    setAccountMenu(false);
-                    if (restoreFocus)
-                      requestAnimationFrame(() => accountButtonRef.current?.focus());
-                  }}
-                  manage={() => {
-                    setAccountMenu(false);
-                    setAccount(true);
-                  }}
-                  signOut={async () => {
-                    if (!leaveGuard.current())
-                      throw new Error('Finish or save your recipe before signing out.');
-                    await post('/auth/logout', {});
-                    leaveGuard.current = () => true;
-                    setUser(null);
-                    setAccountMenu(false);
-                    setFeed('discover');
-                    go(null, 'discover');
-                    notify('Signed out');
-                  }}
-                />
-              )}
+              <DropdownMenu open={accountMenu} onOpenChange={setAccountMenu} modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    ref={accountButtonRef}
+                    className="network-account-button"
+                    aria-label="Open account menu"
+                    aria-haspopup="menu"
+                    aria-expanded={accountMenu}
+                    title={user.handle ? `@${user.handle}` : 'Account'}
+                  >
+                    <UserRound size={22} aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                {accountMenu && (
+                  <AccountMenu
+                    user={user}
+                    theme={theme}
+                    setTheme={setTheme}
+                    close={(restoreFocus = true) => {
+                      setAccountMenu(false);
+                      if (restoreFocus)
+                        requestAnimationFrame(() => accountButtonRef.current?.focus());
+                    }}
+                    manage={() => {
+                      setAccountMenu(false);
+                      setAccount(true);
+                    }}
+                    signOut={async () => {
+                      if (!leaveGuard.current())
+                        throw new Error('Finish or save your recipe before signing out.');
+                      await post('/auth/logout', {});
+                      leaveGuard.current = () => true;
+                      setUser(null);
+                      setAccountMenu(false);
+                      setFeed('discover');
+                      go(null, 'discover');
+                      notify('Signed out');
+                    }}
+                  />
+                )}
+              </DropdownMenu>
             </div>
           ) : (
-            <button
+            <Button
               className="network-sign-in"
               aria-label="Sign in"
               disabled={!ready || configured !== true}
@@ -711,11 +715,11 @@ export function App() {
             >
               <UserRound size={22} aria-hidden="true" />
               <span>Sign in</span>
-            </button>
+            </Button>
           )}
         </nav>
       </header>
-      <PwaTools canReload={() => leaveGuard.current()} />
+      {!demo && <PwaTools canReload={() => leaveGuard.current()} />}
       <main
         id="main-content"
         className="network-main"
@@ -736,14 +740,14 @@ export function App() {
             done={() => {}}
           />
         ) : configured === false ? (
-          <section className="empty-state">
-            <Bag />
-            <h1>A place for good food.</h1>
-            <p>
-              Brownbag is getting its kitchen ready. Account connections and the recipe library will
-              be available once setup is complete.
-            </p>
-          </section>
+          <EmptyState
+            className="empty-state"
+            title={'A place for good food.'}
+            description={
+              'Brownbag is getting its kitchen ready. Account connections and the recipe library will be available once setup is complete.'
+            }
+            icon={<Bag />}
+          />
         ) : plannerRoute ? (
           !ready ? (
             <p role="status">Opening your {plannerTitle}…</p>
@@ -763,17 +767,24 @@ export function App() {
               />
             )
           ) : (
-            <section className="empty-state">
-              <h1>{plannerTitle}</h1>
-              <p>
-                {shoppingPage
+            <EmptyState
+              className="empty-state"
+              title={plannerTitle}
+              description={
+                '' +
+                (shoppingPage
                   ? 'Sign in to view your shopping list.'
-                  : 'Sign in to plan your meals.'}
-              </p>
-              <button className="button primary" onClick={() => setLogin(true)}>
-                Sign in
-              </button>
-            </section>
+                  : 'Sign in to plan your meals.') +
+                ''
+              }
+              action={
+                <>
+                  <Button className="button primary" onClick={() => setLogin(true)}>
+                    Sign in
+                  </Button>
+                </>
+              }
+            />
           )
         ) : editorRoute ? (
           !ready ? (
@@ -782,9 +793,9 @@ export function App() {
                 Opening your cookbook…
               </p>
               <section className="network-editor-page" aria-hidden="true">
-                <div className="skeleton skeleton-line short" />
-                <div className="skeleton skeleton-line hero" />
-                <div className="skeleton skeleton-line" />
+                <Skeleton className="skeleton skeleton-line short" />
+                <Skeleton className="skeleton skeleton-line hero" />
+                <Skeleton className="skeleton skeleton-line" />
               </section>
             </>
           ) : user ? (
@@ -820,38 +831,52 @@ export function App() {
               }}
             />
           ) : (
-            <section className="empty-state">
-              <h1>Your next good recipe.</h1>
-              <p>Sign in to create and edit your recipes.</p>
-              <button className="button primary" onClick={() => setLogin(true)}>
-                Sign in
-              </button>
-            </section>
+            <EmptyState
+              className="empty-state"
+              title={'Your next good recipe.'}
+              description={'Sign in to create and edit your recipes.'}
+              action={
+                <>
+                  <Button className="button primary" onClick={() => setLogin(true)}>
+                    Sign in
+                  </Button>
+                </>
+              }
+            />
           )
         ) : feedPage && (!uri || feedEnd) ? (
-          <section className="empty-state">
-            <h1>
-              {loading
+          <EmptyState
+            className="empty-state"
+            title={
+              '' +
+              (loading
                 ? 'Finding your next recipe…'
                 : feedEnd
                   ? 'You’re all caught up.'
-                  : 'The feed is warming up.'}
-            </h1>
-            <p>
-              {loading
+                  : 'The feed is warming up.') +
+              ''
+            }
+            description={
+              '' +
+              (loading
                 ? 'Fresh recipes, newest first.'
-                : 'Come back for more inspiration, or find something in your cookbook.'}
-            </p>
-            {!loading && (
-              <button className="button primary" onClick={openFeed}>
-                Back to newest recipes
-              </button>
-            )}
-          </section>
+                : 'Come back for more inspiration, or find something in your cookbook.') +
+              ''
+            }
+            action={
+              <>
+                {!loading && (
+                  <Button className="button primary" onClick={openFeed}>
+                    Back to newest recipes
+                  </Button>
+                )}
+              </>
+            }
+          />
         ) : uri ? (
           <>
             {!feedPage && (
-              <button
+              <Button
                 className="text-button recipe-back"
                 onClick={() =>
                   recipeReturn.current ? navigatePlanner(recipeReturn.current) : go(null)
@@ -863,7 +888,7 @@ export function App() {
                   : feed === 'cookbook'
                     ? 'Back to cookbook'
                     : 'Back to recipes'}
-              </button>
+              </Button>
             )}
             {loading ? (
               <>
@@ -885,19 +910,19 @@ export function App() {
                 >
                   {user?.did === recipe.authorDid ? (
                     <div className="recipe-owner-actions">
-                      <button
+                      <Button
                         className="text-button"
                         onClick={() => edit({ data: recipe.record, original: recipe })}
                       >
                         Edit recipe
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         className="text-button danger"
                         disabled={busy}
                         onClick={() => setConfirmDeleteRecipe(true)}
                       >
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <p className="eyebrow">
@@ -934,7 +959,7 @@ export function App() {
                                   : 'Sign in to save this recipe to your cookbook'
                       }
                     >
-                      <button
+                      <Button
                         className="button primary"
                         disabled={busy || (!!user && !entry)}
                         aria-label={
@@ -1001,16 +1026,16 @@ export function App() {
                       >
                         {entry?.saved ? <Check size={15} /> : <Bookmark size={15} />}
                         {entry?.saved ? 'Saved' : 'Save'}
-                      </button>
+                      </Button>
                     </span>
                     {feedPage && (
-                      <button
+                      <Button
                         className="button primary recipe-next"
                         disabled={busy || loading}
                         onClick={() => void interactWithFeed(false)}
                       >
                         Next recipe <ArrowRight size={17} />
-                      </button>
+                      </Button>
                     )}
                     <span id="save-hint" className="sr-only">
                       {busy
@@ -1021,7 +1046,7 @@ export function App() {
                             ? 'Choosing Save will ask you to sign in first.'
                             : ''}
                     </span>
-                    <button
+                    <Button
                       className="button secondary"
                       onClick={() => {
                         if (!user) setLogin(true);
@@ -1029,9 +1054,9 @@ export function App() {
                       }}
                     >
                       <CalendarDays size={16} /> Plan meal
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       className="button secondary recipe-adapt"
                       onClick={() =>
                         edit({
@@ -1045,16 +1070,16 @@ export function App() {
                       title="Create your own copy of this recipe"
                     >
                       Make it your own
-                    </button>
+                    </Button>
                     <OfflineRecipeButton key={recipe.uri} recipe={recipe} />
                     <div className="detail-share-row" role="group" aria-label="Share this recipe">
-                      <button
+                      <Button
                         type="button"
                         className="icon-button"
                         title="Copy link to this recipe"
                         aria-label="Copy link to this recipe"
                         onClick={() => {
-                          const url = `${location.origin}${recipeUrl(recipe.uri)}`;
+                          const url = `${location.origin}${appUrl(recipeUrl(recipe.uri))}`;
                           const done = () => notify('Link copied to clipboard');
                           if (navigator.clipboard?.writeText) {
                             void navigator.clipboard
@@ -1069,14 +1094,14 @@ export function App() {
                         }}
                       >
                         <Link2 size={17} />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
                         className="icon-button"
                         title="Share this recipe"
                         aria-label="Share this recipe"
                         onClick={() => {
-                          const url = `${location.origin}${recipeUrl(recipe.uri)}`;
+                          const url = `${location.origin}${appUrl(recipeUrl(recipe.uri))}`;
                           if (navigator.share) {
                             void navigator
                               .share({ title: recipe.record.title, url })
@@ -1094,7 +1119,7 @@ export function App() {
                         }}
                       >
                         <Share2 size={17} />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   <RecipeTags tags={recipe.record.tags} />
@@ -1103,7 +1128,7 @@ export function App() {
                       {recipe.record.images.map((photo, index) => (
                         <figure key={index}>
                           <img
-                            src={`/api/recipe-image?${new URLSearchParams({ uri: recipe.uri, index: String(index) })}`}
+                            src={recipeImageUrl(recipe.uri, index)}
                             alt={photo.alt}
                             loading="lazy"
                             width={photo.width}
@@ -1160,21 +1185,21 @@ export function App() {
                   </div>
                   <footer className="recipe-details-footer">
                     {entry?.saved && (
-                      <button
+                      <Button
                         className="text-button"
                         disabled={busy}
                         onClick={() => setTagSelector(true)}
                       >
                         <Tags size={15} />
                         Edit cookbook tags
-                      </button>
+                      </Button>
                     )}
                     <RecipeFacts record={recipe.record} showTime={false} />
                     {recipe.record.derivedFrom && (
                       <p className="network-attribution">
                         Inspired by{' '}
                         <a
-                          href={recipeUrl(recipe.record.derivedFrom.uri)}
+                          href={appUrl(recipeUrl(recipe.record.derivedFrom.uri))}
                           onClick={(e) => {
                             e.preventDefault();
                             go(recipe.record.derivedFrom!.uri);
@@ -1225,14 +1250,14 @@ export function App() {
                   }}
                 >
                   <Search size={22} strokeWidth={1.7} aria-hidden="true" />
-                  <input
+                  <Input
                     aria-label="Search recipes"
                     placeholder="Find a recipe, or start with an ingredient…"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
                   {query && (
-                    <button
+                    <Button
                       type="button"
                       className="search-clear"
                       aria-label="Clear search"
@@ -1243,22 +1268,22 @@ export function App() {
                       }}
                     >
                       <X size={16} />
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
                     className="network-search-submit"
                     aria-label="Search"
                     title="Search"
                     type="submit"
                   >
                     ↵
-                  </button>
+                  </Button>
                 </form>
                 <div className="network-hero-actions">
                   {feed !== 'cookbook' && (
-                    <button className="button primary" onClick={openFeed}>
+                    <Button className="button primary" onClick={openFeed}>
                       Open recipe feed <ArrowRight size={18} />
-                    </button>
+                    </Button>
                   )}
                   <span
                     className="disabled-hint"
@@ -1268,14 +1293,14 @@ export function App() {
                         : 'Add a new recipe'
                     }
                   >
-                    <button
+                    <Button
                       className="button secondary"
                       disabled={configured !== true}
                       onClick={() => edit({ data: blankRecipe() })}
                     >
                       <Plus size={18} />
                       Add a recipe
-                    </button>
+                    </Button>
                   </span>
                 </div>
               </div>
@@ -1283,7 +1308,7 @@ export function App() {
             {feed === 'cookbook' && (
               <nav className="network-tag-chits" aria-label="Filter cookbook by tag">
                 {['', ...tags].map((value) => (
-                  <button
+                  <Button
                     key={value}
                     className={tag === value ? 'active' : ''}
                     aria-pressed={tag === value}
@@ -1292,7 +1317,7 @@ export function App() {
                     onClick={() => setTag(value)}
                   >
                     {value || 'All'}
-                  </button>
+                  </Button>
                 ))}
               </nav>
             )}
@@ -1321,7 +1346,7 @@ export function App() {
                           {nextCursor ? ' so far' : ''}
                         </span>
                         {(search || tag) && (
-                          <button
+                          <Button
                             type="button"
                             className="text-button"
                             onClick={() => {
@@ -1331,7 +1356,7 @@ export function App() {
                             }}
                           >
                             Clear search & filters
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}
@@ -1341,14 +1366,14 @@ export function App() {
                         <p>Only you can see these. Publish when you’re ready to share.</p>
                         {drafts.map((draft) => (
                           <div key={draft.id}>
-                            <button
+                            <Button
                               className="button secondary"
                               title={`Continue editing ${draft.data.title || 'untitled recipe'}`}
                               onClick={() => edit({ data: draft.data, draftId: draft.id })}
                             >
                               {draft.data.title || 'Untitled recipe'}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               className="icon-button danger"
                               disabled={busy}
                               aria-label={`Delete draft ${draft.data.title || 'untitled recipe'}`}
@@ -1356,7 +1381,7 @@ export function App() {
                               onClick={() => setPendingDraft(draft)}
                             >
                               <X size={16} />
-                            </button>
+                            </Button>
                           </div>
                         ))}
                       </section>
@@ -1366,9 +1391,9 @@ export function App() {
                         className={feed === 'cookbook' ? 'network-cookbook-list' : 'network-grid'}
                       >
                         {recipes.map((item) => (
-                          <article className="network-card" key={item.uri}>
+                          <Surface className="network-card" role="article" key={item.uri}>
                             <a
-                              href={recipeUrl(item.uri)}
+                              href={appUrl(recipeUrl(item.uri))}
                               onClick={(e) => {
                                 e.preventDefault();
                                 go(item.uri);
@@ -1409,61 +1434,70 @@ export function App() {
                                 </div>
                               </div>
                             </a>
-                          </article>
+                          </Surface>
                         ))}
                       </div>
                     ) : (
                       !error && (
-                        <section className="empty-state compact">
-                          <BookOpen size={38} />
-                          <h2>
-                            {search || tag
+                        <EmptyState
+                          className="empty-state compact"
+                          title={
+                            '' +
+                            (search || tag
                               ? 'No recipes found'
                               : feed === 'cookbook'
                                 ? 'Every cookbook starts somewhere'
-                                : 'A good recipe starts with you'}
-                          </h2>
-                          <p>
-                            {search || tag
+                                : 'A good recipe starts with you') +
+                            ''
+                          }
+                          description={
+                            '' +
+                            (search || tag
                               ? 'Try another tag, ingredient or title — or clear the search to browse everything.'
-                              : 'Share a recipe you love, or start with a private draft.'}
-                          </p>
-                          <div className="empty-actions">
-                            {search || tag ? (
-                              <button
-                                type="button"
-                                className="button secondary"
-                                onClick={() => {
-                                  setQuery('');
-                                  setSearch('');
-                                  setTag('');
-                                }}
-                              >
-                                Clear search & filters
-                              </button>
-                            ) : null}
-                            {!search && !tag ? (
-                              <button
-                                type="button"
-                                className="button primary"
-                                disabled={configured !== true}
-                                title={
-                                  configured !== true
-                                    ? 'Adding recipes is unavailable until setup is complete.'
-                                    : 'Add your first recipe'
-                                }
-                                onClick={() => edit({ data: blankRecipe() })}
-                              >
-                                <Plus size={16} />
-                                Add a recipe
-                              </button>
-                            ) : null}
-                          </div>
-                        </section>
+                              : 'Share a recipe you love, or start with a private draft.') +
+                            ''
+                          }
+                          icon={<BookOpen size={38} />}
+                          action={
+                            <>
+                              <div className="empty-actions">
+                                {search || tag ? (
+                                  <Button
+                                    type="button"
+                                    className="button secondary"
+                                    onClick={() => {
+                                      setQuery('');
+                                      setSearch('');
+                                      setTag('');
+                                    }}
+                                  >
+                                    Clear search & filters
+                                  </Button>
+                                ) : null}
+                                {!search && !tag ? (
+                                  <Button
+                                    type="button"
+                                    className="button primary"
+                                    disabled={configured !== true}
+                                    title={
+                                      configured !== true
+                                        ? 'Adding recipes is unavailable until setup is complete.'
+                                        : 'Add your first recipe'
+                                    }
+                                    onClick={() => edit({ data: blankRecipe() })}
+                                  >
+                                    <Plus size={16} />
+                                    Add a recipe
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </>
+                          }
+                        />
                       )
                     )}
                     {nextCursor && (
-                      <button
+                      <Button
                         className="button secondary network-load-more"
                         disabled={busy}
                         onClick={async () => {
@@ -1493,7 +1527,7 @@ export function App() {
                         title={busy ? 'Please wait while recipes load.' : 'Load more recipes'}
                       >
                         {busy ? 'Loading…' : 'More recipes'}
-                      </button>
+                      </Button>
                     )}
                   </>
                 )}

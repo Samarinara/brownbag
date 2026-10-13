@@ -1,5 +1,7 @@
+import { Disclosure, Badge } from './ui';
+import { recipeImageUrl } from './api';
 import { useState } from 'react';
-import { BookOpen, Clock3, Users, ChevronDown } from 'lucide-react';
+import { BookOpen, Clock3, Users } from 'lucide-react';
 import type { RecipeInput, RecipeView } from '../shared/atproto';
 
 export function recipeTime(record: RecipeInput) {
@@ -22,9 +24,7 @@ export const recipeYield = (record: RecipeInput) =>
 
 export function RecipeImage({ recipe }: { recipe: RecipeView }) {
   const photo = recipe.record.images?.[0];
-  const src = photo
-    ? `/api/recipe-image?${new URLSearchParams({ uri: recipe.uri, index: '0' })}`
-    : '';
+  const src = photo ? recipeImageUrl(recipe.uri, 0) : '';
   const [failedSrc, setFailedSrc] = useState('');
   return (
     <div className="network-recipe-image">
@@ -50,8 +50,10 @@ export function RecipeTags({
   if (!unique.length) return null;
   return (
     <ul className="network-tags" aria-label="Recipe tags">
-      {unique.slice(0, limit).map((tag) => (
-        <li key={tag}>{tag}</li>
+      {unique.slice(0, limit).map((tag, index) => (
+        <li key={tag}>
+          <Badge tone={(['sky', 'butter', 'coral'] as const)[index % 3]}>{tag}</Badge>
+        </li>
       ))}
       {unique.length > limit && (
         <li className="network-tags-more">+{unique.length - limit} more</li>
@@ -107,7 +109,7 @@ export function RecipeFacts({
       )}
       <div>
         <dt>Source</dt>
-        <dd>
+        <dd className={source?.name || source?.url ? 'recipe-source-value' : undefined}>
           {source?.url && /^https?:\/\//i.test(source.url) ? (
             <a href={source.url} target="_blank" rel="noreferrer">
               {source.name || source.url}
@@ -125,16 +127,17 @@ export function RecipeFacts({
 export function RecipeStory({ description }: { description?: string }) {
   if (!description?.trim()) return null;
   return (
-    <details className="network-story">
-      <summary>
+    <Disclosure
+      className="network-story"
+      title={
         <span>
           <strong>Story & cooking notes</strong>
           <span className="network-story-hint">A little background and tips from the cook</span>
         </span>
-        <ChevronDown size={19} aria-hidden="true" />
-      </summary>
+      }
+    >
       <p className="network-prose">{description}</p>
-    </details>
+    </Disclosure>
   );
 }
 

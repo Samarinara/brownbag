@@ -80,3 +80,40 @@ test('sign-out/device clearing removes offline recipes and draft backups, retain
   assert.equal(readRecovery(recoveryKey('did:plc:alice', '/recipe/new')), undefined);
   assert.equal(localStorage.getItem('brownbag-theme'), 'dark');
 });
+
+test('demo recovery and offline copies stay in memory and clearing them preserves real device data', async () => {
+  const { enableDemoStorage, recoveryStorage } = await import('../src/offline-storage');
+  const { createStore, get } = await import('idb-keyval');
+  const key = recoveryKey('did:plc:alice', '/recipe/new');
+  const realDraft = { title: 'Real draft', ingredients: [], instructions: [] };
+  writeRecovery(key, realDraft);
+  const realRecipe: RecipeView = {
+    uri: `at://did:plc:alice/${RECIPE_COLLECTION}/real`,
+    cid: 'real',
+    authorDid: 'did:plc:alice',
+    record: {
+      $type: RECIPE_COLLECTION,
+      title: 'Real soup',
+      createdAt: new Date().toISOString(),
+      ingredients: [],
+      instructions: [],
+    },
+  };
+  await saveOfflineRecipe(realRecipe);
+  enableDemoStorage();
+  assert.deepEqual(await offlineRecipes(), []);
+  assert.equal(readRecovery(key), undefined);
+  writeRecovery(key, { ...realDraft, title: 'Sample draft' });
+  recoveryStorage.setItem(`${key}:publication`, 'sample publication');
+  await saveOfflineRecipe({ ...realRecipe, uri: `${realRecipe.uri}-sample` });
+  assert.equal((await offlineRecipes()).length, 1);
+  await clearDeviceData();
+  assert.deepEqual(await offlineRecipes(), []);
+  assert.equal(readRecovery(key), undefined);
+  assert.equal(recoveryStorage.getItem(`${key}:publication`), null);
+  assert.equal(JSON.parse(localStorage.getItem(key)!).title, 'Real draft');
+  assert.equal(
+    (await get(realRecipe.uri, createStore('brownbag-offline-v1', 'recipes'))).recipe.record.title,
+    'Real soup',
+  );
+});

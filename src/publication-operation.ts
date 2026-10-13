@@ -1,3 +1,4 @@
+import { recoveryStorage } from './offline-storage';
 import { recipeInputSchema, strongRefSchema, type RecipeInput } from '../shared/atproto';
 
 export type PublicationIntent = {
@@ -10,7 +11,7 @@ export type PublicationIntent = {
 const intentKey = (key: string) => `${key}:publication`;
 export function readPublicationIntent(key: string): PublicationIntent | undefined {
   try {
-    const raw = JSON.parse(localStorage.getItem(intentKey(key)) || 'null');
+    const raw = JSON.parse(recoveryStorage.getItem(intentKey(key)) || 'null');
     if (!raw || !/^[0-9a-f-]{36}$/i.test(raw.id)) return undefined;
     return {
       id: raw.id,
@@ -24,7 +25,7 @@ export function readPublicationIntent(key: string): PublicationIntent | undefine
 }
 export function persistPublicationIntent(key: string, intent: PublicationIntent) {
   try {
-    localStorage.setItem(intentKey(key), JSON.stringify(intent));
+    recoveryStorage.setItem(intentKey(key), JSON.stringify(intent));
   } catch {
     throw new Error(
       'Device backup is unavailable. Enable device storage before publishing so an interrupted publication can be recovered safely.',
@@ -33,7 +34,7 @@ export function persistPublicationIntent(key: string, intent: PublicationIntent)
 }
 export function removePublicationIntent(key: string) {
   try {
-    localStorage.removeItem(intentKey(key));
+    recoveryStorage.removeItem(intentKey(key));
   } catch {
     /* Already published. */
   }

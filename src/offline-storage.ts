@@ -2,13 +2,36 @@ import { createStore, get, set, del, values, clear } from 'idb-keyval';
 import type { RecipeView } from '../shared/atproto';
 import { draftInputSchema } from '../shared/atproto';
 
+// Preview sessions use isolated memory storage, including publication recovery.
+let demoStorage: Map<string, string> | undefined;
+let demoOffline: Map<string, OfflineRecipe> | undefined;
+export function enableDemoStorage() {
+  demoStorage = new Map();
+  demoOffline = new Map();
+}
+export const recoveryStorage = {
+  getItem: (key: string) =>
+    demoStorage ? (demoStorage.get(key) ?? null) : localStorage.getItem(key),
+  setItem: (key: string, value: string) => {
+    if (demoStorage) demoStorage.set(key, value);
+    else localStorage.setItem(key, value);
+  },
+  removeItem: (key: string) => {
+    if (demoStorage) demoStorage.delete(key);
+    else localStorage.removeItem(key);
+  },
+};
+
 // Only deliberately downloaded PUBLIC recipes go here. No session or private API cache.
 const recipes = createStore('brownbag-offline-v1', 'recipes');
 export type OfflineRecipe = { recipe: RecipeView; savedAt: string };
-export const offlineRecipes = () => values<OfflineRecipe>(recipes);
-export const offlineRecipe = (uri: string) => get<OfflineRecipe>(uri, recipes);
+export const offlineRecipes = () =>
+  demoOffline ? Promise.resolve([...demoOffline.values()]) : values<OfflineRecipe>(recipes);
+export const offlineRecipe = (uri: string) =>
+  demoOffline ? Promise.resolve(demoOffline.get(uri)) : get<OfflineRecipe>(uri, recipes);
 export async function removeOfflineRecipe(uri: string) {
-  await del(uri, recipes);
+  if (demoOffline) demoOffline.delete(uri);
+  else await del(uri, recipes);
   window.dispatchEvent(new Event('brownbag-offline-changed'));
 }
 export async function saveOfflineRecipe(recipe: RecipeView) {
@@ -21,7 +44,9 @@ export async function saveOfflineRecipe(recipe: RecipeView) {
     authorDisplayName: recipe.authorDisplayName,
     record: { ...recipe.record, images: undefined },
   };
-  await set(recipe.uri, { recipe: textRecipe, savedAt: new Date().toISOString() }, recipes);
+  const copy = { recipe: textRecipe, savedAt: new Date().toISOString() };
+  if (demoOffline) demoOffline.set(recipe.uri, copy);
+  else await set(recipe.uri, copy, recipes);
   window.dispatchEvent(new Event('brownbag-offline-changed'));
 }
 
@@ -29,7 +54,7 @@ const draftPrefix = 'brownbag-recovery-v1:';
 export const recoveryKey = (did: string, route: string) => `${draftPrefix}${did}:${route}`;
 export function readRecovery(key: string) {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = recoveryStorage.getItem(key);
     if (!raw) return undefined;
     const parsed = draftInputSchema.safeParse(JSON.parse(raw));
     return parsed.success ? parsed.data : undefined;
@@ -39,7 +64,7 @@ export function readRecovery(key: string) {
 }
 export function writeRecovery(key: string, data: unknown): boolean {
   try {
-    localStorage.setItem(key, JSON.stringify(data));
+    recoveryStorage.setItem(key, JSON.stringify(data));
     return true;
   } catch {
     return false;
@@ -47,12 +72,18 @@ export function writeRecovery(key: string, data: unknown): boolean {
 }
 export function removeRecovery(key: string) {
   try {
-    localStorage.removeItem(key);
+    recoveryStorage.removeItem(key);
   } catch {
     /* Storage may be disabled. */
   }
 }
 export async function clearDeviceData() {
+  if (demoStorage) {
+    demoStorage.clear();
+    demoOffline?.clear();
+    window.dispatchEvent(new Event('brownbag-device-data-cleared'));
+    return;
+  }
   // Run both even if one storage backend is unavailable.
   try {
     for (const key of Object.keys(localStorage)) {

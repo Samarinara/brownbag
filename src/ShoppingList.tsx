@@ -1,3 +1,6 @@
+import { Disclosure, EmptyState } from './ui';
+import { appUrl } from './routes';
+import { Button, Input, Label, Checkbox } from './ui';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { api } from './api';
@@ -128,7 +131,7 @@ export function ShoppingList({
     <section className="meal-planner shopping-list">
       <a
         className="shopping-back"
-        href={defaultPlannerUrl()}
+        href={appUrl(defaultPlannerUrl())}
         onClick={(event) => {
           event.preventDefault();
           navigate(defaultPlannerUrl());
@@ -141,25 +144,25 @@ export function ShoppingList({
           <h1>Shopping list</h1>
           <p className="muted">Everything you need for your planned meals.</p>
         </div>
-        <button
+        <Button
           className="icon-button"
           aria-label="Refresh shopping list"
           disabled={loading || pending.size > 0}
           onClick={() => setRevision((value) => value + 1)}
         >
           <RefreshCw size={18} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
       <div className="shopping-range">
         <div className="shopping-range-heading">
-          <label htmlFor="shopping-days">Days to shop for</label>
+          <Label htmlFor="shopping-days">Days to shop for</Label>
           <p>
             {displayDate(from, { month: 'short', day: 'numeric' })} –{' '}
             {displayDate(to, { month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
         <div className="shopping-range-inputs">
-          <input
+          <Input
             type="range"
             aria-label="Days to shop for slider"
             min="1"
@@ -168,7 +171,7 @@ export function ShoppingList({
             onChange={(event) => changeDays(event.target.value)}
           />
           <div className="shopping-day-count">
-            <input
+            <Input
               id="shopping-days"
               type="number"
               min="1"
@@ -203,12 +206,11 @@ export function ShoppingList({
           <ul className="shopping-items">
             {list.items.map((item) => (
               <li key={item.key} className={item.checked ? 'is-bought' : ''}>
-                <label>
-                  <input
-                    type="checkbox"
+                <Label>
+                  <Checkbox
                     checked={item.checked}
                     disabled={pending.has(item.groupKey)}
-                    onChange={(event) => void check(item, event.target.checked)}
+                    onCheckedChange={(checked) => void check(item, checked === true)}
                   />
                   <span className="shopping-item-name">
                     {item.ingredient}
@@ -217,18 +219,18 @@ export function ShoppingList({
                     )}
                   </span>
                   <span className="shopping-item-amount">{amount(item)}</span>
-                </label>
+                </Label>
               </li>
             ))}
           </ul>
         ) : (
-          <div className="shopping-empty">
-            <h2>No meals planned in this range</h2>
-            <p>Add recipes to your Meal Planner to build your shopping list.</p>
-          </div>
+          <EmptyState
+            className="shopping-empty"
+            title="No meals planned in this range"
+            description="Add recipes to your Meal Planner to build your shopping list."
+          />
         ))}
-      <details className="shopping-help">
-        <summary>About this list</summary>
+      <Disclosure className="shopping-help" title="About this list">
         <p className="hint">
           Quantities cover each planned recipe in full. Compatible units are combined; cups and
           spoons use US measures. Weight and volume stay separate.
@@ -237,7 +239,7 @@ export function ShoppingList({
           Purchases stay checked. Extra quantities appear as separate items to buy. Quantities leave
           the list after their planned meal date.
         </p>
-      </details>
+      </Disclosure>
     </section>
   );
 }
