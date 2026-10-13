@@ -1,3 +1,4 @@
+import { createId } from './id';
 import { flushSync } from 'react-dom';
 import { Disclosure as PolliDisclosure, Skeleton } from './ui';
 import { Button, Input, Textarea, Label, Checkbox } from './ui';
@@ -99,8 +100,10 @@ type Props = {
 export function NetworkEditorPage(props: Props) {
   const [editing, setEditing] = useState<Editing>();
   const [error, setError] = useState('');
+  const [loadRevision, setLoadRevision] = useState(0);
   useEffect(() => {
     let alive = true;
+    setError('');
     const load = async () => {
       const url = new URL(props.route, location.origin);
       if (props.preview || url.pathname === '/recipe/new') return { data: blankRecipe() };
@@ -134,7 +137,7 @@ export function NetworkEditorPage(props: Props) {
     return () => {
       alive = false;
     };
-  }, [props.route, props.userDid, props.preview]);
+  }, [props.route, props.userDid, props.preview, loadRevision]);
   if (!editing)
     return (
       <section className="network-editor-page">
@@ -142,7 +145,13 @@ export function NetworkEditorPage(props: Props) {
           <ArrowLeft size={16} /> Back to recipes
         </Button>
         {error ? (
-          <Notice error={error} />
+          <>
+            <h1>Recipe unavailable</h1>
+            <Notice error={error} />
+            <Button className="text-button" onClick={() => setLoadRevision((value) => value + 1)}>
+              Try again
+            </Button>
+          </>
         ) : (
           <>
             <p className="sr-only" role="status">
@@ -201,12 +210,12 @@ function NetworkEditor({
   preview = false,
 }: Props & { editing: Editing }) {
   const plannerTarget = targetFromRoute(route);
-  const plannedId = useRef(crypto.randomUUID());
+  const plannedId = useRef(createId());
   const [published, setPublished] = useState<RecipeView>();
   const [data, setData] = useState<RecipeInput>(() => editableRecipe(editing.data));
   const rowKeys = useRef({
-    ingredients: data.ingredients.map(() => crypto.randomUUID()),
-    instructions: data.instructions.map(() => crypto.randomUUID()),
+    ingredients: data.ingredients.map(() => createId()),
+    instructions: data.instructions.map(() => createId()),
   });
   const initial = useRef(JSON.stringify(data));
   const deviceKey = recoveryKey(userDid, route);
@@ -258,7 +267,7 @@ function NetworkEditor({
     setData((old) => ({ ...old, [key]: value }));
   const addRow = (kind: 'ingredients' | 'instructions') => {
     const index = data[kind].length;
-    rowKeys.current[kind].push(crypto.randomUUID());
+    rowKeys.current[kind].push(createId());
     if (kind === 'ingredients') update(kind, [...data.ingredients, { name: '' }]);
     else update(kind, [...data.instructions, { text: '' }]);
     requestAnimationFrame(() => {
@@ -293,6 +302,7 @@ function NetworkEditor({
     rowKeys.current[kind] = move(rowKeys.current[kind], index, direction);
     if (kind === 'ingredients') update(kind, move(data.ingredients, index, direction));
     else update(kind, move(data.instructions, index, direction));
+    focusRow(kind, index + direction);
   };
   const removeRow = (kind: 'ingredients' | 'instructions', index: number) => {
     rowKeys.current[kind].splice(index, 1);
@@ -306,6 +316,16 @@ function NetworkEditor({
         kind,
         data.instructions.filter((_, i) => i !== index),
       );
+    focusRow(kind, Math.min(index, data[kind].length - 2));
+  };
+  const focusRow = (kind: 'ingredients' | 'instructions', index: number) => {
+    requestAnimationFrame(() => {
+      formRef.current
+        ?.querySelector<HTMLElement>(
+          `[name="${kind}.${index}.${kind === 'ingredients' ? 'name' : 'text'}"]`,
+        )
+        ?.focus();
+    });
   };
   useEffect(() => {
     leaveGuard.current = () =>
@@ -410,7 +430,7 @@ function NetworkEditor({
         let intent = publicationIntent.current;
         if (!intent) {
           intent = {
-            id: crypto.randomUUID(),
+            id: createId(),
             recipe: checked.data,
             ...(editing.original
               ? { existing: { uri: editing.original.uri, cid: editing.original.cid } }
@@ -425,7 +445,7 @@ function NetworkEditor({
         // operation first, then save the new content to that same recipe.
         if (JSON.stringify(intent.recipe) !== JSON.stringify(checked.data)) {
           intent = {
-            id: crypto.randomUUID(),
+            id: createId(),
             recipe: checked.data,
             existing: { uri: result.uri, cid: result.cid },
           };
@@ -596,8 +616,8 @@ function NetworkEditor({
             className="button secondary"
             onClick={() => {
               rowKeys.current = {
-                ingredients: recovery.ingredients.map(() => crypto.randomUUID()),
-                instructions: recovery.instructions.map(() => crypto.randomUUID()),
+                ingredients: recovery.ingredients.map(() => createId()),
+                instructions: recovery.instructions.map(() => createId()),
               };
               setData(editableRecipe(recovery));
               setRecovery(undefined);
@@ -634,6 +654,7 @@ function NetworkEditor({
       >
         <fieldset disabled={busy || !!published} className="recipe-editor-fields">
           <section className="recipe-editor-section stack">
+            <h2 className="sr-only">Recipe introduction</h2>
             <Label>
               Recipe title
               <Input

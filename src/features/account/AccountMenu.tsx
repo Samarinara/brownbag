@@ -1,5 +1,5 @@
 import { DropdownMenuContent, DropdownMenuItem } from '@samarinara/polli-ui/components/menu';
-import { Avatar, Tabs, TabsList, TabsTrigger, TabsContent } from '../../ui';
+import { Avatar } from '../../ui';
 import { useState } from 'react';
 import { LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import type { SessionUser } from '../../../shared/atproto';
@@ -50,26 +50,24 @@ export function AccountMenu({
           <span>Your brownbag</span>
         </div>
       </div>
-      <Tabs value={theme} onValueChange={(value) => setTheme(value as ThemePreference)}>
-        <TabsList className="theme-picker" aria-label="Appearance">
-          {themeOptions.map(({ value, label, icon: Icon }) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className={theme === value ? 'active' : ''}
-              title={`${label} theme`}
-            >
-              <Icon size={15} />
-              <span>{label}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        {themeOptions.map(({ value, label }) => (
-          <TabsContent key={value} value={value} className="sr-only">
-            {label} appearance selected.
-          </TabsContent>
+      <div className="theme-picker" role="group" aria-label="Appearance">
+        {themeOptions.map(({ value, label, icon: Icon }) => (
+          <DropdownMenuItem
+            key={value}
+            role="menuitemradio"
+            aria-checked={theme === value}
+            className={theme === value ? 'active' : ''}
+            title={`${label} theme`}
+            onSelect={(event) => {
+              event.preventDefault();
+              setTheme(value);
+            }}
+          >
+            <Icon size={15} />
+            <span>{label}</span>
+          </DropdownMenuItem>
         ))}
-      </Tabs>
+      </div>
       <div className="account-menu-actions">
         <DropdownMenuItem onSelect={manage}>
           <Settings size={16} />

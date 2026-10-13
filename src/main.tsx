@@ -4,13 +4,13 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { lazy, Suspense } from 'react';
 import { isDemoPath } from './routes';
+import { savedTheme } from './theme';
 const DemoApp = lazy(() => import('./demo/DemoApp'));
 import '@samarinara/polli-ui/styles.css';
 import './styles.css';
 import './polli.css';
 
-const storedTheme = localStorage.getItem('brownbag-theme');
-const initialTheme = storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'system';
+const initialTheme = savedTheme();
 document.documentElement.dataset.theme = initialTheme;
 document.documentElement.dataset.resolvedTheme =
   initialTheme === 'dark' ||
@@ -30,7 +30,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { fai
   }
   render() {
     return this.state.failed ? (
-      <main className="fatal">
+      <main className="polli-root fatal">
         <h1>Something went wrong.</h1>
         <p>Your saved recipes are safe. Reload to try again.</p>
         <Button onClick={() => location.reload()}>Reload brownbag</Button>
@@ -44,7 +44,13 @@ createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       {isDemoPath(location.pathname) ? (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <main className="polli-root fatal" role="status">
+              Opening the sample kitchen…
+            </main>
+          }
+        >
           <DemoApp />
         </Suspense>
       ) : (

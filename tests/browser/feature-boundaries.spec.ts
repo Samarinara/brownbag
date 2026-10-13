@@ -6,7 +6,7 @@ test('account appearance and planner preferences survive their extracted feature
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Open account menu' }).click();
-  await page.getByRole('tab', { name: 'Dark' }).click();
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-resolved-theme', 'dark');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Open account menu' })).toBeFocused();

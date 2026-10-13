@@ -17,6 +17,13 @@ import { defaultPlannerUrl } from './features/planner/navigation';
 
 export const recipeUrl = (uri: string) => `/recipe?uri=${encodeURIComponent(uri)}`;
 export const currentUri = () => new URLSearchParams(location.search).get('uri');
+export const isPlainNavigation = (event: {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}) => event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 export const currentPlannerRoute = () =>
   /^\/meal-planner(?:\/day|\/shopping-list)?$/.test(appPath())
     ? appPath() === '/meal-planner' && !location.search

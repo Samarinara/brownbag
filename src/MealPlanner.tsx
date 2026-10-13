@@ -1,3 +1,4 @@
+import { isPlainNavigation } from './routes';
 import { Tabs, TabsList, TabsTrigger, TabsContent, Surface } from './ui';
 import {
   DropdownMenu,
@@ -117,6 +118,7 @@ export function MealPlanner({
                 className="button secondary"
                 href={appUrl(shoppingUrl())}
                 onClick={(event) => {
+                  if (!isPlainNavigation(event)) return;
                   event.preventDefault();
                   navigate(shoppingUrl());
                 }}
@@ -185,11 +187,16 @@ export function MealPlanner({
                 <Button
                   className="planner-day-heading"
                   onClick={() => navigate(plannerUrl(currentDate, true))}
-                  aria-label={`Open ${displayDate(currentDate)} day view`}
                 >
-                  <span>{displayDate(currentDate, { weekday: 'long' })}</span>
+                  <span>{displayDate(currentDate, { weekday: 'long' })}</span>{' '}
                   <strong>{displayDate(currentDate, { month: 'short', day: 'numeric' })}</strong>
-                  {currentDate === localDate() && <small>Today</small>}
+                  {currentDate === localDate() && (
+                    <>
+                      {' '}
+                      <small>Today</small>
+                    </>
+                  )}
+                  <span className="sr-only"> Open day view</span>
                 </Button>
                 {mealSlots.map((slot) => {
                   const meals = entries.filter(
@@ -236,6 +243,7 @@ export function MealPlanner({
                               <a
                                 href={appUrl(`/recipe?uri=${encodeURIComponent(entry.recipe.uri)}`)}
                                 onClick={(event) => {
+                                  if (!isPlainNavigation(event)) return;
                                   event.preventDefault();
                                   openRecipe(entry.recipe.uri);
                                 }}

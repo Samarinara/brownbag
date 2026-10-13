@@ -532,3 +532,160 @@ button[data-polli='checkbox'] {
 .planner-picker-recipe [data-polli='list-title'] {
   font-family: var(--polli-font-heading);
 }
+
+/* Keep labels and controls readable at narrow widths and with enlarged text. */
+.network-account-label {
+  display: none;
+}
+.theme-picker [role='menuitemradio'] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 5px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.theme-picker [aria-checked='true'] {
+  color: var(--primary);
+  box-shadow: inset 0 -2px var(--polli-yellow);
+}
+.page-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.page-empty-state > :is(h1, h2) {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(32px, 4vw, 48px);
+}
+.page-empty-state.compact > h2,
+.page-empty-state.shopping-empty > h2 {
+  font-size: 24px;
+}
+.page-empty-state > [data-polli='empty-state'] {
+  padding: 0;
+  gap: 16px;
+}
+.page-empty-state > [data-polli='empty-state'] > h3 {
+  display: none;
+}
+.network-main,
+.network-header,
+.network-card-body,
+.planner-picker-toolbar,
+.network-account-content {
+  min-width: 0;
+}
+.network-hero h1,
+.network-card h2,
+.network-card-summary,
+.network-tag-chits button,
+.network-account-content,
+.result-count-row {
+  overflow-wrap: anywhere;
+}
+.result-count-row {
+  flex-wrap: wrap;
+}
+.network-toast > [data-polli='alert-title'] {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.network-toast > div:last-child {
+  flex-shrink: 0;
+}
+.network-toast .toast-close,
+[data-polli='dialog-close'] {
+  min-width: 44px;
+  min-height: 44px;
+}
+.network-search input[type='search']::-webkit-search-cancel-button {
+  display: none;
+}
+.planner-month-grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.planner-month-grid button {
+  min-width: 0;
+  min-height: 44px;
+}
+.planner-day-heading[data-polli='button'] {
+  border-radius: 0;
+}
+.network-detail > .network-tags li {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+@supports (grid-template-rows: subgrid) {
+  .is-week .planner-board {
+    grid-template-rows: auto repeat(4, auto);
+    row-gap: 0;
+    align-items: stretch;
+  }
+  .is-week .planner-day {
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: span 5;
+  }
+}
+@media (max-width: 799px) {
+  .network-header .network-cookbook-link,
+  .network-mobile-search,
+  .network-header .network-sign-in,
+  .network-header .network-account-button {
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    height: 56px;
+    border-radius: 10px;
+  }
+  .network-header .network-cookbook-link > span,
+  .network-header .network-sign-in > span,
+  .network-account-label,
+  .network-mobile-search span,
+  .network-mobile-feed span {
+    display: block;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .network-header .account-menu-wrap {
+    width: 100%;
+  }
+  .network-mobile-feed {
+    position: relative;
+    margin-top: -16px;
+  }
+  .network-mobile-feed span {
+    position: absolute;
+    top: calc(100% + 4px);
+  }
+  .recipe-ingredient-row {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+  .recipe-method-row {
+    grid-template-columns: 24px minmax(0, 1fr) 44px;
+  }
+  .recipe-row-actions .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+@media (max-width: 380px) {
+  .network-search {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+  .network-new-tag {
+    flex-wrap: wrap;
+  }
+  .network-new-tag input {
+    flex-basis: 100%;
+  }
+}

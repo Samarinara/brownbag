@@ -1,3 +1,4 @@
+import { createId } from '../../id';
 import {
   Button,
   Input,
@@ -75,8 +76,7 @@ export function RecipePicker({
     setBusy(true);
     setError('');
     setNotice('');
-    if (pending.current?.uri !== recipe.uri)
-      pending.current = { uri: recipe.uri, id: crypto.randomUUID() };
+    if (pending.current?.uri !== recipe.uri) pending.current = { uri: recipe.uri, id: createId() };
     try {
       await post('/planner', { ...target, uri: recipe.uri, id: pending.current.id });
       pending.current = undefined;

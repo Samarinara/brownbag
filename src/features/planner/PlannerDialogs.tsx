@@ -1,3 +1,4 @@
+import { createId } from '../../id';
 import { Disclosure } from '../../ui';
 import { Button, Input, Textarea, Select, Label } from '../../ui';
 import { retryMessage as errorMessage } from '../../errors';
@@ -40,8 +41,10 @@ export function PlannerPreferences() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     let alive = true;
+    setError('');
     api<PlannerSettings>('/planner/settings')
       .then((value) => {
         if (alive) setSettings(value);
@@ -52,7 +55,7 @@ export function PlannerPreferences() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [revision]);
   return (
     <section>
       <h3>Meal Planner</h3>
@@ -60,6 +63,12 @@ export function PlannerPreferences() {
         Choose the meal selected when you add a recipe. Your preference follows you across devices.
       </p>
       <Notice error={error} />
+      {!settings && !error && <p role="status">Loading meal preferences…</p>}
+      {error && !settings && (
+        <Button className="text-button" onClick={() => setRevision((value) => value + 1)}>
+          Try again
+        </Button>
+      )}
       {settings && (
         <fieldset disabled={busy} className="planner-preference">
           <SlotSelect
@@ -106,7 +115,7 @@ export function PlanRecipeDialog({
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const id = useRef(crypto.randomUUID());
+  const id = useRef(createId());
   useEffect(() => {
     let alive = true;
     api<PlannerSettings>('/planner/settings')
