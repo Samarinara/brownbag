@@ -1,0 +1,50 @@
+name: Update Polli UI
+on:
+  repository_dispatch:
+    types: [polli-ui-released]
+  workflow_dispatch:
+  schedule:
+    - cron: '23 8 * * *'
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: polli-ui-update
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Update shared library
+        run: npm run polli:update
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - name: Open or update dependency PR after checks pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'polli-ui-bot'
+          git config user.email 'polli-ui-bot@users.noreply.github.com'
+          if git ls-remote --exit-code --heads origin automation/polli-ui-update > /dev/null; then
+            git fetch origin automation/polli-ui-update:refs/remotes/origin/automation/polli-ui-update
+          fi
+          git checkout -B automation/polli-ui-update
+          git commit -m 'chore: update shared Polli UI'
+          git push --force-with-lease origin automation/polli-ui-update
+          if ! gh pr list --head automation/polli-ui-update --base main --json number --jq '.[].number' | head -1 | grep -q .; then
+            gh pr create --base main --head automation/polli-ui-update --title 'chore: update shared Polli UI' --body 'Updates the shared Polli UI dependency and its lockfile. Formatting, tests, the production build, and browser checks passed in the update workflow. Review and merge to adopt the update.'
+          fi

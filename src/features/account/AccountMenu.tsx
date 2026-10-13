@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { DropdownMenuContent } from '@samarinara/polli-ui/components/menu';
+import { Button } from '../../ui';
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import type { SessionUser } from '../../../shared/atproto';
 import type { ThemePreference } from '../../theme';
@@ -28,26 +30,6 @@ export function AccountMenu({
   const ref = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => {
-    const dismiss = (event: MouseEvent) => {
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        !ref.current?.contains(target) &&
-        !target.closest('.network-account-button')
-      )
-        close(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
-    };
-    document.addEventListener('mousedown', dismiss);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('mousedown', dismiss);
-      document.removeEventListener('keydown', escape);
-    };
-  }, [close]);
   const moveMenuFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     const items = Array.from(
@@ -65,7 +47,11 @@ export function AccountMenu({
     items[next]?.focus();
   };
   return (
-    <div
+    <DropdownMenuContent
+      align="end"
+      sideOffset={12}
+      onCloseAutoFocus={(event) => event.preventDefault()}
+      onEscapeKeyDown={() => close()}
       className="account-menu"
       role="menu"
       ref={ref}
@@ -83,7 +69,7 @@ export function AccountMenu({
       </div>
       <div className="theme-picker" role="radiogroup" aria-label="Appearance">
         {themeOptions.map(({ value, label, icon: Icon }) => (
-          <button
+          <Button
             key={value}
             type="button"
             role="radio"
@@ -94,15 +80,15 @@ export function AccountMenu({
           >
             <Icon size={15} />
             <span>{label}</span>
-          </button>
+          </Button>
         ))}
       </div>
       <div className="account-menu-actions">
-        <button role="menuitem" onClick={manage}>
+        <Button role="menuitem" onClick={manage}>
           <Settings size={16} />
           <span>Manage account</span>
-        </button>
-        <button
+        </Button>
+        <Button
           role="menuitem"
           disabled={busy}
           onClick={() => {
@@ -116,13 +102,13 @@ export function AccountMenu({
         >
           <LogOut size={16} />
           <span>{busy ? 'Signing out…' : 'Sign out'}</span>
-        </button>
+        </Button>
       </div>
       {error && (
         <p className="account-menu-error" role="alert">
           {error}
         </p>
       )}
-    </div>
+    </DropdownMenuContent>
   );
 }

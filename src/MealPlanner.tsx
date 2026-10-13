@@ -1,3 +1,5 @@
+import { appUrl } from './routes';
+import { Button } from './ui';
 import { retryMessage as errorMessage } from './errors';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -120,7 +122,7 @@ export function MealPlanner({
           <h1>Meal Planner</h1>
           <a
             className="button secondary"
-            href={shoppingUrl()}
+            href={appUrl(shoppingUrl())}
             onClick={(event) => {
               event.preventDefault();
               navigate(shoppingUrl());
@@ -130,24 +132,24 @@ export function MealPlanner({
           </a>
         </div>
         <div className="planner-toggle" role="group" aria-label="Planner view">
-          <button aria-pressed={!day} onClick={() => navigate(plannerUrl(date))}>
+          <Button aria-pressed={!day} onClick={() => navigate(plannerUrl(date))}>
             Week
-          </button>
-          <button aria-pressed={day} onClick={() => navigate(plannerUrl(date, true))}>
+          </Button>
+          <Button aria-pressed={day} onClick={() => navigate(plannerUrl(date, true))}>
             Day
-          </button>
+          </Button>
         </div>
       </div>
       <div className="planner-toolbar">
         <div className="planner-date-nav">
-          <button
+          <Button
             className="icon-button"
             aria-label={day ? 'Previous day' : 'Previous week'}
             onClick={() => navigate(plannerUrl(addDays(date, day ? -1 : -7), day))}
           >
             <ChevronLeft />
-          </button>
-          <button
+          </Button>
+          <Button
             className="planner-date-title"
             aria-haspopup="dialog"
             onClick={() => setMonth(true)}
@@ -156,24 +158,24 @@ export function MealPlanner({
             {day
               ? displayDate(date, { month: 'short', day: 'numeric', year: 'numeric' })
               : `${displayDate(start, { month: 'short', day: 'numeric' })} – ${displayDate(addDays(start, 6), { month: 'short', day: 'numeric', year: 'numeric' })}`}
-          </button>
-          <button
+          </Button>
+          <Button
             className="icon-button"
             aria-label={day ? 'Next day' : 'Next week'}
             onClick={() => navigate(plannerUrl(addDays(date, day ? 1 : 7), day))}
           >
             <ChevronRight />
-          </button>
+          </Button>
         </div>
-        <button className="button secondary" onClick={() => navigate(plannerUrl(localDate(), day))}>
+        <Button className="button secondary" onClick={() => navigate(plannerUrl(localDate(), day))}>
           Today
-        </button>
+        </Button>
       </div>
       <Notice error={error} />
       {error && (
-        <button className="text-button" onClick={refresh}>
+        <Button className="text-button" onClick={refresh}>
           Try again
-        </button>
+        </Button>
       )}
       <p className="planner-status" role="status">
         {loading ? 'Loading your meals…' : notice}
@@ -186,7 +188,7 @@ export function MealPlanner({
             key={currentDate}
             aria-label={displayDate(currentDate)}
           >
-            <button
+            <Button
               className="planner-day-heading"
               onClick={() => navigate(plannerUrl(currentDate, true))}
               aria-label={`Open ${displayDate(currentDate)} day view`}
@@ -194,7 +196,7 @@ export function MealPlanner({
               <span>{displayDate(currentDate, { weekday: 'long' })}</span>
               <strong>{displayDate(currentDate, { month: 'short', day: 'numeric' })}</strong>
               {currentDate === localDate() && <small>Today</small>}
-            </button>
+            </Button>
             {mealSlots.map((slot) => {
               const meals = entries.filter(
                 (entry) => entry.date === currentDate && entry.slot === slot,
@@ -208,17 +210,17 @@ export function MealPlanner({
                 >
                   <div className="planner-slot-heading">
                     <h2>{mealLabels[slot]}</h2>
-                    <button
+                    <Button
                       className="icon-button"
                       disabled={loading || currentDate < retentionStart()}
                       aria-label={`Add recipe to ${mealLabels[slot]} on ${displayDate(currentDate)}`}
                       onClick={() => setPicker({ date: currentDate, slot })}
                     >
                       <Plus size={16} />
-                    </button>
+                    </Button>
                   </div>
                   {!loading && !meals.length && (
-                    <button
+                    <Button
                       className="planner-empty-slot"
                       disabled={currentDate < retentionStart()}
                       onClick={() => setPicker({ date: currentDate, slot })}
@@ -230,7 +232,7 @@ export function MealPlanner({
                           <Plus size={16} /> Add recipe
                         </>
                       )}
-                    </button>
+                    </Button>
                   )}
                   {!loading &&
                     meals.map((entry) => {
@@ -238,7 +240,7 @@ export function MealPlanner({
                       return (
                         <article className="planner-entry" key={entry.id}>
                           <a
-                            href={`/recipe?uri=${encodeURIComponent(entry.recipe.uri)}`}
+                            href={appUrl(`/recipe?uri=${encodeURIComponent(entry.recipe.uri)}`)}
                             onClick={(event) => {
                               event.preventDefault();
                               openRecipe(entry.recipe.uri);
@@ -262,7 +264,7 @@ export function MealPlanner({
                           </a>
                           {entry.note && <p className="planner-note">{entry.note}</p>}
                           <div className="planner-entry-menu">
-                            <button
+                            <Button
                               id={`meal-menu-${entry.id}`}
                               className="icon-button"
                               aria-label={`Options for ${entry.recipe.record.title}`}
@@ -270,26 +272,26 @@ export function MealPlanner({
                               onClick={() => setMenu(menu === entry.id ? undefined : entry.id)}
                             >
                               <Menu size={16} />
-                            </button>
+                            </Button>
                             {menu === entry.id && (
                               <div className="planner-menu-actions">
-                                <button
+                                <Button
                                   onClick={() => {
                                     setEditing({ entry, mode: 'move' });
                                     setMenu(undefined);
                                   }}
                                 >
                                   Move to date / meal
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                   onClick={() => {
                                     setEditing({ entry, mode: 'note' });
                                     setMenu(undefined);
                                   }}
                                 >
                                   Edit note
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                   disabled={busy}
                                   onClick={async () => {
                                     setBusy(true);
@@ -307,7 +309,7 @@ export function MealPlanner({
                                   }}
                                 >
                                   Remove from meal plan
-                                </button>
+                                </Button>
                               </div>
                             )}
                           </div>

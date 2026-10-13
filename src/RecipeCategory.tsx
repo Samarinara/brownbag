@@ -1,3 +1,4 @@
+import { Input, Label } from './ui';
 import { useId, useRef, useState } from 'react';
 
 /** A margin annotation with suggestions shared by ingredient and step categories. */
@@ -38,10 +39,10 @@ export function RecipeCategory({
     >
       <summary aria-label={`${label} selector`}>{value || '+ Category'}</summary>
       <div className="recipe-category-selector">
-        <label htmlFor={id} className="sr-only">
+        <Label htmlFor={id} className="sr-only">
           {label}
-        </label>
-        <input
+        </Label>
+        <Input
           id={id}
           name={name}
           role="combobox"

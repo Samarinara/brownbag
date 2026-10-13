@@ -141,7 +141,7 @@ test('categories suggest existing spellings across ingredients and steps and sur
 });
 
 for (const loggedOut of [false, true]) {
-  test(`preview shares the editor and cannot write (${loggedOut ? 'logged out' : 'signed in'})`, async ({
+  test(`public preview writes only sample data (${loggedOut ? 'logged out' : 'signed in'})`, async ({
     page,
   }) => {
     const writes: string[] = [];
@@ -156,23 +156,22 @@ for (const loggedOut of [false, true]) {
       await page.route('**/api/config', (route) => route.fulfill({ json: { configured: false } }));
     }
     await page.goto('/editor-preview');
-    await expect(page.getByRole('heading', { name: 'New recipe' })).toBeVisible();
-    await expect(page.locator('details[open]')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Edit recipe', exact: true })).toBeVisible();
     await page.getByLabel('Recipe title', { exact: true }).fill('Preview recipe');
-    await page.getByText('Introduction', { exact: true }).click();
-    await page.getByLabel('Short description', { exact: true }).fill('Introduction');
+    await page
+      .getByRole('textbox', { name: 'Short description', exact: true })
+      .fill('Introduction');
     const title = await page.locator('input[name="title"]').boundingBox();
     const introduction = await page.locator('textarea[name="summary"]').boundingBox();
     expect(introduction!.y).toBeGreaterThan(title!.y);
+    await page.getByText('Photos', { exact: true }).click();
+    await expect(page.getByLabel('Add photos', { exact: true })).toBeEnabled();
     await page.getByRole('checkbox').check();
-    await expect(page.getByRole('button', { name: 'Publish recipe', exact: true })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toBeDisabled();
-    await page.getByLabel('Recipe title', { exact: true }).press('Enter');
+    await expect(page.getByRole('button', { name: 'Publish changes', exact: true })).toBeEnabled();
     await page
       .locator('form.network-editor')
       .evaluate((form: HTMLFormElement) => form.requestSubmit());
-    await page.getByText('Photos', { exact: true }).click();
-    await expect(page.getByLabel('Add photos', { exact: true })).toBeDisabled();
+    await expect(page.getByRole('heading', { name: 'Preview recipe', exact: true })).toBeVisible();
     expect(writes).toEqual([]);
     expect(
       await page.evaluate(() =>
@@ -187,10 +186,11 @@ test('editor fields use transparent surfaces and margin categories fit desktop, 
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/editor-preview');
-  await expect(page.getByRole('heading', { name: 'New recipe' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Edit recipe', exact: true })).toBeVisible();
   for (const theme of ['light', 'dark']) {
     await page.evaluate((theme) => {
       document.documentElement.dataset.resolvedTheme = theme;
+      document.documentElement.classList.toggle('dark', theme === 'dark');
     }, theme);
     for (const selector of [
       'fieldset.recipe-editor-fields',
@@ -207,12 +207,12 @@ test('editor fields use transparent surfaces and margin categories fit desktop, 
       await page
         .locator('input[name="title"]')
         .evaluate((element) => getComputedStyle(element).fontFamily),
-    ).toContain('Georgia');
+    ).toContain('Lora');
     expect(
       await page
         .locator('textarea[name="instructions.0.text"]')
         .evaluate((element) => getComputedStyle(element).fontFamily),
-    ).toContain('Arial');
+    ).toContain('Patrick Hand');
     const row = page.locator('.recipe-method-row').first();
     await row.hover();
     const category = page.getByLabel('Step 1 category selector', { exact: true });

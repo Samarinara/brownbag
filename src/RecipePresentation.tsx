@@ -1,3 +1,4 @@
+import { recipeImageUrl } from './api';
 import { useState } from 'react';
 import { BookOpen, Clock3, Users, ChevronDown } from 'lucide-react';
 import type { RecipeInput, RecipeView } from '../shared/atproto';
@@ -22,9 +23,7 @@ export const recipeYield = (record: RecipeInput) =>
 
 export function RecipeImage({ recipe }: { recipe: RecipeView }) {
   const photo = recipe.record.images?.[0];
-  const src = photo
-    ? `/api/recipe-image?${new URLSearchParams({ uri: recipe.uri, index: '0' })}`
-    : '';
+  const src = photo ? recipeImageUrl(recipe.uri, 0) : '';
   const [failedSrc, setFailedSrc] = useState('');
   return (
     <div className="network-recipe-image">
@@ -107,7 +106,7 @@ export function RecipeFacts({
       )}
       <div>
         <dt>Source</dt>
-        <dd>
+        <dd className={source?.name || source?.url ? 'recipe-source-value' : undefined}>
           {source?.url && /^https?:\/\//i.test(source.url) ? (
             <a href={source.url} target="_blank" rel="noreferrer">
               {source.name || source.url}

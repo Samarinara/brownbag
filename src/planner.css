@@ -15,9 +15,7 @@
   margin-bottom: 28px;
 }
 .planner-heading h1 {
-  font:
-    42px Georgia,
-    serif;
+  font: 42px var(--polli-font-heading);
   margin: 8px 0;
   letter-spacing: -1.3px;
 }
@@ -33,7 +31,7 @@
   padding: 8px 14px;
   border-radius: 6px;
   background: transparent;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .planner-toggle button[aria-pressed='true'] {
   background: var(--green);
@@ -52,7 +50,7 @@
 .planner-status {
   min-height: 22px;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   margin: 12px 0;
 }
 .planner-board {
@@ -90,12 +88,10 @@
 }
 .planner-day-heading span {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .planner-day-heading strong {
-  font:
-    22px Georgia,
-    serif;
+  font: 22px var(--polli-font-heading);
 }
 .planner-day-heading small {
   font-size: 10px;
@@ -118,7 +114,7 @@
   text-transform: uppercase;
   letter-spacing: 0.6px;
   margin: 0;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .planner-slot-heading .icon-button {
   width: 26px;
@@ -133,7 +129,7 @@
   min-height: 48px;
   border: 1px dashed var(--line);
   background: transparent;
-  color: var(--muted);
+  color: var(--color-text-muted);
   border-radius: 8px;
   font-size: 12px;
 }
@@ -169,14 +165,14 @@
   align-items: center;
   margin-top: 8px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .planner-note {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 12px;
   margin: 10px 0 0;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .planner-entry-menu {
   position: absolute;
@@ -215,7 +211,7 @@
 }
 .planner-retention {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   margin-top: 20px;
 }
 .is-day .planner-board {
@@ -255,7 +251,7 @@
 }
 .planner-meal-notes h3 {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .planner-meal-notes p {
   font-size: 12px;
@@ -275,7 +271,7 @@
 .planner-month-grid > span {
   text-align: center;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--color-text-muted);
   padding-bottom: 7px;
 }
 .planner-month-grid button {
@@ -291,7 +287,7 @@
   font-weight: 800;
 }
 .planner-month-grid button.outside {
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 .planner-month-grid button.selected-week {
   background: var(--soft);
@@ -342,7 +338,7 @@
 }
 .planner-picker-recipe small {
   display: block;
-  color: var(--muted);
+  color: var(--color-text-muted);
   margin-top: 5px;
 }
 .planner-picker-recipe button {

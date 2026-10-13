@@ -1,0 +1,445 @@
+@font-face {
+  font-family: Lora;
+  src: url('/fonts/lora.woff') format('woff');
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: Inter;
+  src: url('/fonts/inter.woff') format('woff');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Patrick Hand';
+  src: url('/fonts/patrick-hand.woff') format('woff');
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* Polli owns the palette and themes. Only the primary accent is app-specific. */
+:root {
+  --polli-font-heading: Lora, Georgia, serif;
+  --polli-font-body: Inter, system-ui, sans-serif;
+  --polli-font-input: 'Patrick Hand', cursive;
+  --primary: #456342;
+  --ring: var(--primary);
+  --color-canvas: var(--background);
+  --color-surface: var(--background);
+  --color-surface-translucent: var(--background);
+  --color-surface-subtle: var(--muted);
+  --color-surface-hover: color-mix(in srgb, var(--accent) 55%, var(--background));
+  --color-surface-selected: var(--accent);
+  --color-surface-positive: var(--accent);
+  --color-surface-warning: color-mix(in srgb, var(--polli-yellow) 20%, var(--background));
+  --color-surface-danger: color-mix(in srgb, var(--polli-coral) 20%, var(--background));
+  --color-surface-media: var(--muted);
+  --color-text: var(--foreground);
+  --color-text-muted: var(--muted-foreground);
+  --color-text-subtle: var(--muted-foreground);
+  --color-text-faint: var(--muted-foreground);
+  --color-text-danger: var(--destructive);
+  --color-on-accent: var(--primary-foreground);
+  --color-accent: var(--primary);
+  --color-accent-hover: color-mix(in srgb, var(--primary) 85%, var(--foreground));
+  --color-action: var(--primary);
+  --color-action-hover: var(--color-accent-hover);
+  --color-toast: var(--primary);
+  --color-accent-soft: var(--accent);
+  --color-accent-muted: var(--primary);
+  --color-orange: var(--polli-coral);
+  --color-border: var(--border);
+  --color-border-strong: var(--ring);
+  --color-border-accent: var(--border);
+  --color-border-danger: var(--destructive);
+  --color-focus: var(--ring);
+  --color-overlay: color-mix(in srgb, var(--foreground) 30%, transparent);
+  --color-danger: var(--destructive);
+  --color-danger-hover: var(--destructive);
+  --color-danger-active: var(--destructive);
+  --color-on-danger: var(--background);
+  --color-danger-soft: var(--color-surface-danger);
+  --color-danger-soft-border: var(--destructive);
+  --color-warning-bg: var(--color-surface-warning);
+  --color-warning-border: var(--border);
+  --color-warning-text: var(--foreground);
+  --color-toast-error-bg: var(--color-surface-danger);
+  --color-toast-error-border: var(--destructive);
+  --color-toast-error-text: var(--foreground);
+  --color-skip-link-bg: var(--primary);
+  --color-skip-link-fg: var(--primary-foreground);
+  --shadow-low: none;
+  --shadow-card: none;
+  --shadow-active: none;
+  --shadow-popover: 0 12px 40px color-mix(in srgb, var(--foreground) 15%, transparent);
+  --shadow-dialog: var(--shadow-popover);
+  --shadow-toast: var(--shadow-popover);
+  --paper: var(--background);
+  --ink: var(--foreground);
+  --green: var(--primary);
+  --green-dark: var(--color-accent-hover);
+  --line: var(--border);
+  --orange: var(--polli-coral);
+  --white: var(--background);
+  --soft: var(--muted);
+  font-family: var(--polli-font-body);
+  color: var(--foreground);
+  background: var(--background);
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+:root.dark {
+  --primary: #a3bb96;
+  --ring: var(--primary);
+  color-scheme: dark;
+}
+
+/* Preserve page grids, navigation positions and controls; replace their visual language. */
+body {
+  color: var(--foreground);
+}
+:is(h1, h2, h3, h4, h5, h6),
+.network-brand > span,
+label,
+dt,
+summary,
+.ingredient-rows,
+.ingredient-yield,
+.network-card-facts,
+.network-recipe-facts,
+.recipe-step-number,
+.planner-day-heading strong,
+.shopping-item-name,
+.shopping-item-amount {
+  font-family: var(--polli-font-heading);
+}
+:is(h1, h2, h3, h4, h5, h6) {
+  font-style: normal;
+}
+.network-brand > span {
+  letter-spacing: -1.4px;
+}
+.network-brand .brand-period {
+  color: var(--polli-coral);
+}
+.network-summary,
+.network-card-summary,
+.network-prose,
+.network-steps p,
+.planner-note,
+.planner-meal-notes span,
+.offline-story,
+.planner-entry-note,
+.planner-meal-note,
+.planner-notes,
+.draft-summary {
+  font-family: var(--polli-font-input);
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+:is(input, textarea, select)[data-polli] {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 4px;
+  min-height: 44px;
+  color: var(--foreground);
+  font-family: var(--polli-font-input);
+  font-size: 1.25rem;
+  font-weight: 400;
+  transition: border-color var(--polli-motion-ink) var(--polli-ease);
+}
+:is(input, textarea, select)[data-polli]:focus {
+  border-bottom-color: var(--primary);
+}
+input[data-polli]:is([type='number'], [type='date'], [name='title']),
+.recipe-ingredient-row input[data-polli],
+.shopping-day-count input[data-polli] {
+  font-family: var(--polli-font-heading);
+}
+input[data-polli]:is([type='range'], [type='file']) {
+  font-family: var(--polli-font-body);
+  font-size: 0.875rem;
+}
+input[data-polli][type='range'] {
+  border: 0;
+  accent-color: var(--primary);
+}
+input[data-polli][type='file']::file-selector-button {
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--foreground);
+  padding: 10px 14px;
+  margin-right: 12px;
+}
+:is(input, textarea, select)[data-polli]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+button[data-polli='button'] {
+  font-family: var(--polli-font-body);
+  border-radius: 999px;
+}
+button[data-polli='button']:is(:hover, :active) {
+  transform: none;
+}
+button[data-polli='button']:active:not(:disabled) {
+  box-shadow: inset 0 1px 3px var(--polli-pressure);
+}
+button[data-polli='checkbox'] {
+  padding: 0;
+  min-height: 20px;
+  border-radius: 3px;
+  width: 20px;
+  height: 20px;
+}
+.network-consent button[data-polli='checkbox'] {
+  margin-top: 3px;
+}
+.shopping-items label {
+  grid-template-columns: 20px minmax(0, 1fr) fit-content(35%);
+}
+
+.network-card,
+.network-card:hover,
+.network-card:focus-within,
+.network-cookbook-list .network-card,
+.network-cookbook-list .network-card:hover,
+.planner-day,
+.planner-slot,
+.planner-entry {
+  box-shadow: none;
+  background: transparent;
+}
+.network-card {
+  border-color: transparent;
+  border-radius: 0;
+}
+.network-card:hover,
+.network-card:focus-within {
+  transform: none;
+}
+.network-cookbook-list .network-card {
+  border-bottom-color: var(--border);
+}
+.planner-day {
+  border-radius: 0;
+  border: 0;
+  border-left: 1px solid var(--border);
+}
+.planner-day.is-today {
+  border-color: var(--primary);
+}
+.planner-day.is-today .planner-day-heading {
+  border-bottom: 2px solid var(--polli-yellow);
+}
+.planner-entry {
+  border-radius: 0;
+  border-width: 0 0 1px;
+}
+.planner-toggle,
+.theme-picker {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.planner-toggle button[data-polli],
+.theme-picker button[data-polli] {
+  position: relative;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 0;
+  border-radius: 0;
+}
+.planner-toggle button[aria-pressed='true'],
+.theme-picker button.active {
+  color: var(--primary);
+  box-shadow: inset 0 -2px var(--polli-yellow);
+  background: transparent;
+}
+.network-tags li {
+  background: var(--polli-blue);
+  color: var(--polli-ink);
+  border: 0;
+}
+.network-tags li:nth-child(3n + 2) {
+  background: var(--polli-yellow);
+}
+.network-tags li:nth-child(3n) {
+  background: var(--polli-coral);
+}
+.account-menu {
+  background: var(--background);
+  backdrop-filter: none;
+}
+
+.modal[data-polli='dialog'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+}
+.modal-head {
+  padding-right: 60px;
+}
+[data-polli='dialog-overlay'] {
+  background: var(--color-overlay);
+  backdrop-filter: blur(4px);
+}
+.network-search {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.network-search input[data-polli] {
+  border: 0;
+}
+.network-toast.success {
+  background: var(--accent);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.error[data-polli='alert'] {
+  color: var(--destructive);
+  background: var(--color-surface-danger);
+}
+.skeleton {
+  animation: none;
+  background: var(--muted);
+}
+
+/* No entrance sequences or lifting content; Polli controls own interaction motion. */
+.network-hero,
+.network-grid,
+.network-card,
+.network-editor-page,
+.network-header,
+.network-cookbook-heading {
+  animation: none;
+}
+.network-bag-word svg {
+  color: var(--polli-yellow);
+}
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px max(16px, calc((100vw - 1150px) / 2));
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent);
+  color: var(--foreground);
+}
+.demo-banner a {
+  text-underline-offset: 4px;
+}
+.demo-index {
+  max-width: 760px;
+  margin: 48px auto;
+  padding: 0 24px;
+}
+.demo-index nav {
+  display: grid;
+  gap: 0;
+}
+.demo-index nav a {
+  display: block;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+}
+.demo-index nav a:hover {
+  color: var(--primary);
+}
+.demo-index nav a strong {
+  font-family: var(--polli-font-heading);
+}
+.demo-index nav a span {
+  display: block;
+  color: var(--muted-foreground);
+  margin-top: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.offline-library[data-polli='dialog'] {
+  display: block;
+  max-width: 44rem;
+  box-shadow: var(--shadow-dialog);
+}
+.offline-toolbar {
+  padding-right: 28px;
+  margin-bottom: 20px;
+}
+
+.account-menu[data-polli='menu'] {
+  position: relative;
+  top: auto;
+  right: auto;
+}
+.network-tags li {
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.network-tags li + li::before {
+  content: none;
+}
+
+.network-shell button[data-polli='button']:active:not(:disabled) {
+  transform: none;
+  box-shadow: inset 0 1px 3px var(--polli-pressure);
+}
+.network-hero h1,
+.network-home-search {
+  animation: none;
+}
+.polli-root button[data-polli='button'].button {
+  border-radius: 999px;
+}
+.polli-root button[data-polli='button'].button.secondary {
+  background: var(--accent);
+  color: var(--foreground);
+  border-color: transparent;
+}
+.polli-root button[data-polli='button'].button.primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: transparent;
+}
+
+.network-tags li {
+  font-family: var(--polli-font-input);
+  font-size: 1rem;
+}
+.network-attribution,
+.recipe-summary p,
+.recipe-summary ol,
+.offline-library article ol {
+  font-family: var(--polli-font-input);
+  font-size: 1.25rem;
+}
+.offline-library article ul,
+.recipe-summary ul,
+.offline-library article ol li::marker,
+.recipe-summary ol li::marker {
+  font-family: var(--polli-font-heading);
+}
+.network-recipe-facts dd.recipe-source-value {
+  font-family: var(--polli-font-input);
+  font-size: 1.125rem;
+}

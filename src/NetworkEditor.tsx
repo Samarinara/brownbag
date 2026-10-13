@@ -1,3 +1,4 @@
+import { Button, Input, Textarea, Label, Checkbox } from './ui';
 import { readRecovery, recoveryKey, removeRecovery, writeRecovery } from './offline-storage';
 import {
   readPublicationIntent,
@@ -17,7 +18,7 @@ import {
   type RefObject,
 } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Plus, Trash2 } from 'lucide-react';
-import { api, post } from './api';
+import { blobImageUrl, api, post } from './api';
 import { Notice } from './components';
 import { RecipeCategory } from './RecipeCategory';
 import { mealLabels, retentionStart, targetFromRoute } from '../shared/planner';
@@ -69,7 +70,7 @@ function IngredientTextInput({
   }, [focused, kind, props.value]);
   return (
     <>
-      <input
+      <Input
         {...props}
         list={id}
         onFocus={() => setFocused(true)}
@@ -135,9 +136,9 @@ export function NetworkEditorPage(props: Props) {
   if (!editing)
     return (
       <section className="network-editor-page">
-        <button className="text-button" onClick={props.close}>
+        <Button className="text-button" onClick={props.close}>
           <ArrowLeft size={16} /> Back to recipes
-        </button>
+        </Button>
         {error ? (
           <Notice error={error} />
         ) : (
@@ -524,7 +525,7 @@ function NetworkEditor({
     minimum = 1,
   ) => (
     <div className="recipe-row-actions">
-      <button
+      <Button
         type="button"
         className="icon-button"
         aria-label={`Move ${label} ${index + 1} up`}
@@ -533,8 +534,8 @@ function NetworkEditor({
         onClick={() => reorder(-1)}
       >
         <ArrowUp size={15} />
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         className="icon-button danger"
         aria-label={`Remove ${label} ${index + 1}`}
@@ -543,8 +544,8 @@ function NetworkEditor({
         onClick={remove}
       >
         <Trash2 size={15} />
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         className="icon-button"
         aria-label={`Move ${label} ${index + 1} down`}
@@ -553,14 +554,14 @@ function NetworkEditor({
         onClick={() => reorder(1)}
       >
         <ArrowDown size={15} />
-      </button>
+      </Button>
     </div>
   );
   return (
     <article className="network-editor-page">
-      <button className="text-button recipe-back" onClick={close}>
+      <Button className="text-button recipe-back" onClick={close}>
         <ArrowLeft size={16} /> {plannerTarget ? 'Back to Meal Planner' : 'Back to recipes'}
-      </button>
+      </Button>
       <header className="recipe-editor-heading">
         <h1>{editing.original ? 'Edit recipe' : editing.draftId ? 'Edit draft' : 'New recipe'}</h1>
         {plannerTarget && (
@@ -578,7 +579,7 @@ function NetworkEditor({
       {recovery && (
         <div className="recovery-notice" role="status">
           <p>There are unsaved changes from an earlier visit on this device.</p>
-          <button
+          <Button
             className="button secondary"
             onClick={() => {
               rowKeys.current = {
@@ -590,8 +591,8 @@ function NetworkEditor({
             }}
           >
             Restore changes
-          </button>{' '}
-          <button
+          </Button>{' '}
+          <Button
             className="text-button"
             onClick={() => {
               if (publicationIntent.current) {
@@ -605,7 +606,7 @@ function NetworkEditor({
             }}
           >
             Discard backup
-          </button>
+          </Button>
         </div>
       )}
       <form
@@ -620,25 +621,25 @@ function NetworkEditor({
       >
         <fieldset disabled={busy || !!published} className="recipe-editor-fields">
           <section className="recipe-editor-section stack">
-            <label>
+            <Label>
               Recipe title
-              <input
+              <Input
                 name="title"
                 value={data.title}
                 onChange={(e) => update('title', e.target.value)}
                 placeholder="Lemon pasta"
               />
-            </label>
+            </Label>
             <Disclosure title="Introduction" populated={!!editing.data.summary}>
-              <label>
+              <Label>
                 Short description
-                <textarea
+                <Textarea
                   name="summary"
                   rows={2}
                   value={data.summary || ''}
                   onChange={(e) => update('summary', e.target.value || undefined)}
                 />
-              </label>
+              </Label>
             </Disclosure>
           </section>
           <section className="recipe-editor-section">
@@ -648,17 +649,17 @@ function NetworkEditor({
             {data.ingredients.map((item, index) => (
               <div className="recipe-ingredient-row" key={rowKeys.current.ingredients[index]}>
                 <div className="recipe-ingredient-fields">
-                  <label>
+                  <Label>
                     <span>Quantity</span>
-                    <input
+                    <Input
                       name={`ingredients.${index}.quantity`}
                       aria-label={`Ingredient ${index + 1} quantity`}
                       placeholder="1 ½"
                       value={item.quantity || ''}
                       onChange={(e) => ingredient(index, { quantity: e.target.value || undefined })}
                     />
-                  </label>
-                  <label>
+                  </Label>
+                  <Label>
                     Unit
                     <IngredientTextInput
                       kind="unit"
@@ -668,8 +669,8 @@ function NetworkEditor({
                       value={item.unit || ''}
                       onChange={(e) => ingredient(index, { unit: e.target.value || undefined })}
                     />
-                  </label>
-                  <label className="recipe-ingredient-name">
+                  </Label>
+                  <Label className="recipe-ingredient-name">
                     Ingredient
                     <IngredientTextInput
                       kind="ingredient"
@@ -679,16 +680,16 @@ function NetworkEditor({
                       value={item.name}
                       onChange={(e) => ingredient(index, { name: e.target.value })}
                     />
-                  </label>
+                  </Label>
                 </div>
                 <Disclosure
                   title="Preparation"
                   label={`Ingredient ${index + 1} preparation options`}
                   populated={!!editing.data.ingredients[index]?.preparation}
                 >
-                  <label>
+                  <Label>
                     <span className="sr-only">Ingredient {index + 1} preparation</span>
-                    <input
+                    <Input
                       name={`ingredients.${index}.preparation`}
                       placeholder="Finely chopped"
                       value={item.preparation || ''}
@@ -696,7 +697,7 @@ function NetworkEditor({
                         ingredient(index, { preparation: e.target.value || undefined })
                       }
                     />
-                  </label>
+                  </Label>
                 </Disclosure>
                 {rowActions(
                   'ingredient',
@@ -714,14 +715,14 @@ function NetworkEditor({
                 />
               </div>
             ))}
-            <button
+            <Button
               type="button"
               className="text-button"
               disabled={data.ingredients.length >= 64}
               onClick={() => addRow('ingredients')}
             >
               <Plus size={16} /> Add ingredient
-            </button>
+            </Button>
           </section>
           <section className="recipe-editor-section">
             <div className="recipe-section-heading">
@@ -731,10 +732,10 @@ function NetworkEditor({
               <div className="recipe-method-row" key={rowKeys.current.instructions[index]}>
                 <span className="recipe-step-number">{index + 1}</span>
                 <div className="recipe-step-content">
-                  <label htmlFor={`recipe-step-${rowKeys.current.instructions[index]}`}>
+                  <Label htmlFor={`recipe-step-${rowKeys.current.instructions[index]}`}>
                     Step {index + 1}
-                  </label>
-                  <textarea
+                  </Label>
+                  <Textarea
                     id={`recipe-step-${rowKeys.current.instructions[index]}`}
                     name={`instructions.${index}.text`}
                     rows={3}
@@ -759,14 +760,14 @@ function NetworkEditor({
                 />
               </div>
             ))}
-            <button
+            <Button
               type="button"
               className="text-button"
               disabled={data.instructions.length >= 64}
               onClick={() => addRow('instructions')}
             >
               <Plus size={16} /> Add step
-            </button>
+            </Button>
           </section>
           <section className="recipe-editor-section recipe-extras">
             <h2>Details</h2>
@@ -782,9 +783,9 @@ function NetworkEditor({
             >
               <div className="recipe-fields-pair">
                 {(['prepMinutes', 'cookMinutes'] as const).map((key) => (
-                  <label key={key}>
+                  <Label key={key}>
                     {key === 'prepMinutes' ? 'Prep time (minutes)' : 'Cook time (minutes)'}
-                    <input
+                    <Input
                       name={key}
                       type="number"
                       min={0}
@@ -795,12 +796,12 @@ function NetworkEditor({
                         update(key, e.target.value === '' ? undefined : Number(e.target.value))
                       }
                     />
-                  </label>
+                  </Label>
                 ))}
               </div>
-              <label>
+              <Label>
                 Makes
-                <input
+                <Input
                   name="yield.display"
                   placeholder="4 servings"
                   value={data.yield?.display || ''}
@@ -808,15 +809,15 @@ function NetworkEditor({
                     update('yield', { ...data.yield, display: e.target.value || undefined })
                   }
                 />
-              </label>
+              </Label>
               <Disclosure
                 title="Separate quantity & unit"
                 populated={!!(editing.data.yield?.quantity || editing.data.yield?.unit)}
               >
                 <div className="recipe-fields-pair">
-                  <label>
+                  <Label>
                     Yield quantity
-                    <input
+                    <Input
                       name="yield.quantity"
                       placeholder="12"
                       value={data.yield?.quantity || ''}
@@ -824,10 +825,10 @@ function NetworkEditor({
                         update('yield', { ...data.yield, quantity: e.target.value || undefined })
                       }
                     />
-                  </label>
-                  <label>
+                  </Label>
+                  <Label>
                     Yield unit
-                    <input
+                    <Input
                       name="yield.unit"
                       placeholder="cookies"
                       value={data.yield?.unit || ''}
@@ -835,20 +836,20 @@ function NetworkEditor({
                         update('yield', { ...data.yield, unit: e.target.value || undefined })
                       }
                     />
-                  </label>
+                  </Label>
                 </div>
               </Disclosure>
             </Disclosure>
             <Disclosure title="Notes" populated={!!editing.data.description}>
-              <label>
+              <Label>
                 Cooking notes
-                <textarea
+                <Textarea
                   name="description"
                   rows={6}
                   value={data.description || ''}
                   onChange={(e) => update('description', e.target.value || undefined)}
                 />
-              </label>
+              </Label>
             </Disclosure>
             <Disclosure
               title="Tags & language"
@@ -857,9 +858,9 @@ function NetworkEditor({
               <div className="stack">
                 {(data.tags || []).map((tag, index) => (
                   <div className="recipe-tag-row" key={index}>
-                    <label>
+                    <Label>
                       Tag {index + 1}
-                      <input
+                      <Input
                         name={`tags.${index}`}
                         value={tag}
                         placeholder="Weeknight"
@@ -870,8 +871,8 @@ function NetworkEditor({
                           )
                         }
                       />
-                    </label>
-                    <button
+                    </Label>
+                    <Button
                       type="button"
                       className="icon-button danger"
                       aria-label={`Remove tag ${index + 1}`}
@@ -884,21 +885,21 @@ function NetworkEditor({
                       }
                     >
                       <Trash2 size={16} />
-                    </button>
+                    </Button>
                   </div>
                 ))}
-                <button
+                <Button
                   type="button"
                   className="text-button"
                   disabled={(data.tags?.length || 0) >= 30}
                   onClick={() => update('tags', [...(data.tags || []), ''])}
                 >
                   <Plus size={16} /> Add tag
-                </button>
+                </Button>
               </div>
-              <label>
+              <Label>
                 Recipe language
-                <input
+                <Input
                   name="language"
                   list="recipe-languages"
                   placeholder="en, fr, es, zh-Hant…"
@@ -916,7 +917,7 @@ function NetworkEditor({
                   <option value="ja">Japanese</option>
                 </datalist>
                 <small>Choose a language or enter its code.</small>
-              </label>
+              </Label>
             </Disclosure>
             <Disclosure
               title="Source & inspiration"
@@ -924,9 +925,9 @@ function NetworkEditor({
                 !!(editing.data.source || editing.data.derivedFrom || editing.data.adaptationNote)
               }
             >
-              <label>
+              <Label>
                 Source name
-                <input
+                <Input
                   name="source.name"
                   placeholder="Family cookbook"
                   value={data.source?.name || ''}
@@ -934,10 +935,10 @@ function NetworkEditor({
                     update('source', { ...data.source, name: e.target.value || undefined })
                   }
                 />
-              </label>
-              <label>
+              </Label>
+              <Label>
                 Source link
-                <input
+                <Input
                   name="source.url"
                   type="url"
                   placeholder="https://…"
@@ -946,24 +947,24 @@ function NetworkEditor({
                     update('source', { ...data.source, url: e.target.value || undefined })
                   }
                 />
-              </label>
-              <label>
+              </Label>
+              <Label>
                 What did you change?
-                <textarea
+                <Textarea
                   name="adaptationNote"
                   rows={2}
                   value={data.adaptationNote || ''}
                   onChange={(e) => update('adaptationNote', e.target.value || undefined)}
                 />
-              </label>
+              </Label>
               <Disclosure title="Credit a Brownbag recipe" populated={!!editing.data.derivedFrom}>
                 <p className="muted">
                   “Make it your own” fills this in for you. You can also enter a recipe’s record
                   address and version.
                 </p>
-                <label>
+                <Label>
                   Original recipe address
-                  <input
+                  <Input
                     name="derivedFrom.uri"
                     placeholder="at://did:…/page.polli.brownbag.recipe/…"
                     value={data.derivedFrom?.uri || ''}
@@ -974,10 +975,10 @@ function NetworkEditor({
                       })
                     }
                   />
-                </label>
-                <label>
+                </Label>
+                <Label>
                   Original version (CID)
-                  <input
+                  <Input
                     name="derivedFrom.cid"
                     value={data.derivedFrom?.cid || ''}
                     onChange={(e) =>
@@ -987,15 +988,15 @@ function NetworkEditor({
                       })
                     }
                   />
-                </label>
+                </Label>
                 {data.derivedFrom && (
-                  <button
+                  <Button
                     type="button"
                     className="text-button"
                     onClick={() => update('derivedFrom', undefined)}
                   >
                     Remove original recipe credit
-                  </button>
+                  </Button>
                 )}
               </Disclosure>
             </Disclosure>
@@ -1007,23 +1008,20 @@ function NetworkEditor({
               {(data.images || []).map((item, index) => (
                 <div className="recipe-photo" key={`${item.image.ref.$link}-${index}`}>
                   <img
-                    src={
-                      photoPreviews[item.image.ref.$link] ||
-                      `/api/images/${encodeURIComponent(item.image.ref.$link)}`
-                    }
+                    src={photoPreviews[item.image.ref.$link] || blobImageUrl(item.image.ref.$link)}
                     alt={item.alt}
                     loading="lazy"
                   />
-                  <label>
+                  <Label>
                     Photo {index + 1} description
-                    <textarea
+                    <Textarea
                       name={`images.${index}.alt`}
                       rows={2}
                       placeholder="Describe the photo for someone who cannot see it."
                       value={item.alt}
                       onChange={(e) => photo(index, { alt: e.target.value })}
                     />
-                  </label>
+                  </Label>
                   <Disclosure
                     title="Image dimensions"
                     populated={
@@ -1034,9 +1032,9 @@ function NetworkEditor({
                   >
                     <div className="recipe-fields-pair">
                       {(['width', 'height'] as const).map((key) => (
-                        <label key={key}>
+                        <Label key={key}>
                           {key === 'width' ? 'Width' : 'Height'} (pixels)
-                          <input
+                          <Input
                             name={`images.${index}.${key}`}
                             type="number"
                             min={1}
@@ -1049,7 +1047,7 @@ function NetworkEditor({
                               })
                             }
                           />
-                        </label>
+                        </Label>
                       ))}
                     </div>
                   </Disclosure>
@@ -1067,9 +1065,9 @@ function NetworkEditor({
                   )}
                 </div>
               ))}
-              <label>
+              <Label>
                 Add photos
-                <input
+                <Input
                   aria-label="Add photos"
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/avif"
@@ -1081,15 +1079,14 @@ function NetworkEditor({
                     e.target.value = '';
                   }}
                 />
-              </label>
+              </Label>
             </Disclosure>
           </section>
           <section className="recipe-publish">
-            <label className="network-consent">
-              <input
-                type="checkbox"
+            <Label className="network-consent">
+              <Checkbox
                 checked={confirmed}
-                onChange={(e) => setConfirmed(e.target.checked)}
+                onCheckedChange={(checked) => setConfirmed(checked === true)}
               />
               <span>
                 {editing.original
@@ -1097,7 +1094,7 @@ function NetworkEditor({
                   : 'Publish this recipe publicly on my account.'}{' '}
                 Anyone can read, share, and copy it.
               </span>
-            </label>
+            </Label>
           </section>
         </fieldset>
         <div ref={errorsRef} tabIndex={-1} className="recipe-validation">
@@ -1107,13 +1104,13 @@ function NetworkEditor({
               <ul>
                 {issues.map((issue, i) => (
                   <li key={i}>
-                    <button
+                    <Button
                       type="button"
                       className="text-button"
                       onClick={() => revealIssue(issue.path)}
                     >
                       {recipeIssueLabel(issue.path)}: {issue.message}
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -1132,7 +1129,7 @@ function NetworkEditor({
                   : ''}
           </span>
           <div className="network-actions">
-            <button
+            <Button
               type="button"
               className="button secondary"
               disabled={preview || busy || !!published}
@@ -1146,7 +1143,7 @@ function NetworkEditor({
               onClick={() => void save(false)}
             >
               Save draft
-            </button>
+            </Button>
             <span
               className="disabled-hint"
               title={
@@ -1161,7 +1158,7 @@ function NetworkEditor({
                         : 'Publish this recipe publicly'
               }
             >
-              <button
+              <Button
                 type="submit"
                 className="button primary"
                 disabled={preview || busy || !confirmed}
@@ -1174,7 +1171,7 @@ function NetworkEditor({
                     : editing.original
                       ? 'Publish changes'
                       : 'Publish recipe'}
-              </button>
+              </Button>
             </span>
           </div>
           {!preview && !confirmed && !busy && (

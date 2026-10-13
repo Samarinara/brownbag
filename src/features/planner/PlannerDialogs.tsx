@@ -1,3 +1,4 @@
+import { Button, Input, Textarea, Select, Label } from '../../ui';
 import { retryMessage as errorMessage } from '../../errors';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -21,16 +22,16 @@ import { displayDate } from './navigation';
 
 function SlotSelect({ value, change }: { value: MealSlot; change: (slot: MealSlot) => void }) {
   return (
-    <label>
+    <Label>
       Meal
-      <select value={value} onChange={(event) => change(event.target.value as MealSlot)}>
+      <Select value={value} onChange={(event) => change(event.target.value as MealSlot)}>
         {mealSlots.map((slot) => (
           <option key={slot} value={slot}>
             {mealLabels[slot]}
           </option>
         ))}
-      </select>
-    </label>
+      </Select>
+    </Label>
   );
 }
 export function PlannerPreferences() {
@@ -146,33 +147,33 @@ export function PlanRecipeDialog({
         }}
       >
         <fieldset disabled={busy || !ready} className="planner-form-fields">
-          <label>
+          <Label>
             Date
-            <input
+            <Input
               type="date"
               min={retentionStart()}
               required
               value={date}
               onChange={(event) => setDate(event.target.value)}
             />
-          </label>
+          </Label>
           <SlotSelect value={slot} change={setSlot} />
           <details>
             <summary>Add a note</summary>
-            <label>
+            <Label>
               Recipe note
-              <textarea
+              <Textarea
                 maxLength={2000}
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
               />
-            </label>
+            </Label>
           </details>
         </fieldset>
         <Notice error={error} />
-        <button className="button primary" disabled={busy || !ready}>
+        <Button className="button primary" disabled={busy || !ready}>
           {busy ? 'Adding…' : 'Add recipe'}
-        </button>
+        </Button>
       </form>
     </Modal>
   );
@@ -220,22 +221,22 @@ export function EntryEditor({
         <fieldset disabled={busy} className="planner-form-fields">
           {mode === 'move' ? (
             <>
-              <label>
+              <Label>
                 Date
-                <input
+                <Input
                   type="date"
                   min={retentionStart()}
                   required
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
                 />
-              </label>
+              </Label>
               <SlotSelect value={slot} change={setSlot} />
             </>
           ) : (
-            <label>
+            <Label>
               Note
-              <textarea
+              <Textarea
                 autoFocus
                 value={note}
                 maxLength={2000}
@@ -243,13 +244,13 @@ export function EntryEditor({
                 onChange={(event) => setNote(event.target.value)}
               />
               <small>Also shown with the other notes for this meal.</small>
-            </label>
+            </Label>
           )}
         </fieldset>
         <Notice error={error} />
-        <button className="button primary" disabled={busy}>
+        <Button className="button primary" disabled={busy}>
           {busy ? 'Saving…' : mode === 'move' ? 'Move recipe' : 'Save note'}
-        </button>
+        </Button>
       </form>
     </Modal>
   );
@@ -296,13 +297,13 @@ export function MonthPicker({
   return (
     <Modal title="Choose a week" close={close}>
       <div className="planner-month-heading">
-        <button className="icon-button" aria-label="Previous month" onClick={() => shift(-1)}>
+        <Button className="icon-button" aria-label="Previous month" onClick={() => shift(-1)}>
           <ChevronLeft />
-        </button>
+        </Button>
         <strong>{displayDate(month, { month: 'long', year: 'numeric' })}</strong>
-        <button className="icon-button" aria-label="Next month" onClick={() => shift(1)}>
+        <Button className="icon-button" aria-label="Next month" onClick={() => shift(1)}>
           <ChevronRight />
-        </button>
+        </Button>
       </div>
       <Notice error={error} />
       <div className="planner-month-grid" aria-busy={loading}>
@@ -312,7 +313,7 @@ export function MonthPicker({
         {Array.from({ length: 42 }, (_, index) => {
           const date = addDays(first, index);
           return (
-            <button
+            <Button
               key={date}
               className={`${date.slice(0, 7) !== month.slice(0, 7) ? 'outside' : ''} ${planned.has(date) ? 'planned' : ''} ${weekStart(date) === weekStart(selected) ? 'selected-week' : ''}`}
               aria-label={`${displayDate(date, { dateStyle: 'full' })}${planned.has(date) ? ', meals planned' : ''}`}
@@ -320,7 +321,7 @@ export function MonthPicker({
               onClick={() => choose(date)}
             >
               {dateObject(date).getDate()}
-            </button>
+            </Button>
           );
         })}
       </div>

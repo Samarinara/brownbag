@@ -1,3 +1,4 @@
+import { Button, Input, Label } from '../../ui';
 import { retryMessage as errorMessage } from '../../errors';
 import { useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
@@ -93,30 +94,30 @@ export function RecipePicker({
       <div className="planner-picker-toolbar">
         <div className="planner-toggle" role="group" aria-label="Recipe collection">
           {(['cookbook', 'discover'] as const).map((value) => (
-            <button
+            <Button
               key={value}
               disabled={busy}
               aria-pressed={feed === value}
               onClick={() => setFeed(value)}
             >
               {value === 'cookbook' ? 'Cookbook' : 'Discover'}
-            </button>
+            </Button>
           ))}
         </div>
-        <button className="button secondary" disabled={busy} onClick={create}>
+        <Button className="button secondary" disabled={busy} onClick={create}>
           <Plus size={16} /> Create new recipe
-        </button>
+        </Button>
       </div>
-      <label className="planner-search">
+      <Label className="planner-search">
         Search recipes
-        <input
+        <Input
           type="search"
           placeholder="Search by title or ingredient…"
           value={query}
           disabled={busy}
           onChange={(event) => setQuery(event.target.value)}
         />
-      </label>
+      </Label>
       <Notice error={error} />
       <p role="status" className="planner-picker-notice">
         {notice || (loading ? 'Loading recipes…' : '')}
@@ -138,19 +139,19 @@ export function RecipePicker({
                   {time ? ` · ${time.minutes} min` : ''}
                 </small>
               </div>
-              <button
+              <Button
                 className="button secondary"
                 disabled={busy || loading}
                 aria-label={`Add ${recipe.record.title}`}
                 onClick={() => void add(recipe)}
               >
                 <Plus size={16} /> Add
-              </button>
+              </Button>
             </div>
           );
         })}
         {cursor && (
-          <button
+          <Button
             className="button secondary"
             disabled={busy || loading}
             onClick={async () => {
@@ -177,13 +178,13 @@ export function RecipePicker({
             }}
           >
             Load more
-          </button>
+          </Button>
         )}
       </div>
       <div className="modal-footer">
-        <button className="button primary" disabled={busy} onClick={close}>
+        <Button className="button primary" disabled={busy} onClick={close}>
           Done
-        </button>
+        </Button>
       </div>
     </Modal>
   );

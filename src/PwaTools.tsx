@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { Button } from './ui';
+import { Dialog, DialogContent, DialogTitle } from '@samarinara/polli-ui/components/dialog';
+import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import type { RecipeView } from '../shared/atproto';
 import { RecipeFacts, ingredientSections } from './RecipePresentation';
@@ -41,7 +43,7 @@ export function OfflineRecipeButton({ recipe }: { recipe: RecipeView }) {
   }, [recipe.uri]);
   return (
     <span className="offline-save">
-      <button
+      <Button
         className="button secondary"
         disabled={busy}
         onClick={async () => {
@@ -59,7 +61,7 @@ export function OfflineRecipeButton({ recipe }: { recipe: RecipeView }) {
         }}
       >
         {saved ? 'Remove offline copy' : 'Keep recipe offline'}
-      </button>
+      </Button>
       {error && <small role="alert">{error}</small>}
     </span>
   );
@@ -78,7 +80,6 @@ export function PwaTools({ canReload }: { canReload: () => boolean }) {
   const [items, setItems] = useState<OfflineRecipe[]>([]);
   const [selected, setSelected] = useState<OfflineRecipe>();
   const [error, setError] = useState('');
-  const dialog = useRef<HTMLDialogElement>(null);
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -121,13 +122,11 @@ export function PwaTools({ canReload }: { canReload: () => boolean }) {
       setItems([]);
     }
     setLibrary(true);
-    dialog.current?.showModal();
   };
   useEffect(() => {
     if (!navigator.onLine) void openLibrary();
   }, []);
   const closeLibrary = () => {
-    dialog.current?.close();
     setLibrary(false);
     setSelected(undefined);
   };
@@ -135,11 +134,11 @@ export function PwaTools({ canReload }: { canReload: () => boolean }) {
     <>
       <aside className="pwa-tools" aria-label="App and offline options">
         {!online && <span role="status">You’re offline. Open a recipe kept on this device.</span>}
-        <button className="text-button" onClick={() => void openLibrary()}>
+        <Button className="text-button" onClick={() => void openLibrary()}>
           Offline recipes
-        </button>
+        </Button>
         {!standalone && (
-          <button
+          <Button
             className="text-button"
             onClick={async () => {
               if (!install) {
@@ -156,7 +155,7 @@ export function PwaTools({ canReload }: { canReload: () => boolean }) {
             }}
           >
             Install app
-          </button>
+          </Button>
         )}
         {help && (
           <p>
@@ -169,7 +168,7 @@ export function PwaTools({ canReload }: { canReload: () => boolean }) {
             <span>
               A new version is ready. Save your work in other Brownbag tabs before updating.
             </span>
-            <button
+            <Button
               className="button secondary"
               onClick={() => {
                 if (canReload())
@@ -179,130 +178,129 @@ export function PwaTools({ canReload }: { canReload: () => boolean }) {
               }}
             >
               Update now
-            </button>
-            <button className="text-button" onClick={() => setNeedRefresh(false)}>
+            </Button>
+            <Button className="text-button" onClick={() => setNeedRefresh(false)}>
               Later
-            </button>
+            </Button>
           </div>
         )}
         {error && !library && <p role="alert">{error}</p>}
       </aside>
-      <dialog
-        className="offline-library"
-        ref={dialog}
-        onClose={() => {
-          setLibrary(false);
-          setSelected(undefined);
+      <Dialog
+        open={library}
+        onOpenChange={(open) => {
+          if (!open) closeLibrary();
         }}
-        aria-labelledby="offline-title"
       >
-        <div className="offline-toolbar">
-          <h2 id="offline-title">{selected ? selected.recipe.record.title : 'Offline recipes'}</h2>
-          <button className="button secondary" onClick={closeLibrary}>
-            Close
-          </button>
-        </div>
-        {error && <p role="alert">{error}</p>}
-        {selected ? (
-          <article>
-            <button className="text-button" onClick={() => setSelected(undefined)}>
-              Back to offline recipes
-            </button>
-            <p>
-              By {selected.recipe.authorHandle || selected.recipe.authorDid} · Saved{' '}
-              {new Date(selected.savedAt).toLocaleDateString()}
-            </p>
-            <p>Offline text copy. Photos and updates require a connection.</p>
-            <RecipeFacts record={selected.recipe.record} />
-            {selected.recipe.record.description && (
-              <p className="offline-story">{selected.recipe.record.description}</p>
-            )}
-            <h3>Ingredients</h3>
-            {ingredientSections(selected.recipe.record.ingredients).map((section, i) => (
-              <section key={i}>
-                {section.name && <h4>{section.name}</h4>}
-                <ul>
-                  {section.items.map(({ ingredient: item }, j) => (
-                    <li key={j}>
-                      {[item.quantity, item.unit, item.name, item.preparation]
-                        .filter(Boolean)
-                        .join(' ')}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-            <h3>Method</h3>
-            <ol>
-              {selected.recipe.record.instructions.map((step, i) => (
-                <li key={i}>
-                  {step.group && <strong>{step.group}: </strong>}
-                  {step.text}
-                </li>
-              ))}
-            </ol>
-            {selected.recipe.record.source?.url && (
+        <DialogContent className="offline-library" aria-describedby={undefined}>
+          <div className="offline-toolbar">
+            <DialogTitle>{selected ? selected.recipe.record.title : 'Offline recipes'}</DialogTitle>
+            <Button className="button secondary" onClick={closeLibrary}>
+              Close
+            </Button>
+          </div>
+          {error && <p role="alert">{error}</p>}
+          {selected ? (
+            <article>
+              <Button className="text-button" onClick={() => setSelected(undefined)}>
+                Back to offline recipes
+              </Button>
               <p>
-                <a href={selected.recipe.record.source?.url} target="_blank" rel="noreferrer">
-                  Original source
-                </a>
+                By {selected.recipe.authorHandle || selected.recipe.authorDid} · Saved{' '}
+                {new Date(selected.savedAt).toLocaleDateString()}
               </p>
-            )}
-          </article>
-        ) : (
-          <>
-            <p>
-              Keep a recipe offline from its recipe page. Text copies stay on this device until
-              removed, signed out, or cleared by your browser.
-            </p>
-            {!items.length && <p>No offline recipes yet.</p>}
-            <ul className="offline-list">
-              {items.map((item) => (
-                <li key={item.recipe.uri}>
-                  <button className="text-button" onClick={() => setSelected(item)}>
-                    {item.recipe.record.title}
-                  </button>
-                  <button
-                    className="text-button"
-                    aria-label={`Remove ${item.recipe.record.title} from this device`}
-                    onClick={async () => {
-                      try {
-                        await removeOfflineRecipe(item.recipe.uri);
-                        setItems((old) =>
-                          old.filter((entry) => entry.recipe.uri !== item.recipe.uri),
-                        );
-                      } catch {
-                        setError('Could not remove this copy.');
-                      }
-                    }}
-                  >
-                    Remove
-                  </button>
-                </li>
+              <p>Offline text copy. Photos and updates require a connection.</p>
+              <RecipeFacts record={selected.recipe.record} />
+              {selected.recipe.record.description && (
+                <p className="offline-story">{selected.recipe.record.description}</p>
+              )}
+              <h3>Ingredients</h3>
+              {ingredientSections(selected.recipe.record.ingredients).map((section, i) => (
+                <section key={i}>
+                  {section.name && <h4>{section.name}</h4>}
+                  <ul>
+                    {section.items.map(({ ingredient: item }, j) => (
+                      <li key={j}>
+                        {[item.quantity, item.unit, item.name, item.preparation]
+                          .filter(Boolean)
+                          .join(' ')}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ))}
-            </ul>
-            <button
-              className="button secondary"
-              onClick={async () => {
-                if (
-                  !window.confirm(
-                    'Remove all offline recipes and recovered drafts from this device?',
+              <h3>Method</h3>
+              <ol>
+                {selected.recipe.record.instructions.map((step, i) => (
+                  <li key={i}>
+                    {step.group && <strong>{step.group}: </strong>}
+                    {step.text}
+                  </li>
+                ))}
+              </ol>
+              {selected.recipe.record.source?.url && (
+                <p>
+                  <a href={selected.recipe.record.source?.url} target="_blank" rel="noreferrer">
+                    Original source
+                  </a>
+                </p>
+              )}
+            </article>
+          ) : (
+            <>
+              <p>
+                Keep a recipe offline from its recipe page. Text copies stay on this device until
+                removed, signed out, or cleared by your browser.
+              </p>
+              {!items.length && <p>No offline recipes yet.</p>}
+              <ul className="offline-list">
+                {items.map((item) => (
+                  <li key={item.recipe.uri}>
+                    <Button className="text-button" onClick={() => setSelected(item)}>
+                      {item.recipe.record.title}
+                    </Button>
+                    <Button
+                      className="text-button"
+                      aria-label={`Remove ${item.recipe.record.title} from this device`}
+                      onClick={async () => {
+                        try {
+                          await removeOfflineRecipe(item.recipe.uri);
+                          setItems((old) =>
+                            old.filter((entry) => entry.recipe.uri !== item.recipe.uri),
+                          );
+                        } catch {
+                          setError('Could not remove this copy.');
+                        }
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                className="button secondary"
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      'Remove all offline recipes and recovered drafts from this device?',
+                    )
                   )
-                )
-                  return;
-                try {
-                  await clearDeviceData();
-                  setItems([]);
-                } catch {
-                  setError('Some device storage could not be cleared.');
-                }
-              }}
-            >
-              Clear device data
-            </button>
-          </>
-        )}
-      </dialog>
+                    return;
+                  try {
+                    await clearDeviceData();
+                    setItems([]);
+                  } catch {
+                    setError('Some device storage could not be cleared.');
+                  }
+                }}
+              >
+                Clear device data
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
