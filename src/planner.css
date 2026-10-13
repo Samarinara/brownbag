@@ -307,7 +307,7 @@
   gap: 16px;
   min-width: 0;
 }
-.planner-form-fields details > label {
+.planner-form-fields [data-polli='accordion-content'] label {
   margin-top: 12px;
 }
 .planner-preference {

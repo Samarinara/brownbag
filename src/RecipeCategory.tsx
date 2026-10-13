@@ -1,4 +1,4 @@
-import { Input, Label } from './ui';
+import { Disclosure, Input, Label } from './ui';
 import { useId, useRef, useState } from 'react';
 
 /** A margin annotation with suggestions shared by ingredient and step categories. */
@@ -32,12 +32,13 @@ export function RecipeCategory({
     setDismissed(true);
   };
   return (
-    <details
+    <Disclosure
       className="recipe-category"
-      data-populated={value ? true : undefined}
-      open={initiallyOpen.current || undefined}
+      populated={!!value}
+      defaultOpen={initiallyOpen.current}
+      label={`${label} selector`}
+      title={value || '+ Category'}
     >
-      <summary aria-label={`${label} selector`}>{value || '+ Category'}</summary>
       <div className="recipe-category-selector">
         <Label htmlFor={id} className="sr-only">
           {label}
@@ -109,6 +110,6 @@ export function RecipeCategory({
           ))}
         </ul>
       </div>
-    </details>
+    </Disclosure>
   );
 }

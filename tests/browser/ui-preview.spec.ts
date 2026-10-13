@@ -1,5 +1,56 @@
 import { test, expect } from '@playwright/test';
 
+test('remaining disclosures, selectors, menus and recipe surfaces use Polli primitives', async ({
+  page,
+}) => {
+  await page.goto('/editor-preview');
+  await expect(page.getByRole('heading', { name: 'Edit recipe', exact: true })).toBeVisible();
+  await expect(page.locator('details, summary')).toHaveCount(0);
+  const story = page.getByRole('button', { name: 'Notes', exact: true });
+  await expect(story).toHaveAttribute('aria-expanded', 'true');
+  const description = page.getByRole('textbox', { name: 'Cooking notes', exact: true });
+  await description.fill('Keep this note when collapsed.');
+  await story.click();
+  await expect(description).toBeHidden();
+  await story.click();
+  await expect(description).toHaveValue('Keep this note when collapsed.');
+  await page.goto('/cookbook-preview');
+  await expect(page.locator('.network-card[data-polli="surface"]').first()).toBeVisible();
+  await page.goto('/planner-preview');
+  await expect(page.getByRole('tab', { name: 'Week', exact: true })).toHaveAttribute(
+    'data-state',
+    'active',
+  );
+  await page
+    .getByRole('button', { name: /^Options for / })
+    .first()
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit note', exact: true }).click();
+  const note = page.getByRole('dialog', { name: 'Recipe note', exact: true });
+  await note.getByLabel(/^Note/).fill('Sample note from the Polli menu.');
+  await note.getByRole('button', { name: 'Save note', exact: true }).click();
+  await expect(page.getByText('Sample note from the Polli menu.', { exact: true })).toBeVisible();
+});
+
+test('homepage search keeps Polli underline focus without a boxed ring', async ({ page }) => {
+  await page.goto('/preview/');
+  const search = page.getByRole('textbox', { name: 'Search recipes', exact: true });
+  await search.click();
+  const expectPolliFocus = async () => {
+    await expect(search).toBeFocused();
+    await expect(search).toHaveCSS('outline-style', 'none');
+    await expect(page.locator('.network-search')).toHaveCSS('outline-style', 'none');
+    await expect(page.locator('.network-search')).toHaveCSS('box-shadow', 'none');
+    await expect
+      .poll(() => search.evaluate((node) => getComputedStyle(node).boxShadow))
+      .toMatch(/0px 1px 0px 0px$/);
+  };
+  await expectPolliFocus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  await expectPolliFocus();
+});
+
 test('public demos reuse the real screens without making API requests', async ({ page }) => {
   const calls: string[] = [];
   const errors: string[] = [];
@@ -49,9 +100,9 @@ test('Polli dialogs retain focus and appearance follows the root theme', async (
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await page.getByRole('button', { name: 'Open account menu', exact: true }).click();
-  await page.getByRole('radio', { name: 'Dark', exact: true }).click();
+  await page.getByRole('tab', { name: 'Dark', exact: true }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);
-  await page.getByRole('radio', { name: 'Light', exact: true }).click();
+  await page.getByRole('tab', { name: 'Light', exact: true }).click();
   await expect(page.locator('html')).not.toHaveClass(/dark/);
   expect(await page.evaluate(() => localStorage.getItem('brownbag-theme'))).toBe(storedTheme);
 });

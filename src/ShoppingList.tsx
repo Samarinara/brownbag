@@ -1,3 +1,4 @@
+import { Disclosure, EmptyState } from './ui';
 import { appUrl } from './routes';
 import { Button, Input, Label, Checkbox } from './ui';
 import { useEffect, useRef, useState } from 'react';
@@ -223,13 +224,13 @@ export function ShoppingList({
             ))}
           </ul>
         ) : (
-          <div className="shopping-empty">
-            <h2>No meals planned in this range</h2>
-            <p>Add recipes to your Meal Planner to build your shopping list.</p>
-          </div>
+          <EmptyState
+            className="shopping-empty"
+            title="No meals planned in this range"
+            description="Add recipes to your Meal Planner to build your shopping list."
+          />
         ))}
-      <details className="shopping-help">
-        <summary>About this list</summary>
+      <Disclosure className="shopping-help" title="About this list">
         <p className="hint">
           Quantities cover each planned recipe in full. Compatible units are combined; cups and
           spoons use US measures. Weight and volume stay separate.
@@ -238,7 +239,7 @@ export function ShoppingList({
           Purchases stay checked. Extra quantities appear as separate items to buy. Quantities leave
           the list after their planned meal date.
         </p>
-      </details>
+      </Disclosure>
     </section>
   );
 }

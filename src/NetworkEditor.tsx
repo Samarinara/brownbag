@@ -1,3 +1,5 @@
+import { flushSync } from 'react-dom';
+import { Disclosure as PolliDisclosure, Skeleton } from './ui';
 import { Button, Input, Textarea, Label, Checkbox } from './ui';
 import { readRecovery, recoveryKey, removeRecovery, writeRecovery } from './offline-storage';
 import {
@@ -147,10 +149,10 @@ export function NetworkEditorPage(props: Props) {
               Opening your recipe…
             </p>
             <div aria-hidden="true">
-              <div className="skeleton skeleton-line short" />
-              <div className="skeleton skeleton-line hero" />
-              <div className="skeleton skeleton-line" />
-              <div className="skeleton skeleton-line narrow" />
+              <Skeleton className="skeleton skeleton-line short" />
+              <Skeleton className="skeleton skeleton-line hero" />
+              <Skeleton className="skeleton skeleton-line" />
+              <Skeleton className="skeleton skeleton-line narrow" />
             </div>
           </>
         )}
@@ -173,13 +175,19 @@ function Disclosure({
   children: ReactNode;
 }) {
   return (
-    <details className="recipe-disclosure" open={populated || undefined}>
-      <summary aria-label={label}>
-        <span>{title}</span>
-        {hint && <small>{hint}</small>}
-      </summary>
+    <PolliDisclosure
+      className="recipe-disclosure"
+      defaultOpen={!!populated}
+      label={label}
+      title={
+        <>
+          <span>{title}</span>
+          {hint && <small>{hint}</small>}
+        </>
+      }
+    >
       <div className="stack">{children}</div>
-    </details>
+    </PolliDisclosure>
   );
 }
 
@@ -334,7 +342,12 @@ function NetworkEditor({
     if (control) {
       let parent = control.parentElement;
       while (parent) {
-        if (parent instanceof HTMLDetailsElement) parent.open = true;
+        if (parent.matches('[data-polli="accordion-item"][data-state="closed"]')) {
+          const trigger = parent.querySelector<HTMLButtonElement>(
+            '[data-polli="accordion-trigger"]',
+          );
+          flushSync(() => trigger?.click());
+        }
         parent = parent.parentElement;
       }
       control.focus();

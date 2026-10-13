@@ -1,3 +1,4 @@
+import { Disclosure } from '../../ui';
 import { Button, Input, Textarea, Select, Label } from '../../ui';
 import { retryMessage as errorMessage } from '../../errors';
 import { useEffect, useRef, useState } from 'react';
@@ -158,8 +159,7 @@ export function PlanRecipeDialog({
             />
           </Label>
           <SlotSelect value={slot} change={setSlot} />
-          <details>
-            <summary>Add a note</summary>
+          <Disclosure title="Add a note">
             <Label>
               Recipe note
               <Textarea
@@ -168,7 +168,7 @@ export function PlanRecipeDialog({
                 onChange={(event) => setNote(event.target.value)}
               />
             </Label>
-          </details>
+          </Disclosure>
         </fieldset>
         <Notice error={error} />
         <Button className="button primary" disabled={busy || !ready}>

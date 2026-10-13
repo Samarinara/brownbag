@@ -1,4 +1,4 @@
-import { Button, Input, Label } from './ui';
+import { Button, Input, Label, Disclosure } from './ui';
 import { useEffect, useState } from 'react';
 import { api, post } from './api';
 import { ConfirmDialog, Modal, Notice } from './components';
@@ -73,10 +73,7 @@ export function NetworkAccount({
           </Button>
         </section>
         <section>
-          <details className="recipe-disclosure">
-            <summary>
-              <h3>Connected assistants</h3>
-            </summary>
+          <Disclosure className="recipe-disclosure" title="Connected assistants">
             <div className="stack">
               <p>
                 Assistants can read recipes and suggest changes. Only you can approve publication
@@ -166,7 +163,7 @@ export function NetworkAccount({
                 </p>
               ))}
             </div>
-          </details>
+          </Disclosure>
         </section>
         <section>
           <h3>Suggested changes</h3>
@@ -181,12 +178,11 @@ export function NetworkAccount({
                 {proposal.payload.action}: {proposal.payload.recipe?.title || 'Recipe'} ·{' '}
                 {proposal.status}
               </h4>
-              <details>
-                <summary>Inspect complete suggestion</summary>
+              <Disclosure title="Inspect complete suggestion">
                 <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                   {JSON.stringify(proposal.payload, null, 2)}
                 </pre>
-              </details>
+              </Disclosure>
               {proposal.status === 'pending' && (
                 <div className="network-actions">
                   <Button

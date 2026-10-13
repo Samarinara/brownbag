@@ -9,7 +9,7 @@ test('essentials, row options, validation, draft and publication', async ({ page
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/recipe/new');
   await expect(page.getByRole('heading', { name: 'New recipe' })).toBeVisible();
-  await expect(page.locator('details[open]')).toHaveCount(0);
+  await expect(page.locator('[data-polli="accordion-item"][data-state="open"]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Publish recipe', exact: true })).toBeDisabled();
   await mkdir(screenshots, { recursive: true });
   await page.screenshot({ path: `${screenshots}/recipe-editor-desktop.png`, fullPage: true });
@@ -221,10 +221,10 @@ test('editor fields use transparent surfaces and margin categories fit desktop, 
       (await row.boundingBox())!.x + (await row.boundingBox())!.width,
     );
     if (
-      !(await page
+      (await page
         .locator('.recipe-method-row .recipe-category')
         .first()
-        .evaluate((element: HTMLDetailsElement) => element.open))
+        .getAttribute('data-state')) !== 'open'
     )
       await category.click();
     await page.getByRole('combobox', { name: 'Step 1 category', exact: true }).fill('Dough');

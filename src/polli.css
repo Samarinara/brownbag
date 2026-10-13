@@ -104,7 +104,7 @@ body {
 .network-brand > span,
 label,
 dt,
-summary,
+[data-polli='accordion-trigger'],
 .ingredient-rows,
 .ingredient-yield,
 .network-card-facts,
@@ -176,10 +176,6 @@ input[data-polli][type='file']::file-selector-button {
   color: var(--foreground);
   padding: 10px 14px;
   margin-right: 12px;
-}
-:is(input, textarea, select)[data-polli]:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 3px;
 }
 button[data-polli='button'] {
   font-family: var(--polli-font-body);
@@ -442,4 +438,97 @@ button[data-polli='checkbox'] {
 .network-recipe-facts dd.recipe-source-value {
   font-family: var(--polli-font-input);
   font-size: 1.125rem;
+}
+
+/* Page geometry remains Brownbag's; primitive states and motion come from Polli. */
+.disclosure-root {
+  display: contents;
+}
+.disclosure-root > [data-polli='accordion-item'] > h3 {
+  display: contents;
+}
+[data-polli='accordion-content'][hidden] {
+  display: none;
+}
+.recipe-disclosure [data-polli='accordion-content'] .stack {
+  padding: 0 0 16px;
+}
+.recipe-category [data-polli='accordion-content'] {
+  overflow: visible;
+}
+.recipe-category [data-polli='accordion-content'] > div {
+  padding-bottom: 0;
+}
+.network-tags li {
+  background: transparent;
+  padding: 0;
+}
+.network-tags [data-polli='badge'] {
+  font-family: var(--polli-font-body);
+}
+.planner-entry > button[aria-haspopup='menu'] {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+}
+.planner-menu-actions[data-polli='menu'] {
+  position: relative;
+  top: auto;
+  right: auto;
+  width: 200px;
+}
+.account-menu-actions [data-polli='menu-item'] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.theme-picker button[data-state='active'],
+.planner-toggle button[data-state='active'] {
+  color: var(--foreground);
+}
+.network-toast > [data-polli='alert-title'] {
+  font-family: var(--polli-font-body);
+  font-weight: 400;
+}
+.network-toast > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 0;
+}
+.empty-state[data-polli='empty-state'] {
+  display: grid;
+  gap: 16px;
+}
+.empty-state[data-polli='empty-state'] > h3 {
+  font-size: clamp(32px, 4vw, 48px);
+  margin: 0;
+}
+.empty-state.compact[data-polli='empty-state'] > h3 {
+  font-size: 24px;
+}
+.empty-state[data-polli='empty-state'] > p {
+  max-width: 560px;
+  font-size: 18px;
+}
+
+.network-card[data-polli='surface'] {
+  padding: 0;
+}
+.theme-picker button.active[data-polli='tabs-trigger'],
+.theme-picker button[data-polli='tabs-trigger'],
+.planner-toggle button[data-polli='tabs-trigger'] {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.theme-picker[data-polli='tabs-list'],
+.planner-toggle[data-polli='tabs-list'] {
+  background: transparent;
+}
+
+.planner-picker-recipe [data-polli='list-title'] {
+  font-family: var(--polli-font-heading);
 }

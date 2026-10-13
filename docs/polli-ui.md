@@ -2,6 +2,10 @@
 
 Brownbag imports the shared `@samarinara/polli-ui` components and stylesheet. Its adapter in `src/ui.tsx` preserves existing native form submission defaults and layout classes. The Brownbag logo, navigation, routes, recipe flows, planner, shopping list, account controls, and offline behavior remain in the application.
 
+All existing UI controls now use the corresponding published Polli primitives: buttons, fields, labels, checkboxes, dialogs, disclosures (Accordion), collection/view/theme selectors (Tabs), account and planner menus, badges, avatars, loading placeholders, alerts, empty states, recipe surfaces and picker rows. Application adapters preserve form defaults, collapsed field values and validation focus. Recipes, meal boards, shopping rows and the Brownbag logo remain application compositions of these primitives; Polli has no recipe, calendar or editable-combobox component. Ingredient and category autocomplete retain their existing suggestion logic with Polli inputs and disclosure controls.
+
+Polli text fields retain the package's underline focus treatment. Legacy boxed focus outlines and search-container focus rings must not override them.
+
 `src/polli.css` maps the existing CSS aliases onto Polli’s theme tokens. The requested accent `#456342` is olive green, not brown. Polli’s coral, yellow, blue and mint accents remain. Dark mode uses Polli’s dark tokens with a lighter accessible version of the app accent. The root `.dark` class follows the existing light/dark/system preference, including portalled dialogs.
 
 Fonts are self-hosted, with their upstream OFL licenses in `public/fonts/licenses`. Lora covers headings, labels, ingredients, quantities, times and servings. Inter covers navigation and actions. Patrick Hand covers descriptions, instructions, personal notes and most user-entered text. Ingredient and numeric inputs use Lora.

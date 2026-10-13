@@ -35,17 +35,17 @@ button:active:not(:disabled) {
 a {
   color: inherit;
 }
-button:focus-visible,
+button:not([data-polli]):focus-visible,
 a:focus-visible,
 summary:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-[tabindex]:focus-visible {
+input:not([data-polli]):focus-visible,
+textarea:not([data-polli]):focus-visible,
+[tabindex]:not([data-polli]):focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
-input:focus,
-textarea:focus {
+input:not([data-polli]):focus,
+textarea:not([data-polli]):focus {
   outline: 2px solid var(--color-focus);
   outline-offset: 1px;
 }
@@ -365,7 +365,7 @@ nav {
 .button:active:not(:disabled) {
   transform: translateY(1px) scale(0.985);
 }
-.button:focus-visible,
+.button:not([data-polli]):focus-visible,
 .icon-button:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 3px;

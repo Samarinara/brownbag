@@ -185,7 +185,7 @@
   margin-top: 12px;
   color: var(--color-text-muted);
 }
-.shopping-help summary {
+.shopping-help [data-polli='accordion-trigger'] {
   width: fit-content;
   padding: 12px 0;
   cursor: pointer;

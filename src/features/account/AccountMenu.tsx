@@ -1,6 +1,6 @@
-import { DropdownMenuContent } from '@samarinara/polli-ui/components/menu';
-import { Button } from '../../ui';
-import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { DropdownMenuContent, DropdownMenuItem } from '@samarinara/polli-ui/components/menu';
+import { Avatar, Tabs, TabsList, TabsTrigger, TabsContent } from '../../ui';
+import { useState } from 'react';
 import { LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import type { SessionUser } from '../../../shared/atproto';
 import type { ThemePreference } from '../../theme';
@@ -27,25 +27,8 @@ export function AccountMenu({
   manage: () => void;
   signOut: () => Promise<void>;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const moveMenuFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-    const items = Array.from(
-      ref.current?.querySelectorAll<HTMLElement>('button:not([disabled])') || [],
-    );
-    const index = items.indexOf(document.activeElement as HTMLElement);
-    if (!items.length) return;
-    event.preventDefault();
-    const next =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? items.length - 1
-          : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-    items[next]?.focus();
-  };
   return (
     <DropdownMenuContent
       align="end"
@@ -54,44 +37,48 @@ export function AccountMenu({
       onEscapeKeyDown={() => close()}
       className="account-menu"
       role="menu"
-      ref={ref}
-      onKeyDown={moveMenuFocus}
       aria-label="Account menu"
     >
       <div className="account-menu-profile">
-        <span className="account-menu-avatar">
-          {(user.handle?.replace(/^@/, '')[0] || 'A').toUpperCase()}
-        </span>
+        <Avatar
+          className="account-menu-avatar"
+          name={user.handle?.replace(/^@/, '')[0]?.toUpperCase() || 'A'}
+          aria-label={user.handle || 'Your account'}
+        />
         <div>
           <strong>{user.handle ? `@${user.handle.replace(/^@/, '')}` : 'Your account'}</strong>
           <span>Your brownbag</span>
         </div>
       </div>
-      <div className="theme-picker" role="radiogroup" aria-label="Appearance">
-        {themeOptions.map(({ value, label, icon: Icon }) => (
-          <Button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={theme === value}
-            className={theme === value ? 'active' : ''}
-            onClick={() => setTheme(value)}
-            title={`${label} theme`}
-          >
-            <Icon size={15} />
-            <span>{label}</span>
-          </Button>
+      <Tabs value={theme} onValueChange={(value) => setTheme(value as ThemePreference)}>
+        <TabsList className="theme-picker" aria-label="Appearance">
+          {themeOptions.map(({ value, label, icon: Icon }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className={theme === value ? 'active' : ''}
+              title={`${label} theme`}
+            >
+              <Icon size={15} />
+              <span>{label}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {themeOptions.map(({ value, label }) => (
+          <TabsContent key={value} value={value} className="sr-only">
+            {label} appearance selected.
+          </TabsContent>
         ))}
-      </div>
+      </Tabs>
       <div className="account-menu-actions">
-        <Button role="menuitem" onClick={manage}>
+        <DropdownMenuItem onSelect={manage}>
           <Settings size={16} />
           <span>Manage account</span>
-        </Button>
-        <Button
-          role="menuitem"
+        </DropdownMenuItem>
+        <DropdownMenuItem
           disabled={busy}
-          onClick={() => {
+          onSelect={(event) => {
+            event.preventDefault();
             setBusy(true);
             setError('');
             void signOut().catch((e) => {
@@ -102,7 +89,7 @@ export function AccountMenu({
         >
           <LogOut size={16} />
           <span>{busy ? 'Signing out…' : 'Sign out'}</span>
-        </Button>
+        </DropdownMenuItem>
       </div>
       {error && (
         <p className="account-menu-error" role="alert">

@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuTrigger } from '@samarinara/polli-ui/components/menu';
-import { Button, Input } from './ui';
+import { Button, Input, Skeleton, Surface, EmptyState } from './ui';
 import { PwaTools, OfflineRecipeButton } from './PwaTools';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -740,14 +740,14 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
             done={() => {}}
           />
         ) : configured === false ? (
-          <section className="empty-state">
-            <Bag />
-            <h1>A place for good food.</h1>
-            <p>
-              Brownbag is getting its kitchen ready. Account connections and the recipe library will
-              be available once setup is complete.
-            </p>
-          </section>
+          <EmptyState
+            className="empty-state"
+            title={'A place for good food.'}
+            description={
+              'Brownbag is getting its kitchen ready. Account connections and the recipe library will be available once setup is complete.'
+            }
+            icon={<Bag />}
+          />
         ) : plannerRoute ? (
           !ready ? (
             <p role="status">Opening your {plannerTitle}…</p>
@@ -767,17 +767,24 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
               />
             )
           ) : (
-            <section className="empty-state">
-              <h1>{plannerTitle}</h1>
-              <p>
-                {shoppingPage
+            <EmptyState
+              className="empty-state"
+              title={plannerTitle}
+              description={
+                '' +
+                (shoppingPage
                   ? 'Sign in to view your shopping list.'
-                  : 'Sign in to plan your meals.'}
-              </p>
-              <Button className="button primary" onClick={() => setLogin(true)}>
-                Sign in
-              </Button>
-            </section>
+                  : 'Sign in to plan your meals.') +
+                ''
+              }
+              action={
+                <>
+                  <Button className="button primary" onClick={() => setLogin(true)}>
+                    Sign in
+                  </Button>
+                </>
+              }
+            />
           )
         ) : editorRoute ? (
           !ready ? (
@@ -786,9 +793,9 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                 Opening your cookbook…
               </p>
               <section className="network-editor-page" aria-hidden="true">
-                <div className="skeleton skeleton-line short" />
-                <div className="skeleton skeleton-line hero" />
-                <div className="skeleton skeleton-line" />
+                <Skeleton className="skeleton skeleton-line short" />
+                <Skeleton className="skeleton skeleton-line hero" />
+                <Skeleton className="skeleton skeleton-line" />
               </section>
             </>
           ) : user ? (
@@ -824,34 +831,48 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
               }}
             />
           ) : (
-            <section className="empty-state">
-              <h1>Your next good recipe.</h1>
-              <p>Sign in to create and edit your recipes.</p>
-              <Button className="button primary" onClick={() => setLogin(true)}>
-                Sign in
-              </Button>
-            </section>
+            <EmptyState
+              className="empty-state"
+              title={'Your next good recipe.'}
+              description={'Sign in to create and edit your recipes.'}
+              action={
+                <>
+                  <Button className="button primary" onClick={() => setLogin(true)}>
+                    Sign in
+                  </Button>
+                </>
+              }
+            />
           )
         ) : feedPage && (!uri || feedEnd) ? (
-          <section className="empty-state">
-            <h1>
-              {loading
+          <EmptyState
+            className="empty-state"
+            title={
+              '' +
+              (loading
                 ? 'Finding your next recipe…'
                 : feedEnd
                   ? 'You’re all caught up.'
-                  : 'The feed is warming up.'}
-            </h1>
-            <p>
-              {loading
+                  : 'The feed is warming up.') +
+              ''
+            }
+            description={
+              '' +
+              (loading
                 ? 'Fresh recipes, newest first.'
-                : 'Come back for more inspiration, or find something in your cookbook.'}
-            </p>
-            {!loading && (
-              <Button className="button primary" onClick={openFeed}>
-                Back to newest recipes
-              </Button>
-            )}
-          </section>
+                : 'Come back for more inspiration, or find something in your cookbook.') +
+              ''
+            }
+            action={
+              <>
+                {!loading && (
+                  <Button className="button primary" onClick={openFeed}>
+                    Back to newest recipes
+                  </Button>
+                )}
+              </>
+            }
+          />
         ) : uri ? (
           <>
             {!feedPage && (
@@ -1370,7 +1391,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                         className={feed === 'cookbook' ? 'network-cookbook-list' : 'network-grid'}
                       >
                         {recipes.map((item) => (
-                          <article className="network-card" key={item.uri}>
+                          <Surface className="network-card" role="article" key={item.uri}>
                             <a
                               href={appUrl(recipeUrl(item.uri))}
                               onClick={(e) => {
@@ -1413,57 +1434,66 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                                 </div>
                               </div>
                             </a>
-                          </article>
+                          </Surface>
                         ))}
                       </div>
                     ) : (
                       !error && (
-                        <section className="empty-state compact">
-                          <BookOpen size={38} />
-                          <h2>
-                            {search || tag
+                        <EmptyState
+                          className="empty-state compact"
+                          title={
+                            '' +
+                            (search || tag
                               ? 'No recipes found'
                               : feed === 'cookbook'
                                 ? 'Every cookbook starts somewhere'
-                                : 'A good recipe starts with you'}
-                          </h2>
-                          <p>
-                            {search || tag
+                                : 'A good recipe starts with you') +
+                            ''
+                          }
+                          description={
+                            '' +
+                            (search || tag
                               ? 'Try another tag, ingredient or title — or clear the search to browse everything.'
-                              : 'Share a recipe you love, or start with a private draft.'}
-                          </p>
-                          <div className="empty-actions">
-                            {search || tag ? (
-                              <Button
-                                type="button"
-                                className="button secondary"
-                                onClick={() => {
-                                  setQuery('');
-                                  setSearch('');
-                                  setTag('');
-                                }}
-                              >
-                                Clear search & filters
-                              </Button>
-                            ) : null}
-                            {!search && !tag ? (
-                              <Button
-                                type="button"
-                                className="button primary"
-                                disabled={configured !== true}
-                                title={
-                                  configured !== true
-                                    ? 'Adding recipes is unavailable until setup is complete.'
-                                    : 'Add your first recipe'
-                                }
-                                onClick={() => edit({ data: blankRecipe() })}
-                              >
-                                <Plus size={16} />
-                                Add a recipe
-                              </Button>
-                            ) : null}
-                          </div>
-                        </section>
+                              : 'Share a recipe you love, or start with a private draft.') +
+                            ''
+                          }
+                          icon={<BookOpen size={38} />}
+                          action={
+                            <>
+                              <div className="empty-actions">
+                                {search || tag ? (
+                                  <Button
+                                    type="button"
+                                    className="button secondary"
+                                    onClick={() => {
+                                      setQuery('');
+                                      setSearch('');
+                                      setTag('');
+                                    }}
+                                  >
+                                    Clear search & filters
+                                  </Button>
+                                ) : null}
+                                {!search && !tag ? (
+                                  <Button
+                                    type="button"
+                                    className="button primary"
+                                    disabled={configured !== true}
+                                    title={
+                                      configured !== true
+                                        ? 'Adding recipes is unavailable until setup is complete.'
+                                        : 'Add your first recipe'
+                                    }
+                                    onClick={() => edit({ data: blankRecipe() })}
+                                  >
+                                    <Plus size={16} />
+                                    Add a recipe
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </>
+                          }
+                        />
                       )
                     )}
                     {nextCursor && (

@@ -1,7 +1,7 @@
 import { Button } from './ui';
 import { useRef, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@samarinara/polli-ui/components/dialog';
-import { Alert, Skeleton } from '@samarinara/polli-ui/components/layout';
+import { Alert, Skeleton, Surface } from '@samarinara/polli-ui/components/layout';
 import { X, Check, AlertTriangle } from 'lucide-react';
 
 export function Bag({ small = false }: { small?: boolean }) {
@@ -71,13 +71,13 @@ export type ToastData = {
 };
 export function Toast({ toast, dismiss }: { toast: ToastData; dismiss: () => void }) {
   return (
-    <div
+    <Alert
+      title={toast.text}
       className={`network-toast ${toast.kind}`}
       role={toast.kind === 'error' ? 'alert' : 'status'}
       aria-live={toast.kind === 'error' ? 'assertive' : 'polite'}
     >
       {toast.kind === 'error' ? <AlertTriangle size={17} /> : <Check size={17} />}
-      <span className="toast-text">{toast.text}</span>
       {toast.actionLabel && toast.onAction && (
         <Button
           type="button"
@@ -98,7 +98,7 @@ export function Toast({ toast, dismiss }: { toast: ToastData; dismiss: () => voi
       >
         <X size={15} />
       </Button>
-    </div>
+    </Alert>
   );
 }
 export function ConfirmDialog({
@@ -144,14 +144,14 @@ export function SkeletonCards({ count = 6 }: { count?: number }) {
   return (
     <div className="network-grid" aria-hidden="true">
       {Array.from({ length: count }).map((_, i) => (
-        <div className="network-card skeleton-card" key={i}>
+        <Surface className="network-card skeleton-card" key={i}>
           <div className="network-card-body">
             <Skeleton className="skeleton skeleton-line short" />
             <Skeleton className="skeleton skeleton-line title" />
             <Skeleton className="skeleton skeleton-line" />
             <Skeleton className="skeleton skeleton-line narrow" />
           </div>
-        </div>
+        </Surface>
       ))}
     </div>
   );
