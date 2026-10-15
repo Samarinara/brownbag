@@ -36,9 +36,16 @@ export function Modal({
   close: () => void;
   wide?: boolean;
 }) {
-  const opener = useRef(
-    document.activeElement instanceof HTMLElement ? document.activeElement : null,
-  );
+  const opener = useRef<HTMLElement | null>(null);
+  const capturedOpener = useRef(false);
+  if (!capturedOpener.current) {
+    capturedOpener.current = true;
+    const active = document.activeElement;
+    const menu = active?.closest('[role="menu"]');
+    opener.current =
+      (menu?.id && document.querySelector<HTMLElement>(`[aria-controls="${menu.id}"]`)) ||
+      (active instanceof HTMLElement ? active : null);
+  }
   return (
     <Dialog
       open
@@ -51,7 +58,8 @@ export function Modal({
         aria-describedby={undefined}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          opener.current?.focus();
+          if (opener.current?.isConnected) opener.current.focus();
+          else document.querySelector<HTMLElement>('#main-content')?.focus();
         }}
       >
         <div className="modal-head">
@@ -123,12 +131,18 @@ export function ConfirmDialog({
       <div className="stack">
         <div className="confirm-body">{children}</div>
         <div className="modal-footer">
-          <Button type="button" className="button secondary" onClick={close} disabled={busy}>
+          <Button
+            type="button"
+            className="button secondary"
+            onClick={close}
+            disabled={busy}
+            autoFocus={danger}
+          >
             Cancel
           </Button>
           <Button
             type="button"
-            autoFocus
+            autoFocus={!danger}
             className={danger ? 'button danger' : 'button primary'}
             onClick={confirm}
             disabled={busy}

@@ -100,9 +100,9 @@ test('Polli dialogs retain focus and appearance follows the root theme', async (
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await page.getByRole('button', { name: 'Open account menu', exact: true }).click();
-  await page.getByRole('tab', { name: 'Dark', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);
-  await page.getByRole('tab', { name: 'Light', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: 'Light', exact: true }).click();
   await expect(page.locator('html')).not.toHaveClass(/dark/);
   expect(await page.evaluate(() => localStorage.getItem('brownbag-theme'))).toBe(storedTheme);
 });

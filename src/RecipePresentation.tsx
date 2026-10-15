@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { BookOpen, Clock3, Users } from 'lucide-react';
 import type { RecipeInput, RecipeView } from '../shared/atproto';
 
-export function recipeTime(record: RecipeInput) {
+export function recipeTime(record: Pick<RecipeInput, 'prepMinutes' | 'cookMinutes'>) {
   const { prepMinutes, cookMinutes } = record;
   if (prepMinutes === undefined && cookMinutes === undefined) return null;
   return {
@@ -18,7 +18,7 @@ export function recipeTime(record: RecipeInput) {
   };
 }
 
-export const recipeYield = (record: RecipeInput) =>
+export const recipeYield = (record: Pick<RecipeInput, 'yield'>) =>
   record.yield?.display?.trim() ||
   [record.yield?.quantity, record.yield?.unit].filter(Boolean).join(' ');
 

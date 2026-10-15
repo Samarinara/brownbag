@@ -1,4 +1,5 @@
-import { Disclosure, EmptyState } from './ui';
+import { isPlainNavigation } from './routes';
+import { Disclosure, PageEmptyState } from './ui';
 import { appUrl } from './routes';
 import { Button, Input, Label, Checkbox } from './ui';
 import { useEffect, useRef, useState } from 'react';
@@ -133,6 +134,7 @@ export function ShoppingList({
         className="shopping-back"
         href={appUrl(defaultPlannerUrl())}
         onClick={(event) => {
+          if (!isPlainNavigation(event)) return;
           event.preventDefault();
           navigate(defaultPlannerUrl());
         }}
@@ -186,6 +188,15 @@ export function ShoppingList({
         </div>
       </div>
       <Notice error={error} />
+      {error && (
+        <Button
+          className="text-button"
+          onClick={() => setRevision((value) => value + 1)}
+          disabled={loading || pending.size > 0}
+        >
+          Try again
+        </Button>
+      )}
       <div className="shopping-summary">
         <p role="status" aria-live="polite">
           {loading
@@ -224,12 +235,14 @@ export function ShoppingList({
             ))}
           </ul>
         ) : (
-          <EmptyState
+          <PageEmptyState
+            heading="h2"
             className="shopping-empty"
             title="No meals planned in this range"
             description="Add recipes to your Meal Planner to build your shopping list."
           />
         ))}
+      <h2 className="sr-only">Shopping list details</h2>
       <Disclosure className="shopping-help" title="About this list">
         <p className="hint">
           Quantities cover each planned recipe in full. Compatible units are combined; cups and

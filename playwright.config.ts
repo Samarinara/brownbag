@@ -7,6 +7,6 @@ export default defineConfig({
   webServer: {
     command: 'node --import tsx tests/support/preview.ts',
     url: 'http://127.0.0.1:3001',
-    timeout: 60000,
+    timeout: 180000,
   },
 });

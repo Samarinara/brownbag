@@ -1,3 +1,4 @@
+import { createId } from '../id';
 import { enableDemoStorage } from '../offline-storage';
 import { ApiError, setDemoTransport, setDemoImages } from '../api';
 import { RECIPE_COLLECTION, type RecipeView, type RecipeInput } from '../../shared/atproto';
@@ -181,7 +182,7 @@ export function installDemoApi() {
         break;
       case '/recipes':
         if (method === 'POST') {
-          const recipe = makeRecipe(crypto.randomUUID(), body.recipe);
+          const recipe = makeRecipe(createId(), body.recipe);
           recipes.push(recipe);
           result = recipe;
         } else {
@@ -240,7 +241,7 @@ export function installDemoApi() {
         break;
       case '/drafts':
         if (method === 'POST') {
-          const draft = { id: crypto.randomUUID(), data: body.data, updatedAt: stamp };
+          const draft = { id: createId(), data: body.data, updatedAt: stamp };
           drafts.push(draft);
           result = draft;
         } else result = { drafts };
@@ -252,7 +253,7 @@ export function installDemoApi() {
       case '/planner':
         if (method === 'POST') {
           const entry = {
-            id: body.id ?? crypto.randomUUID(),
+            id: body.id ?? createId(),
             date: body.date,
             slot: body.slot,
             note: body.note ?? '',
@@ -285,7 +286,7 @@ export function installDemoApi() {
         break;
       case '/keys':
         if (method === 'POST') {
-          keys.push({ id: crypto.randomUUID(), name: body.name, prefix: 'demo' });
+          keys.push({ id: createId(), name: body.name, prefix: 'demo' });
           result = { token: 'demo-only-key-no-real-account-access' };
         } else result = { keys };
         break;

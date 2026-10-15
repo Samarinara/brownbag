@@ -1,5 +1,6 @@
+import { isPlainNavigation } from './routes';
 import { DropdownMenu, DropdownMenuTrigger } from '@samarinara/polli-ui/components/menu';
-import { Button, Input, Skeleton, Surface, EmptyState } from './ui';
+import { Button, Input, Skeleton, Surface, PageEmptyState } from './ui';
 import { PwaTools, OfflineRecipeButton } from './PwaTools';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -108,9 +109,12 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
   const [confirmBusy, setConfirmBusy] = useState(false);
   const pageRequest = useRef(0);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const focusOnNavigation = useRef(false);
   const refresh = () => setRevision((value) => value + 1);
   const go = (next: string | null, destination = feed, inFeed = feedPage) => {
-    if (!leaveGuard.current()) return;
+    if (!leaveGuard.current()) return false;
     const url = next
       ? inFeed
         ? `/feed?uri=${encodeURIComponent(next)}`
@@ -125,8 +129,11 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
     setEditorRoute(null);
     setPlannerRoute(null);
     setUri(next);
+    if (!next) setFeed(destination);
     setError('');
+    focusOnNavigation.current = true;
     window.scrollTo(0, 0);
+    return true;
   };
   const navigatePlanner = (url = defaultPlannerUrl()) => {
     if (!user) {
@@ -141,6 +148,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
     setEditorRoute(null);
     setUri(null);
     setError('');
+    focusOnNavigation.current = true;
     window.scrollTo(0, 0);
   };
   const createPlannedRecipe = (target: MealTarget) => {
@@ -151,6 +159,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
     setPlannerRoute(null);
     setEditorRoute(url);
     setError('');
+    focusOnNavigation.current = true;
     window.scrollTo(0, 0);
   };
   useEffect(() => {
@@ -181,6 +190,9 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
       }
       setFeedEnd(false);
       if (!currentUri()) setFeed(appPath() === '/cookbook' ? 'cookbook' : 'discover');
+      focusOnNavigation.current = true;
+      setError('');
+      window.scrollTo(0, 0);
     };
     window.addEventListener('popstate', pop);
     api<{ configured: boolean }>('/config')
@@ -201,6 +213,13 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
   useEffect(() => {
     if (!ready || configured === null || editorRoute || plannerRoute) return;
     if (!configured) {
+      setLoading(false);
+      return;
+    }
+    if (feed === 'cookbook' && !user && !uri) {
+      setRecipes([]);
+      setDrafts([]);
+      setNextCursor(undefined);
       setLoading(false);
       return;
     }
@@ -304,8 +323,12 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
         ? `${editorRoute.startsWith('/editor-preview') ? 'Editor preview' : editorRoute.startsWith('/recipe/new') ? 'Add a recipe' : 'Edit recipe'} — brownbag`
         : recipe && uri
           ? `${recipe.record.title} — brownbag`
-          : 'brownbag — Your recipes. All in one bag.';
-  }, [editorRoute, recipe, uri, plannerRoute, plannerTitle]);
+          : feed === 'cookbook'
+            ? 'Cookbook — brownbag'
+            : feedPage
+              ? 'Recipe feed — brownbag'
+              : 'brownbag — Your recipes. All in one bag.';
+  }, [editorRoute, recipe, uri, plannerRoute, plannerTitle, feed, feedPage]);
   useEffect(() => {
     if (!user) {
       setTags([]);
@@ -324,7 +347,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
     };
   }, [user, revision]);
   useEffect(() => {
-    if (!toast) return;
+    if (!toast || toast.onAction || toast.kind === 'error') return;
     const timer = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(timer);
   }, [toast]);
@@ -353,12 +376,11 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
       setLogin(true);
       return;
     }
-    setFeed(next);
+    if (!go(null, next, false)) return;
     recipeReturn.current = null;
     setQuery('');
     setSearch('');
     setTag('');
-    go(null, next);
   };
   const openFeed = () => {
     if (!leaveGuard.current()) return;
@@ -376,6 +398,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
     setRecipes([]);
     setNextCursor(undefined);
     refresh();
+    focusOnNavigation.current = true;
     window.scrollTo(0, 0);
   };
   const feedEntry = (target: string) => {
@@ -564,19 +587,26 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
     setFeedPage(false);
     setPlannerRoute(null);
     setError('');
+    focusOnNavigation.current = true;
     window.scrollTo(0, 0);
   };
+  useEffect(() => {
+    if (!focusOnNavigation.current || !ready || (loading && !editorRoute && !plannerRoute)) return;
+    focusOnNavigation.current = false;
+    mainRef.current?.focus({ preventScroll: true });
+  }, [ready, loading, uri, feed, feedPage, editorRoute, plannerRoute]);
   const titleTime = recipe ? recipeTime(recipe.record) : null;
   return (
     <div className={`polli-root network-shell ${feedPage ? 'has-recipe-feed' : ''}`}>
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
       <header className="network-header" aria-label="Site header">
+        <a className="skip-link" href="#main-content">
+          Skip to main content
+        </a>
         <a
           href={appUrl('/')}
           className="network-brand"
           onClick={(e) => {
+            if (!isPlainNavigation(e)) return;
             e.preventDefault();
             selectFeed('discover');
           }}
@@ -592,6 +622,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
             className="network-cookbook-link network-feed-link"
             aria-current={feedPage ? 'page' : undefined}
             onClick={(e) => {
+              if (!isPlainNavigation(e)) return;
               e.preventDefault();
               openFeed();
             }}
@@ -607,6 +638,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
               feed === 'cookbook' && !uri && !plannerRoute && !editorRoute ? 'page' : undefined
             }
             onClick={(e) => {
+              if (!isPlainNavigation(e)) return;
               e.preventDefault();
               selectFeed('cookbook');
             }}
@@ -620,6 +652,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
             aria-label="Meal Planner"
             aria-current={plannerRoute ? 'page' : undefined}
             onClick={(event) => {
+              if (!isPlainNavigation(event)) return;
               event.preventDefault();
               navigatePlanner();
             }}
@@ -633,11 +666,13 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
             aria-label="Brownbag recipe feed"
             aria-current={feedPage ? 'page' : undefined}
             onClick={(event) => {
+              if (!isPlainNavigation(event)) return;
               event.preventDefault();
               openFeed();
             }}
           >
             <Bag small />
+            <span>Feed</span>
           </a>
           <a
             href={appUrl('/')}
@@ -649,11 +684,13 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                 : undefined
             }
             onClick={(event) => {
+              if (!isPlainNavigation(event)) return;
               event.preventDefault();
               selectFeed('discover');
             }}
           >
             <Search size={24} aria-hidden="true" />
+            <span>Search</span>
           </a>
           {user ? (
             <div className="account-menu-wrap">
@@ -668,6 +705,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                     title={user.handle ? `@${user.handle}` : 'Account'}
                   >
                     <UserRound size={22} aria-hidden="true" />
+                    <span className="network-account-label">Account</span>
                   </Button>
                 </DropdownMenuTrigger>
                 {accountMenu && (
@@ -721,6 +759,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
       </header>
       {!demo && <PwaTools canReload={() => leaveGuard.current()} />}
       <main
+        ref={mainRef}
         id="main-content"
         className="network-main"
         tabIndex={-1}
@@ -730,6 +769,15 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
           {plannerRoute ? `${plannerTitle} opened.` : browseAnnouncement}
         </p>
         <Notice error={error} />
+        {error && !editorRoute && !plannerRoute && (
+          <Button
+            className="text-button"
+            onClick={() => (configured === null ? location.reload() : refresh())}
+            disabled={loading}
+          >
+            Try again
+          </Button>
+        )}
         {editorRoute?.split('?')[0] === '/editor-preview' ? (
           <NetworkEditorPage
             route={editorRoute}
@@ -740,7 +788,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
             done={() => {}}
           />
         ) : configured === false ? (
-          <EmptyState
+          <PageEmptyState
             className="empty-state"
             title={'A place for good food.'}
             description={
@@ -767,7 +815,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
               />
             )
           ) : (
-            <EmptyState
+            <PageEmptyState
               className="empty-state"
               title={plannerTitle}
               description={
@@ -831,7 +879,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
               }}
             />
           ) : (
-            <EmptyState
+            <PageEmptyState
               className="empty-state"
               title={'Your next good recipe.'}
               description={'Sign in to create and edit your recipes.'}
@@ -844,8 +892,17 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
               }
             />
           )
+        ) : feed === 'cookbook' && !user && ready && !uri && !feedPage ? (
+          <section aria-labelledby="cookbook-sign-in-title" className="empty-state">
+            <BookOpen size={38} aria-hidden="true" />
+            <h1 id="cookbook-sign-in-title">Your cookbook</h1>
+            <p>Sign in to find your saved recipes and private drafts.</p>
+            <Button className="button primary" onClick={() => setLogin(true)}>
+              Sign in
+            </Button>
+          </section>
         ) : feedPage && (!uri || feedEnd) ? (
-          <EmptyState
+          <PageEmptyState
             className="empty-state"
             title={
               '' +
@@ -890,6 +947,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                     : 'Back to recipes'}
               </Button>
             )}
+            {!loading && !recipe && error && <h1>Recipe unavailable</h1>}
             {loading ? (
               <>
                 <p className="sr-only" role="status">
@@ -934,7 +992,14 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                   <div className="recipe-title-row">
                     <h1>{recipe.record.title}</h1>
                     {titleTime && (
-                      <span className="recipe-title-time">{titleTime.minutes} min total</span>
+                      <span className="recipe-title-time">
+                        {titleTime.minutes} min{' '}
+                        {titleTime.label === 'Total time'
+                          ? 'total'
+                          : titleTime.label === 'Prep time'
+                            ? 'prep'
+                            : 'cook'}
+                      </span>
                     )}
                   </div>
                   <p className="network-summary">{recipe.record.summary}</p>
@@ -964,9 +1029,9 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                         disabled={busy || (!!user && !entry)}
                         aria-label={
                           feedPage
-                            ? 'Save to cookbook and next recipe'
+                            ? `${entry?.saved ? 'Saved' : 'Save'} to cookbook and next recipe`
                             : entry?.saved
-                              ? 'Remove from cookbook'
+                              ? 'Saved — remove from cookbook'
                               : 'Save to cookbook'
                         }
                         aria-describedby="save-hint"
@@ -1201,6 +1266,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                         <a
                           href={appUrl(recipeUrl(recipe.record.derivedFrom.uri))}
                           onClick={(e) => {
+                            if (!isPlainNavigation(e)) return;
                             e.preventDefault();
                             go(recipe.record.derivedFrom!.uri);
                           }}
@@ -1251,6 +1317,9 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                 >
                   <Search size={22} strokeWidth={1.7} aria-hidden="true" />
                   <Input
+                    ref={searchInputRef}
+                    inputMode="search"
+                    enterKeyHint="search"
                     aria-label="Search recipes"
                     placeholder="Find a recipe, or start with an ingredient…"
                     value={query}
@@ -1265,6 +1334,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                       onClick={() => {
                         setQuery('');
                         setSearch('');
+                        searchInputRef.current?.focus();
                       }}
                     >
                       <X size={16} />
@@ -1395,6 +1465,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                             <a
                               href={appUrl(recipeUrl(item.uri))}
                               onClick={(e) => {
+                                if (!isPlainNavigation(e)) return;
                                 e.preventDefault();
                                 go(item.uri);
                               }}
@@ -1439,7 +1510,8 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                       </div>
                     ) : (
                       !error && (
-                        <EmptyState
+                        <PageEmptyState
+                          heading="h2"
                           className="empty-state compact"
                           title={
                             '' +
