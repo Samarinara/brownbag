@@ -7,6 +7,7 @@ A shared recipe platform at **brownbag.polli.page**. This branch replaces the se
 - Public discovery and PostgreSQL full-text search; personal, saved, and followed-cook feeds.
 - Text-based ingredient and unit autocomplete, case-insensitive exact filters, and indexed ingredient/unit groups with numeric quantity totals.
 - Existing-account OAuth, encrypted server-side credentials, durable refresh locks, and cookie sessions. No passwords, email signup, or hosted accounts.
+- Paste a recipe website link in **New recipe** to import its title, ingredients, steps, timing, servings, and source credit, then review and publish. Imports support sites with Recipe JSON-LD; blocked pages or unsupported formats can be entered manually. Photos can be added separately.
 - Private drafts and bookmarks; public recipe publishing, optimistic-concurrency edits/deletes, and attributed adaptations.
 - Private Meal Planner: Sunday-first weeks, a mobile day agenda, a month week-picker, multiple recipes per meal, notes, and a cross-device default meal preference. Use the top-bar **Meal Planner** link or **Plan meal** on any recipe.
 - Private shopping lists from the Meal Planner: default to today and the next six days, adjust 1–93 days with a slider or number input, combine ingredients across every planned meal, and save purchased checkmarks across devices.

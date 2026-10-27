@@ -247,3 +247,67 @@ test('editor fields use transparent surfaces and margin categories fit desktop, 
       .evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))),
   ).toEqual(['Move step 1 up', 'Remove step 1', 'Move step 1 down']);
 });
+
+test('pasting a recipe link fills the editor and can be published with source credit', async ({
+  page,
+}) => {
+  await page.route('**/api/recipes/import', async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ url: 'https://example.com/lemon-rice' });
+    await route.fulfill({
+      json: {
+        recipe: {
+          title: 'Imported lemon rice',
+          ingredients: [{ name: '1 cup rice' }],
+          instructions: [{ text: 'Cook rice with lemon.' }],
+          cookMinutes: 20,
+          source: { name: 'Example Cook', url: 'https://example.com/lemon-rice' },
+        },
+      },
+    });
+  });
+  await page.goto('/recipe/new');
+  const link = page.getByLabel('Recipe website link', { exact: true });
+  await link.evaluate((element) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', 'https://example.com/lemon-rice');
+    element.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }),
+    );
+  });
+  await expect(
+    page.getByText('Recipe imported. Review the details, then publish when you’re ready.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Recipe title', { exact: true })).toHaveValue('Imported lemon rice');
+  await expect(page.getByLabel('Ingredient 1 name', { exact: true })).toHaveValue('1 cup rice');
+  await expect(page.getByLabel('Step 1', { exact: true })).toHaveValue('Cook rice with lemon.');
+  await expect(page.getByLabel('Source link', { exact: true })).toHaveValue(
+    'https://example.com/lemon-rice',
+  );
+  await expect(page.getByLabel('Cook time (minutes)', { exact: true })).toHaveValue('20');
+  await page.getByRole('checkbox').check();
+  const published = page.waitForResponse(
+    (response) => response.url().endsWith('/api/recipes') && response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Publish recipe', exact: true }).click();
+  const response = await published;
+  expect(response.status()).toBe(201);
+  expect((await response.json()).record.source.url).toBe('https://example.com/lemon-rice');
+});
+
+test('failed imports preserve the current recipe and allow a retry', async ({ page }) => {
+  await page.route('**/api/recipes/import', (route) =>
+    route.fulfill({ status: 422, json: { error: 'No supported recipe was found on this page.' } }),
+  );
+  await page.goto('/recipe/new');
+  await page.getByLabel('Recipe title', { exact: true }).fill('My own recipe');
+  await page
+    .getByLabel('Recipe website link', { exact: true })
+    .fill('https://example.com/not-a-recipe');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Import recipe', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('No supported recipe');
+  await expect(page.getByLabel('Recipe title', { exact: true })).toHaveValue('My own recipe');
+  await expect(page.getByRole('button', { name: 'Import recipe', exact: true })).toBeEnabled();
+});

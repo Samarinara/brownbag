@@ -82,3 +82,13 @@ test('network OAuth callback accepts matching states and issues a protected sess
   assert.equal(sessions.length, 1);
   assert.equal(sessions[0][1], 'did:plc:alice');
 });
+
+test('recipe imports require sign-in before reading external pages', async (t) => {
+  const { url } = await fixture(t);
+  const response = await fetch(`${url}/api/recipes/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: 'https://example.com/recipe' }),
+  });
+  assert.equal(response.status, 401);
+});

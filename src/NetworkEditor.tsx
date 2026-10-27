@@ -230,6 +230,10 @@ function NetworkEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const [importUrl, setImportUrl] = useState('');
+  const [importStatus, setImportStatus] = useState('');
+  const importing = useRef(false);
+  const [importRevision, setImportRevision] = useState(0);
   const [photoPreviews, setPhotoPreviews] = useState<Record<string, string>>({});
   const formRef = useRef<HTMLFormElement>(null);
   const errorsRef = useRef<HTMLDivElement>(null);
@@ -536,6 +540,34 @@ function NetworkEditor({
       setBusy(false);
     }
   };
+  const importLink = async (url: string) => {
+    if (preview || busy || importing.current || recovery || publicationIntent.current) return;
+    if (dirty && !window.confirm('Replace the current recipe fields with the linked recipe?'))
+      return;
+    importing.current = true;
+    setBusy(true);
+    setError('');
+    setIssues([]);
+    setImportStatus('Reading the recipe…');
+    try {
+      const { recipe } = await post<{ recipe: RecipeInput }>('/recipes/import', { url });
+      const imported = recipeInputSchema.parse(recipe);
+      rowKeys.current = {
+        ingredients: imported.ingredients.map(() => createId()),
+        instructions: imported.instructions.map(() => createId()),
+      };
+      setData(editableRecipe(imported));
+      setImportRevision((revision) => revision + 1);
+      setConfirmed(false);
+      setImportStatus('Recipe imported. Review the details, then publish when you’re ready.');
+    } catch (error) {
+      setImportStatus('');
+      setError(message(error));
+    } finally {
+      importing.current = false;
+      setBusy(false);
+    }
+  };
   const categorySuggestions = (kind: 'ingredients' | 'instructions', index: number) =>
     [
       ...new Map(
@@ -609,6 +641,7 @@ function NetworkEditor({
           </div>
         )}
       </header>
+      {importStatus && <p role="status">{importStatus}</p>}
       {recovery && (
         <div className="recovery-notice" role="status">
           <p>There are unsaved changes from an earlier visit on this device.</p>
@@ -652,7 +685,47 @@ function NetworkEditor({
           if (!preview && confirmed && !busy) void save(true);
         }}
       >
-        <fieldset disabled={busy || !!published} className="recipe-editor-fields">
+        <fieldset
+          key={importRevision}
+          disabled={busy || !!published}
+          className="recipe-editor-fields"
+        >
+          {!editing.original && !editing.draftId && (
+            <section className="recipe-editor-section stack">
+              <h2>Start with a recipe link</h2>
+              <p>Paste a link to fill in your recipe and credit the source.</p>
+              <Label>
+                Recipe website link
+                <Input
+                  type="url"
+                  value={importUrl}
+                  placeholder="https://example.com/your-favourite-recipe"
+                  disabled={preview || !!publicationIntent.current}
+                  onChange={(event) => setImportUrl(event.target.value)}
+                  onPaste={(event) => {
+                    const url = event.clipboardData.getData('text').trim();
+                    event.preventDefault();
+                    setImportUrl(url);
+                    void importLink(url);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void importLink(importUrl);
+                    }
+                  }}
+                />
+              </Label>
+              <Button
+                type="button"
+                className="button secondary"
+                disabled={preview || !importUrl.trim() || !!publicationIntent.current}
+                onClick={() => void importLink(importUrl)}
+              >
+                Import recipe
+              </Button>
+            </section>
+          )}
           <section className="recipe-editor-section stack">
             <h2 className="sr-only">Recipe introduction</h2>
             <Label>
@@ -664,7 +737,7 @@ function NetworkEditor({
                 placeholder="Lemon pasta"
               />
             </Label>
-            <Disclosure title="Introduction" populated={!!editing.data.summary}>
+            <Disclosure title="Introduction" populated={!!data.summary}>
               <Label>
                 Short description
                 <Textarea
@@ -719,7 +792,7 @@ function NetworkEditor({
                 <Disclosure
                   title="Preparation"
                   label={`Ingredient ${index + 1} preparation options`}
-                  populated={!!editing.data.ingredients[index]?.preparation}
+                  populated={!!data.ingredients[index]?.preparation}
                 >
                   <Label>
                     <span className="sr-only">Ingredient {index + 1} preparation</span>
@@ -808,11 +881,7 @@ function NetworkEditor({
             <Disclosure
               title="Time & servings"
               populated={
-                !!(
-                  editing.data.yield ||
-                  editing.data.prepMinutes !== undefined ||
-                  editing.data.cookMinutes !== undefined
-                )
+                !!(data.yield || data.prepMinutes !== undefined || data.cookMinutes !== undefined)
               }
             >
               <div className="recipe-fields-pair">
@@ -846,7 +915,7 @@ function NetworkEditor({
               </Label>
               <Disclosure
                 title="Separate quantity & unit"
-                populated={!!(editing.data.yield?.quantity || editing.data.yield?.unit)}
+                populated={!!(data.yield?.quantity || data.yield?.unit)}
               >
                 <div className="recipe-fields-pair">
                   <Label>
@@ -874,7 +943,7 @@ function NetworkEditor({
                 </div>
               </Disclosure>
             </Disclosure>
-            <Disclosure title="Notes" populated={!!editing.data.description}>
+            <Disclosure title="Notes" populated={!!data.description}>
               <Label>
                 Cooking notes
                 <Textarea
@@ -885,10 +954,7 @@ function NetworkEditor({
                 />
               </Label>
             </Disclosure>
-            <Disclosure
-              title="Tags & language"
-              populated={!!(editing.data.tags?.length || editing.data.language)}
-            >
+            <Disclosure title="Tags & language" populated={!!(data.tags?.length || data.language)}>
               <div className="stack">
                 {(data.tags || []).map((tag, index) => (
                   <div className="recipe-tag-row" key={index}>
@@ -955,9 +1021,7 @@ function NetworkEditor({
             </Disclosure>
             <Disclosure
               title="Source & inspiration"
-              populated={
-                !!(editing.data.source || editing.data.derivedFrom || editing.data.adaptationNote)
-              }
+              populated={!!(data.source || data.derivedFrom || data.adaptationNote)}
             >
               <Label>
                 Source name
@@ -991,7 +1055,7 @@ function NetworkEditor({
                   onChange={(e) => update('adaptationNote', e.target.value || undefined)}
                 />
               </Label>
-              <Disclosure title="Credit a Brownbag recipe" populated={!!editing.data.derivedFrom}>
+              <Disclosure title="Credit a Brownbag recipe" populated={!!data.derivedFrom}>
                 <p className="muted">
                   “Make it your own” fills this in for you. You can also enter a recipe’s record
                   address and version.
@@ -1034,7 +1098,7 @@ function NetworkEditor({
                 )}
               </Disclosure>
             </Disclosure>
-            <Disclosure title="Photos" hint="Up to 8" populated={!!editing.data.images?.length}>
+            <Disclosure title="Photos" hint="Up to 8" populated={!!data.images?.length}>
               <p className="muted">
                 JPEG, PNG, WebP or AVIF, up to 5 MB each. Photos are uploaded to your account and
                 may be accessible before the recipe is published.
@@ -1058,11 +1122,7 @@ function NetworkEditor({
                   </Label>
                   <Disclosure
                     title="Image dimensions"
-                    populated={
-                      !!(
-                        editing.data.images?.[index]?.width || editing.data.images?.[index]?.height
-                      )
-                    }
+                    populated={!!(data.images?.[index]?.width || data.images?.[index]?.height)}
                   >
                     <div className="recipe-fields-pair">
                       {(['width', 'height'] as const).map((key) => (

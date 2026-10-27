@@ -1,3 +1,4 @@
+import { importRecipe } from './recipe-import.js';
 import { mountPrivateData } from './private-data.js';
 import { cookbookTagsSchema, defaultCookbookTags } from '../shared/atproto.js';
 import express, { type ErrorRequestHandler, type RequestHandler } from 'express';
@@ -268,6 +269,14 @@ export function createNetworkApp(config: {
     if (['GET', 'HEAD'].includes(req.method)) return next();
     if (!res.locals.user) return next(new HttpError(401, 'Sign in to continue.'));
     void store.rateLimit(`write:${res.locals.user.did}`, 60).then(() => next(), next);
+  });
+  app.post('/api/recipes/import', async (req, res) => {
+    const { url } = z
+      .object({ url: z.string().trim().min(1).max(2000) })
+      .strict()
+      .parse(req.body);
+    await store.rateLimit(`recipe-import:${res.locals.user.did}`, 15, 300);
+    res.json({ recipe: await importRecipe(url) });
   });
   app.post(
     '/api/images',
