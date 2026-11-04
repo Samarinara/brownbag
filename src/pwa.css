@@ -97,3 +97,19 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+.app-settings {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+.app-settings h3,
+.app-settings p {
+  margin: 0;
+}
+
+@media (max-width: 799px) {
+  .network-header > .network-actions[data-guest='true'] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}

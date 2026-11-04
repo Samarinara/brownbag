@@ -1,4 +1,5 @@
 import { Button } from './ui';
+import { Modal } from './components';
 import { Dialog, DialogContent, DialogTitle } from '@samarinara/polli-ui/components/dialog';
 import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
@@ -67,7 +68,15 @@ export function OfflineRecipeButton({ recipe }: { recipe: RecipeView }) {
   );
 }
 
-export function PwaTools({ canReload }: { canReload: () => boolean }) {
+export function PwaTools({
+  canReload,
+  settingsOpen,
+  closeSettings,
+}: {
+  canReload: () => boolean;
+  settingsOpen: boolean;
+  closeSettings: () => void;
+}) {
   const [online, setOnline] = useState(navigator.onLine);
   const [install, setInstall] = useState<InstallEvent>();
   const [standalone, setStandalone] = useState(
@@ -132,60 +141,77 @@ export function PwaTools({ canReload }: { canReload: () => boolean }) {
   };
   return (
     <>
-      <aside className="pwa-tools" aria-label="App and offline options">
-        {!online && <span role="status">You’re offline. Open a recipe kept on this device.</span>}
-        <Button className="text-button" onClick={() => void openLibrary()}>
-          Offline recipes
-        </Button>
-        {!standalone && (
-          <Button
-            className="text-button"
-            onClick={async () => {
-              if (!install) {
-                setHelp(!help);
-                return;
-              }
-              try {
-                await install.prompt();
-                await install.userChoice;
-                setInstall(undefined);
-              } catch {
-                setHelp(true);
-              }
-            }}
-          >
-            Install app
-          </Button>
-        )}
-        {help && (
-          <p>
-            On iPhone or iPad, open Brownbag in Safari, tap Share, then Add to Home Screen. On
-            Android, use your browser’s Install app or Add to Home screen menu.
-          </p>
-        )}
-        {needRefresh && (
-          <div className="pwa-update" role="status">
-            <span>
-              A new version is ready. Save your work in other Brownbag tabs before updating.
-            </span>
+      {(!online || needRefresh || (error && !library)) && (
+        <aside className="pwa-tools" aria-label="App status">
+          {!online && <span role="status">You’re offline. Find saved recipes in Settings.</span>}
+          {needRefresh && (
+            <div className="pwa-update" role="status">
+              <span>
+                A new version is ready. Save your work in other Brownbag tabs before updating.
+              </span>
+              <Button
+                className="button secondary"
+                onClick={() => {
+                  if (canReload())
+                    void updateServiceWorker(true).catch(() =>
+                      setError('Could not update. Please reload when connected.'),
+                    );
+                }}
+              >
+                Update now
+              </Button>
+              <Button className="text-button" onClick={() => setNeedRefresh(false)}>
+                Later
+              </Button>
+            </div>
+          )}
+          {error && !library && <p role="alert">{error}</p>}
+        </aside>
+      )}
+      {settingsOpen && (
+        <Modal title="Settings" close={closeSettings}>
+          <section className="app-settings">
+            <h3>This device</h3>
             <Button
-              className="button secondary"
+              className="text-button"
               onClick={() => {
-                if (canReload())
-                  void updateServiceWorker(true).catch(() =>
-                    setError('Could not update. Please reload when connected.'),
-                  );
+                closeSettings();
+                void openLibrary();
               }}
             >
-              Update now
+              Offline recipes
             </Button>
-            <Button className="text-button" onClick={() => setNeedRefresh(false)}>
-              Later
-            </Button>
-          </div>
-        )}
-        {error && !library && <p role="alert">{error}</p>}
-      </aside>
+            {!standalone && (
+              <Button
+                className="text-button"
+                onClick={async () => {
+                  if (!install) {
+                    setHelp(!help);
+                    return;
+                  }
+                  try {
+                    await install.prompt();
+                    await install.userChoice;
+                    setInstall(undefined);
+                  } catch {
+                    setHelp(true);
+                  }
+                }}
+              >
+                Install app
+              </Button>
+            )}
+            {help && (
+              <p>
+                On iPhone or iPad, open Brownbag in Safari, tap Share, then Add to Home Screen. On
+                Android, use your browser’s Install app or Add to Home screen menu.
+              </p>
+            )}
+
+            {standalone && <p>Brownbag is installed on this device.</p>}
+          </section>
+        </Modal>
+      )}
       <Dialog
         open={library}
         onOpenChange={(open) => {

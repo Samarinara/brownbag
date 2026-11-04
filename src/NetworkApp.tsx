@@ -10,11 +10,11 @@ import {
   Bookmark,
   CalendarDays,
   Check,
-  Link2,
   PanelsTopLeft,
   Plus,
   Search,
   Share2,
+  Settings,
   Tags,
   UserRound,
   X,
@@ -93,6 +93,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
   const [login, setLogin] = useState(false);
   const [account, setAccount] = useState(() => demo && appPath() === '/account');
   const [accountMenu, setAccountMenu] = useState(false);
+  const [settings, setSettings] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>(savedTheme);
   const [editorRoute, setEditorRoute] = useState(currentEditorRoute);
   const [plannerRoute, setPlannerRoute] = useState(currentPlannerRoute);
@@ -616,7 +617,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
             brownbag<span className="brand-period">.</span>
           </span>
         </a>
-        <nav className="network-actions" aria-label="Main navigation">
+        <nav className="network-actions" aria-label="Main navigation" data-guest={!user && !demo}>
           <a
             href={appUrl('/feed')}
             className="network-cookbook-link network-feed-link"
@@ -718,6 +719,14 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                       if (restoreFocus)
                         requestAnimationFrame(() => accountButtonRef.current?.focus());
                     }}
+                    settings={
+                      demo
+                        ? undefined
+                        : () => {
+                            setAccountMenu(false);
+                            setSettings(true);
+                          }
+                    }
                     manage={() => {
                       setAccountMenu(false);
                       setAccount(true);
@@ -755,9 +764,25 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
               <span>Sign in</span>
             </Button>
           )}
+          {!demo && !user && (
+            <Button
+              className="icon-button"
+              aria-label="Settings"
+              title="Settings"
+              onClick={() => setSettings(true)}
+            >
+              <Settings size={20} aria-hidden="true" />
+            </Button>
+          )}
         </nav>
       </header>
-      {!demo && <PwaTools canReload={() => leaveGuard.current()} />}
+      {!demo && (
+        <PwaTools
+          canReload={() => leaveGuard.current()}
+          settingsOpen={settings}
+          closeSettings={() => setSettings(false)}
+        />
+      )}
       <main
         ref={mainRef}
         id="main-content"
@@ -1138,28 +1163,6 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                     </Button>
                     <OfflineRecipeButton key={recipe.uri} recipe={recipe} />
                     <div className="detail-share-row" role="group" aria-label="Share this recipe">
-                      <Button
-                        type="button"
-                        className="icon-button"
-                        title="Copy link to this recipe"
-                        aria-label="Copy link to this recipe"
-                        onClick={() => {
-                          const url = `${location.origin}${appUrl(recipeUrl(recipe.uri))}`;
-                          const done = () => notify('Link copied to clipboard');
-                          if (navigator.clipboard?.writeText) {
-                            void navigator.clipboard
-                              .writeText(url)
-                              .then(done)
-                              .catch(() => {
-                                setToast({ kind: 'error', text: 'Could not copy the link.' });
-                              });
-                          } else {
-                            window.prompt('Copy this link:', url);
-                          }
-                        }}
-                      >
-                        <Link2 size={17} />
-                      </Button>
                       <Button
                         type="button"
                         className="icon-button"

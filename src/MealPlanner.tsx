@@ -1,5 +1,5 @@
 import { isPlainNavigation } from './routes';
-import { Tabs, TabsList, TabsTrigger, TabsContent, Surface } from './ui';
+import { Tabs, TabsList, TabsTrigger, TabsContent, Surface, Skeleton } from './ui';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -55,7 +55,9 @@ export function MealPlanner({
   const date = parsed.success ? parsed.data : localDate();
   const day = url.pathname === '/meal-planner/day';
   const start = weekStart(date);
-  const [entries, setEntries] = useState<MealEntry[]>([]);
+  const [schedule, setSchedule] = useState<{ week: string; entries: MealEntry[] }>();
+  const hasSchedule = schedule?.week === start;
+  const entries = hasSchedule ? schedule.entries : [];
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,7 +87,7 @@ export function MealPlanner({
     setMenu(undefined);
     api<{ entries: MealEntry[] }>(`/planner?from=${start}&to=${addDays(start, 6)}`)
       .then(({ entries }) => {
-        if (alive) setEntries(entries);
+        if (alive) setSchedule({ week: start, entries });
       })
       .catch((error) => {
         if (alive) setError(errorMessage(error));
@@ -173,7 +175,7 @@ export function MealPlanner({
           </Button>
         )}
         <p className="planner-status" role="status">
-          {loading ? 'Loading your meals…' : notice}
+          {loading ? (hasSchedule ? 'Updating meals…' : 'Loading your meals…') : notice}
         </p>
         <TabsContent value={day ? 'day' : 'week'} asChild>
           <div className="planner-board" ref={board} aria-busy={loading}>
@@ -202,7 +204,6 @@ export function MealPlanner({
                   const meals = entries.filter(
                     (entry) => entry.date === currentDate && entry.slot === slot,
                   );
-                  const notes = meals.filter((entry) => entry.note);
                   return (
                     <section
                       className="planner-slot"
@@ -211,19 +212,28 @@ export function MealPlanner({
                     >
                       <div className="planner-slot-heading">
                         <h2>{mealLabels[slot]}</h2>
-                        <Button
-                          className="icon-button"
-                          disabled={loading || currentDate < retentionStart()}
-                          aria-label={`Add recipe to ${mealLabels[slot]} on ${displayDate(currentDate)}`}
-                          onClick={() => setPicker({ date: currentDate, slot })}
-                        >
-                          <Plus size={16} />
-                        </Button>
+                        {meals.length > 0 && (
+                          <Button
+                            className="icon-button"
+                            disabled={loading || currentDate < retentionStart()}
+                            aria-label={`Add recipe to ${mealLabels[slot]} on ${displayDate(currentDate)}`}
+                            onClick={() => setPicker({ date: currentDate, slot })}
+                          >
+                            <Plus size={16} />
+                          </Button>
+                        )}
                       </div>
-                      {!loading && !meals.length && (
+                      {!hasSchedule && !error && (
+                        <div className="planner-slot-placeholder" aria-hidden="true">
+                          <Skeleton className="planner-skeleton-title" />
+                          <Skeleton className="planner-skeleton-time" />
+                        </div>
+                      )}
+                      {hasSchedule && !meals.length && (
                         <Button
                           className="planner-empty-slot"
-                          disabled={currentDate < retentionStart()}
+                          disabled={loading || currentDate < retentionStart()}
+                          aria-label={`Add recipe to ${mealLabels[slot]} on ${displayDate(currentDate)}`}
                           onClick={() => setPicker({ date: currentDate, slot })}
                         >
                           {currentDate < retentionStart() ? (
@@ -235,103 +245,92 @@ export function MealPlanner({
                           )}
                         </Button>
                       )}
-                      {!loading &&
-                        meals.map((entry) => {
-                          const time = recipeTime(entry.recipe.record);
-                          return (
-                            <Surface className="planner-entry" role="article" key={entry.id}>
-                              <a
-                                href={appUrl(`/recipe?uri=${encodeURIComponent(entry.recipe.uri)}`)}
-                                onClick={(event) => {
-                                  if (!isPlainNavigation(event)) return;
-                                  event.preventDefault();
-                                  openRecipe(entry.recipe.uri);
-                                }}
-                              >
-                                {day && entry.recipe.record.images?.length ? (
-                                  <RecipeImage recipe={entry.recipe} />
-                                ) : null}
-                                <strong>{entry.recipe.record.title}</strong>
-                                {time && (
-                                  <small className="planner-time">
-                                    <Clock3 size={12} />
-                                    {time.minutes} min
-                                    {time.label === 'Total time'
-                                      ? ''
-                                      : time.label === 'Prep time'
-                                        ? ' prep'
-                                        : ' cook'}
-                                  </small>
-                                )}
-                              </a>
-                              {entry.note && <p className="planner-note">{entry.note}</p>}
-                              <DropdownMenu
-                                open={menu === entry.id}
-                                onOpenChange={(open) => setMenu(open ? entry.id : undefined)}
-                              >
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    id={`meal-menu-${entry.id}`}
-                                    className="icon-button"
-                                    aria-label={`Options for ${entry.recipe.record.title}`}
-                                    aria-expanded={menu === entry.id}
-                                  >
-                                    <Menu size={16} />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="planner-menu-actions" align="end">
-                                  <DropdownMenuItem
-                                    onSelect={() => {
-                                      setEditing({ entry, mode: 'move' });
-                                      setMenu(undefined);
-                                    }}
-                                  >
-                                    Move to date / meal
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onSelect={() => {
-                                      setEditing({ entry, mode: 'note' });
-                                      setMenu(undefined);
-                                    }}
-                                  >
-                                    Edit note
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={busy}
-                                    onSelect={async (event) => {
-                                      event.preventDefault();
-                                      setBusy(true);
-                                      setError('');
-                                      try {
-                                        await api(`/planner/${entry.id}`, { method: 'DELETE' });
-                                        setMenu(undefined);
-                                        setNotice('Recipe removed from meal plan.');
-                                        refresh();
-                                      } catch (error) {
-                                        setError(errorMessage(error));
-                                      } finally {
-                                        setBusy(false);
-                                      }
-                                    }}
-                                  >
-                                    Remove from meal plan
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </Surface>
-                          );
-                        })}
-                      {day && !loading && notes.length > 0 && (
-                        <aside className="planner-meal-notes">
-                          <h3>Meal notes</h3>
-                          {notes.map((entry) => (
-                            <p key={entry.id}>
+                      {meals.map((entry) => {
+                        const time = recipeTime(entry.recipe.record);
+                        return (
+                          <Surface className="planner-entry" role="article" key={entry.id}>
+                            <a
+                              href={appUrl(`/recipe?uri=${encodeURIComponent(entry.recipe.uri)}`)}
+                              onClick={(event) => {
+                                if (!isPlainNavigation(event)) return;
+                                event.preventDefault();
+                                openRecipe(entry.recipe.uri);
+                              }}
+                            >
+                              {day && entry.recipe.record.images?.length ? (
+                                <RecipeImage recipe={entry.recipe} />
+                              ) : null}
                               <strong>{entry.recipe.record.title}</strong>
-                              <span>{entry.note}</span>
-                            </p>
-                          ))}
-                        </aside>
-                      )}
+                              {time && (
+                                <small className="planner-time">
+                                  <Clock3 size={12} />
+                                  {time.minutes} min
+                                  {time.label === 'Total time'
+                                    ? ''
+                                    : time.label === 'Prep time'
+                                      ? ' prep'
+                                      : ' cook'}
+                                </small>
+                              )}
+                            </a>
+                            {entry.note && <p className="planner-note">{entry.note}</p>}
+                            <DropdownMenu
+                              open={menu === entry.id}
+                              onOpenChange={(open) => setMenu(open ? entry.id : undefined)}
+                            >
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  id={`meal-menu-${entry.id}`}
+                                  className="icon-button"
+                                  aria-label={`Options for ${entry.recipe.record.title}`}
+                                  aria-expanded={menu === entry.id}
+                                  disabled={loading || busy}
+                                >
+                                  <Menu size={16} />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent className="planner-menu-actions" align="end">
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    setEditing({ entry, mode: 'move' });
+                                    setMenu(undefined);
+                                  }}
+                                >
+                                  Move to date / meal
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    setEditing({ entry, mode: 'note' });
+                                    setMenu(undefined);
+                                  }}
+                                >
+                                  Edit note
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={busy}
+                                  onSelect={async (event) => {
+                                    event.preventDefault();
+                                    setBusy(true);
+                                    setError('');
+                                    try {
+                                      await api(`/planner/${entry.id}`, { method: 'DELETE' });
+                                      setMenu(undefined);
+                                      setNotice('Recipe removed from meal plan.');
+                                      refresh();
+                                    } catch (error) {
+                                      setError(errorMessage(error));
+                                    } finally {
+                                      setBusy(false);
+                                    }
+                                  }}
+                                >
+                                  Remove from meal plan
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </Surface>
+                        );
+                      })}
                     </section>
                   );
                 })}

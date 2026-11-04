@@ -18,6 +18,7 @@ export function AccountMenu({
   setTheme,
   close,
   manage,
+  settings,
   signOut,
 }: {
   user: SessionUser;
@@ -25,6 +26,7 @@ export function AccountMenu({
   setTheme: (theme: ThemePreference) => void;
   close: (restoreFocus?: boolean) => void;
   manage: () => void;
+  settings?: () => void;
   signOut: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -69,6 +71,12 @@ export function AccountMenu({
         ))}
       </div>
       <div className="account-menu-actions">
+        {settings && (
+          <DropdownMenuItem onSelect={settings}>
+            <Settings size={16} />
+            <span>Settings</span>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={manage}>
           <Settings size={16} />
           <span>Manage account</span>
