@@ -10,7 +10,6 @@ import {
   Bookmark,
   CalendarDays,
   Check,
-  Link2,
   PanelsTopLeft,
   Plus,
   Search,
@@ -93,6 +92,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
   const [login, setLogin] = useState(false);
   const [account, setAccount] = useState(() => demo && appPath() === '/account');
   const [accountMenu, setAccountMenu] = useState(false);
+  const [settings, setSettings] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>(savedTheme);
   const [editorRoute, setEditorRoute] = useState(currentEditorRoute);
   const [plannerRoute, setPlannerRoute] = useState(currentPlannerRoute);
@@ -692,72 +692,72 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
             <Search size={24} aria-hidden="true" />
             <span>Search</span>
           </a>
-          {user ? (
-            <div className="account-menu-wrap">
-              <DropdownMenu open={accountMenu} onOpenChange={setAccountMenu} modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    ref={accountButtonRef}
-                    className="network-account-button"
-                    aria-label="Open account menu"
-                    aria-haspopup="menu"
-                    aria-expanded={accountMenu}
-                    title={user.handle ? `@${user.handle}` : 'Account'}
-                  >
-                    <UserRound size={22} aria-hidden="true" />
-                    <span className="network-account-label">Account</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                {accountMenu && (
-                  <AccountMenu
-                    user={user}
-                    theme={theme}
-                    setTheme={setTheme}
-                    close={(restoreFocus = true) => {
-                      setAccountMenu(false);
-                      if (restoreFocus)
-                        requestAnimationFrame(() => accountButtonRef.current?.focus());
-                    }}
-                    manage={() => {
-                      setAccountMenu(false);
-                      setAccount(true);
-                    }}
-                    signOut={async () => {
-                      if (!leaveGuard.current())
-                        throw new Error('Finish or save your recipe before signing out.');
-                      await post('/auth/logout', {});
-                      leaveGuard.current = () => true;
-                      setUser(null);
-                      setAccountMenu(false);
-                      setFeed('discover');
-                      go(null, 'discover');
-                      notify('Signed out');
-                    }}
-                  />
-                )}
-              </DropdownMenu>
-            </div>
-          ) : (
-            <Button
-              className="network-sign-in"
-              aria-label="Sign in"
-              disabled={!ready || configured !== true}
-              title={
-                !ready
-                  ? 'Sign in is unavailable while the app loads.'
-                  : configured !== true
-                    ? 'Sign in is unavailable until setup is complete.'
-                    : 'Sign in to your cookbook'
-              }
-              onClick={() => setLogin(true)}
-            >
-              <UserRound size={22} aria-hidden="true" />
-              <span>Sign in</span>
-            </Button>
-          )}
+          <div className="account-menu-wrap">
+            <DropdownMenu open={accountMenu} onOpenChange={setAccountMenu} modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  ref={accountButtonRef}
+                  className={user ? 'network-account-button' : 'network-sign-in'}
+                  aria-label={user ? 'Open account menu' : 'Open login menu'}
+                  aria-haspopup="menu"
+                  aria-expanded={accountMenu}
+                  title={user?.handle ? `@${user.handle}` : 'Login and settings'}
+                >
+                  <UserRound size={22} aria-hidden="true" />
+                  <span className="network-account-label">{user ? 'Account' : 'Log in'}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              {accountMenu && (
+                <AccountMenu
+                  user={user}
+                  signIn={() => {
+                    setAccountMenu(false);
+                    setLogin(true);
+                  }}
+                  canSignIn={ready && configured === true}
+                  theme={theme}
+                  setTheme={setTheme}
+                  close={(restoreFocus = true) => {
+                    setAccountMenu(false);
+                    if (restoreFocus)
+                      requestAnimationFrame(() => accountButtonRef.current?.focus());
+                  }}
+                  settings={
+                    demo
+                      ? undefined
+                      : () => {
+                          setAccountMenu(false);
+                          setSettings(true);
+                        }
+                  }
+                  manage={() => {
+                    setAccountMenu(false);
+                    setAccount(true);
+                  }}
+                  signOut={async () => {
+                    if (!leaveGuard.current())
+                      throw new Error('Finish or save your recipe before signing out.');
+                    await post('/auth/logout', {});
+                    leaveGuard.current = () => true;
+                    setUser(null);
+                    setAccountMenu(false);
+                    setFeed('discover');
+                    go(null, 'discover');
+                    notify('Signed out');
+                  }}
+                />
+              )}
+            </DropdownMenu>
+          </div>
         </nav>
       </header>
-      {!demo && <PwaTools canReload={() => leaveGuard.current()} />}
+      {!demo && (
+        <PwaTools
+          canReload={() => leaveGuard.current()}
+          settingsOpen={settings}
+          closeSettings={() => setSettings(false)}
+        />
+      )}
       <main
         ref={mainRef}
         id="main-content"
@@ -1138,28 +1138,6 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
                     </Button>
                     <OfflineRecipeButton key={recipe.uri} recipe={recipe} />
                     <div className="detail-share-row" role="group" aria-label="Share this recipe">
-                      <Button
-                        type="button"
-                        className="icon-button"
-                        title="Copy link to this recipe"
-                        aria-label="Copy link to this recipe"
-                        onClick={() => {
-                          const url = `${location.origin}${appUrl(recipeUrl(recipe.uri))}`;
-                          const done = () => notify('Link copied to clipboard');
-                          if (navigator.clipboard?.writeText) {
-                            void navigator.clipboard
-                              .writeText(url)
-                              .then(done)
-                              .catch(() => {
-                                setToast({ kind: 'error', text: 'Could not copy the link.' });
-                              });
-                          } else {
-                            window.prompt('Copy this link:', url);
-                          }
-                        }}
-                      >
-                        <Link2 size={17} />
-                      </Button>
                       <Button
                         type="button"
                         className="icon-button"

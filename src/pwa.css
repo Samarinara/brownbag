@@ -97,3 +97,13 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+.app-settings {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+.app-settings h3,
+.app-settings p {
+  margin: 0;
+}
