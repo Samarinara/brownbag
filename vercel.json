@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "git": {
     "deploymentEnabled": {
-      "main": false
+      "main": true
     }
   },
   "outputDirectory": "dist/client",
