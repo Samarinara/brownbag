@@ -1,45 +1,54 @@
-import { load } from 'cheerio';
-import { safeFetchWrap } from '@atproto-labs/fetch-node';
-import { recipeInputSchema, type RecipeInput } from '../shared/atproto.js';
-import { HttpError } from './network-store.js';
+import { load } from "cheerio";
+import { safeFetchWrap } from "@atproto-labs/fetch-node";
+import { recipeInputSchema, type RecipeInput } from "../shared/model.js";
+import { HttpError } from "./errors.js";
 
-const fetchPage = safeFetchWrap({ responseMaxSize: 3_000_000, timeout: 15_000, allowHttp: true });
+const fetchPage = safeFetchWrap({
+  responseMaxSize: 3_000_000,
+  timeout: 15_000,
+  allowHttp: true,
+});
 
 export function recipeImportUrl(value: string): URL {
   let url: URL;
   try {
     url = new URL(value.trim());
   } catch {
-    throw new HttpError(400, 'Paste a complete recipe link starting with https://.');
+    throw new HttpError(
+      400,
+      "Paste a complete recipe link starting with https://.",
+    );
   }
   if (
-    !['http:', 'https:'].includes(url.protocol) ||
+    !["http:", "https:"].includes(url.protocol) ||
     url.username ||
     url.password ||
     url.href.length > 2000
   )
     throw new HttpError(
       400,
-      'Choose a public HTTP or HTTPS recipe link without a username or password.',
+      "Choose a public HTTP or HTTPS recipe link without a username or password.",
     );
-  url.hash = '';
+  url.hash = "";
   return url;
 }
 
 type Node = Record<string, unknown>;
 const object = (value: unknown): value is Node =>
-  !!value && typeof value === 'object' && !Array.isArray(value);
+  !!value && typeof value === "object" && !Array.isArray(value);
 const list = (value: unknown): unknown[] =>
   value == null ? [] : Array.isArray(value) ? value : [value];
 const plain = (value: unknown): string => {
-  if (typeof value !== 'string') return '';
-  return load(value.replace(/<br\s*\/?\s*>/gi, '\n'))
+  if (typeof value !== "string") return "";
+  return load(value.replace(/<br\s*\/?\s*>/gi, "\n"))
     .text()
     .trim();
 };
 const minutes = (value: unknown): number | undefined => {
-  if (typeof value !== 'string') return;
-  const match = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/i.exec(value);
+  if (typeof value !== "string") return;
+  const match = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/i.exec(
+    value,
+  );
   if (!match || !match.slice(1).some(Boolean)) return;
   const result = Math.ceil(
     Number(match[1] || 0) * 1440 +
@@ -50,16 +59,20 @@ const minutes = (value: unknown): number | undefined => {
   return result <= 100000 ? result : undefined;
 };
 
-function instructions(value: unknown, group?: string): RecipeInput['instructions'] {
+function instructions(
+  value: unknown,
+  group?: string,
+): RecipeInput["instructions"] {
   return list(value).flatMap((step) => {
-    if (typeof step === 'string')
+    if (typeof step === "string")
       return step
         .split(/\n+/)
         .map(plain)
         .filter(Boolean)
         .map((text) => ({ text, ...(group ? { group } : {}) }));
     if (!object(step)) return [];
-    if (step.itemListElement) return instructions(step.itemListElement, plain(step.name) || group);
+    if (step.itemListElement)
+      return instructions(step.itemListElement, plain(step.name) || group);
     const text = plain(step.text) || plain(step.name);
     return text ? [{ text, ...(group ? { group } : {}) }] : [];
   });
@@ -73,8 +86,8 @@ export function parseRecipePage(html: string, sourceUrl: string): RecipeInput {
     if (Array.isArray(value)) return value.forEach(walk);
     if (!object(value)) return;
     if (
-      list(value['@type']).some(
-        (type) => typeof type === 'string' && /(?:^|[/#])Recipe$/.test(type),
+      list(value["@type"]).some(
+        (type) => typeof type === "string" && /(?:^|[/#])Recipe$/.test(type),
       )
     )
       recipes.push(value);
@@ -91,7 +104,7 @@ export function parseRecipePage(html: string, sourceUrl: string): RecipeInput {
     const author = list(recipe.author)
       .map((entry) => plain(object(entry) ? entry.name : entry))
       .filter(Boolean)
-      .join(', ');
+      .join(", ");
     const result = recipeInputSchema.safeParse({
       title: plain(recipe.name),
       ...(Buffer.byteLength(plain(recipe.description)) <= 1000
@@ -107,9 +120,11 @@ export function parseRecipePage(html: string, sourceUrl: string): RecipeInput {
       yield: recipe.recipeYield
         ? {
             display: list(recipe.recipeYield)
-              .map((item) => (typeof item === 'number' ? String(item) : plain(item)))
+              .map((item) =>
+                typeof item === "number" ? String(item) : plain(item),
+              )
               .filter(Boolean)
-              .join(' · '),
+              .join(" · "),
           }
         : undefined,
       source: { url: sourceUrl, name: author || new URL(sourceUrl).hostname },
@@ -119,29 +134,33 @@ export function parseRecipePage(html: string, sourceUrl: string): RecipeInput {
   throw new HttpError(
     422,
     recipes.length
-      ? 'This recipe is incomplete or too large to import. You can enter it manually and keep the source link.'
-      : 'No supported recipe was found on this page. Try a direct recipe link, or enter it manually.',
+      ? "This recipe is incomplete or too large to import. You can enter it manually and keep the source link."
+      : "No supported recipe was found on this page. Try a direct recipe link, or enter it manually.",
   );
 }
 
-export async function importRecipe(value: string, fetcher = fetchPage): Promise<RecipeInput> {
+export async function importRecipe(
+  value: string,
+  fetcher = fetchPage,
+): Promise<RecipeInput> {
   const url = recipeImportUrl(value);
   let html: string;
   let sourceUrl: string;
   try {
     const response = await fetcher(url, {
-      redirect: 'follow',
-      headers: { Accept: 'text/html,application/xhtml+xml' },
+      redirect: "follow",
+      headers: { Accept: "text/html,application/xhtml+xml" },
     });
-    if (!response.ok) throw new Error('Unavailable');
-    const type = response.headers.get('content-type')?.split(';')[0].trim();
-    if (type !== 'text/html' && type !== 'application/xhtml+xml') throw new Error('Not HTML');
+    if (!response.ok) throw new Error("Unavailable");
+    const type = response.headers.get("content-type")?.split(";")[0].trim();
+    if (type !== "text/html" && type !== "application/xhtml+xml")
+      throw new Error("Not HTML");
     sourceUrl = recipeImportUrl(response.url || url.href).href;
     html = await response.text();
   } catch {
     throw new HttpError(
       422,
-      'This page could not be read. The site may block imports. Try another recipe link, or enter it manually.',
+      "This page could not be read. The site may block imports. Try another recipe link, or enter it manually.",
     );
   }
   return parseRecipePage(html, sourceUrl);

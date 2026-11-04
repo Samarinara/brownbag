@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Brownbag",
+    "slug": "brownbag",
+    "version": "0.3.0",
+    "scheme": "brownbag",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FAFBF6",
+    "android": {
+      "package": "page.polli.brownbag",
+      "versionCode": 3
+    },
+    "ios": {
+      "bundleIdentifier": "page.polli.brownbag",
+      "supportsTablet": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Brownbag",
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": ["expo-secure-store", "expo-font", "expo-sqlite"],
+    "icon": "./assets/icon.png"
+  }
+}

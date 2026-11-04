@@ -1,11 +1,8 @@
 {
+  "framework": null,
+  "installCommand": "npm ci",
   "buildCommand": "npm run build",
-  "git": {
-    "deploymentEnabled": {
-      "main": true
-    }
-  },
-  "outputDirectory": "dist/client",
+  "outputDirectory": "dist",
   "functions": {
     "api/index.ts": {
       "maxDuration": 60
@@ -17,23 +14,11 @@
       "destination": "/api"
     },
     {
-      "source": "/mcp",
-      "destination": "/api"
-    },
-    {
       "source": "/health",
       "destination": "/api"
     },
     {
-      "source": "/oauth-client-metadata.json",
-      "destination": "/api"
-    },
-    {
-      "source": "/jwks.json",
-      "destination": "/api"
-    },
-    {
-      "source": "/((?!assets/|fonts/|icons/|favicon\\.svg$|manifest\\.webmanifest$|sw\\.js$|workbox-[^/]+\\.js$|\\.well-known/).*)",
+      "source": "/((?!_expo/|assets/|favicon.ico|sw.js).*)",
       "destination": "/index.html"
     }
   ],
@@ -44,19 +29,6 @@
         {
           "key": "Cache-Control",
           "value": "no-cache"
-        }
-      ]
-    },
-    {
-      "source": "/.well-known/assetlinks.json",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/json"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=300"
         }
       ]
     }
