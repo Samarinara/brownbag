@@ -107,9 +107,3 @@ body {
 .app-settings p {
   margin: 0;
 }
-
-@media (max-width: 799px) {
-  .network-header > .network-actions[data-guest='true'] {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}

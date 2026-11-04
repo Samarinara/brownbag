@@ -1751,7 +1751,7 @@
   line-height: 1.7;
 }
 
-/* Share / copy controls on recipe detail. */
+/* Recipe sharing uses one circular action. */
 .detail-share-row {
   display: flex;
   align-items: center;
@@ -1760,9 +1760,13 @@
 }
 .detail-share-row .icon-button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  min-width: 40px;
-  min-height: 40px;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  flex-shrink: 0;
   background: var(--white);
 }
 

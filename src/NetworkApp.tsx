@@ -14,7 +14,6 @@ import {
   Plus,
   Search,
   Share2,
-  Settings,
   Tags,
   UserRound,
   X,
@@ -617,7 +616,7 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
             brownbag<span className="brand-period">.</span>
           </span>
         </a>
-        <nav className="network-actions" aria-label="Main navigation" data-guest={!user && !demo}>
+        <nav className="network-actions" aria-label="Main navigation">
           <a
             href={appUrl('/feed')}
             className="network-cookbook-link network-feed-link"
@@ -693,87 +692,63 @@ export function App({ demo = false }: { demo?: boolean } = {}) {
             <Search size={24} aria-hidden="true" />
             <span>Search</span>
           </a>
-          {user ? (
-            <div className="account-menu-wrap">
-              <DropdownMenu open={accountMenu} onOpenChange={setAccountMenu} modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    ref={accountButtonRef}
-                    className="network-account-button"
-                    aria-label="Open account menu"
-                    aria-haspopup="menu"
-                    aria-expanded={accountMenu}
-                    title={user.handle ? `@${user.handle}` : 'Account'}
-                  >
-                    <UserRound size={22} aria-hidden="true" />
-                    <span className="network-account-label">Account</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                {accountMenu && (
-                  <AccountMenu
-                    user={user}
-                    theme={theme}
-                    setTheme={setTheme}
-                    close={(restoreFocus = true) => {
-                      setAccountMenu(false);
-                      if (restoreFocus)
-                        requestAnimationFrame(() => accountButtonRef.current?.focus());
-                    }}
-                    settings={
-                      demo
-                        ? undefined
-                        : () => {
-                            setAccountMenu(false);
-                            setSettings(true);
-                          }
-                    }
-                    manage={() => {
-                      setAccountMenu(false);
-                      setAccount(true);
-                    }}
-                    signOut={async () => {
-                      if (!leaveGuard.current())
-                        throw new Error('Finish or save your recipe before signing out.');
-                      await post('/auth/logout', {});
-                      leaveGuard.current = () => true;
-                      setUser(null);
-                      setAccountMenu(false);
-                      setFeed('discover');
-                      go(null, 'discover');
-                      notify('Signed out');
-                    }}
-                  />
-                )}
-              </DropdownMenu>
-            </div>
-          ) : (
-            <Button
-              className="network-sign-in"
-              aria-label="Sign in"
-              disabled={!ready || configured !== true}
-              title={
-                !ready
-                  ? 'Sign in is unavailable while the app loads.'
-                  : configured !== true
-                    ? 'Sign in is unavailable until setup is complete.'
-                    : 'Sign in to your cookbook'
-              }
-              onClick={() => setLogin(true)}
-            >
-              <UserRound size={22} aria-hidden="true" />
-              <span>Sign in</span>
-            </Button>
-          )}
-          {!demo && !user && (
-            <Button
-              className="icon-button"
-              aria-label="Settings"
-              title="Settings"
-              onClick={() => setSettings(true)}
-            >
-              <Settings size={20} aria-hidden="true" />
-            </Button>
-          )}
+          <div className="account-menu-wrap">
+            <DropdownMenu open={accountMenu} onOpenChange={setAccountMenu} modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  ref={accountButtonRef}
+                  className={user ? 'network-account-button' : 'network-sign-in'}
+                  aria-label={user ? 'Open account menu' : 'Open login menu'}
+                  aria-haspopup="menu"
+                  aria-expanded={accountMenu}
+                  title={user?.handle ? `@${user.handle}` : 'Login and settings'}
+                >
+                  <UserRound size={22} aria-hidden="true" />
+                  <span className="network-account-label">{user ? 'Account' : 'Log in'}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              {accountMenu && (
+                <AccountMenu
+                  user={user}
+                  signIn={() => {
+                    setAccountMenu(false);
+                    setLogin(true);
+                  }}
+                  canSignIn={ready && configured === true}
+                  theme={theme}
+                  setTheme={setTheme}
+                  close={(restoreFocus = true) => {
+                    setAccountMenu(false);
+                    if (restoreFocus)
+                      requestAnimationFrame(() => accountButtonRef.current?.focus());
+                  }}
+                  settings={
+                    demo
+                      ? undefined
+                      : () => {
+                          setAccountMenu(false);
+                          setSettings(true);
+                        }
+                  }
+                  manage={() => {
+                    setAccountMenu(false);
+                    setAccount(true);
+                  }}
+                  signOut={async () => {
+                    if (!leaveGuard.current())
+                      throw new Error('Finish or save your recipe before signing out.');
+                    await post('/auth/logout', {});
+                    leaveGuard.current = () => true;
+                    setUser(null);
+                    setAccountMenu(false);
+                    setFeed('discover');
+                    go(null, 'discover');
+                    notify('Signed out');
+                  }}
+                />
+              )}
+            </DropdownMenu>
+          </div>
         </nav>
       </header>
       {!demo && (

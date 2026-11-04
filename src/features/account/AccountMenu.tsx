@@ -1,7 +1,7 @@
 import { DropdownMenuContent, DropdownMenuItem } from '@samarinara/polli-ui/components/menu';
 import { Avatar } from '../../ui';
 import { useState } from 'react';
-import { LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import { LogIn, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import type { SessionUser } from '../../../shared/atproto';
 import type { ThemePreference } from '../../theme';
 import { message } from '../../errors';
@@ -14,6 +14,8 @@ const themeOptions: { value: ThemePreference; label: string; icon: typeof Monito
 
 export function AccountMenu({
   user,
+  signIn,
+  canSignIn,
   theme,
   setTheme,
   close,
@@ -21,7 +23,9 @@ export function AccountMenu({
   settings,
   signOut,
 }: {
-  user: SessionUser;
+  user: SessionUser | null;
+  signIn: () => void;
+  canSignIn: boolean;
   theme: ThemePreference;
   setTheme: (theme: ThemePreference) => void;
   close: (restoreFocus?: boolean) => void;
@@ -41,17 +45,25 @@ export function AccountMenu({
       role="menu"
       aria-label="Account menu"
     >
-      <div className="account-menu-profile">
-        <Avatar
-          className="account-menu-avatar"
-          name={user.handle?.replace(/^@/, '')[0]?.toUpperCase() || 'A'}
-          aria-label={user.handle || 'Your account'}
-        />
-        <div>
-          <strong>{user.handle ? `@${user.handle.replace(/^@/, '')}` : 'Your account'}</strong>
-          <span>Your brownbag</span>
+      {user && (
+        <div className="account-menu-profile">
+          <Avatar
+            className="account-menu-avatar"
+            name={user?.handle?.replace(/^@/, '')[0]?.toUpperCase() || 'A'}
+            aria-label={user?.handle || 'Your account'}
+          />
+          <div>
+            <strong>{user?.handle ? `@${user?.handle.replace(/^@/, '')}` : 'Your account'}</strong>
+            <span>Your brownbag</span>
+          </div>
         </div>
-      </div>
+      )}
+      {!user && (
+        <DropdownMenuItem disabled={!canSignIn} onSelect={signIn}>
+          <LogIn size={16} />
+          <span>Sign in</span>
+        </DropdownMenuItem>
+      )}
       <div className="theme-picker" role="group" aria-label="Appearance">
         {themeOptions.map(({ value, label, icon: Icon }) => (
           <DropdownMenuItem
@@ -77,25 +89,29 @@ export function AccountMenu({
             <span>Settings</span>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={manage}>
-          <Settings size={16} />
-          <span>Manage account</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={busy}
-          onSelect={(event) => {
-            event.preventDefault();
-            setBusy(true);
-            setError('');
-            void signOut().catch((e) => {
-              setError(message(e));
-              setBusy(false);
-            });
-          }}
-        >
-          <LogOut size={16} />
-          <span>{busy ? 'Signing out…' : 'Sign out'}</span>
-        </DropdownMenuItem>
+        {user && (
+          <>
+            <DropdownMenuItem onSelect={manage}>
+              <Settings size={16} />
+              <span>Manage account</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={busy}
+              onSelect={(event) => {
+                event.preventDefault();
+                setBusy(true);
+                setError('');
+                void signOut().catch((e) => {
+                  setError(message(e));
+                  setBusy(false);
+                });
+              }}
+            >
+              <LogOut size={16} />
+              <span>{busy ? 'Signing out…' : 'Sign out'}</span>
+            </DropdownMenuItem>
+          </>
+        )}
       </div>
       {error && (
         <p className="account-menu-error" role="alert">
