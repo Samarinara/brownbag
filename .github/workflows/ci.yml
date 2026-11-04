@@ -1,5 +1,7 @@
-name: Verify brownbag
+name: Verify Expo and Polli API
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -7,32 +9,45 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run format:check
       - run: npm test
       - run: npm run build
-  container:
+      - run: npx expo export --platform android --output-dir dist-android
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: brownbag-browser-results
+          path: test-results
+  apk:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build app and indexer image
-        run: docker build -t brownbag:test .
-  editor:
-    runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run build
-      - run: npx playwright test
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - uses: actions/setup-java@v4
         with:
-          name: recipe-editor-screenshots
-          path: test-results
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: npm ci
+      - run: npm run build:apk
+        env:
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_PLATFORM_URL: https://api.polli.page
+          EXPO_PUBLIC_WORKOS_CLIENT_ID: ${{ vars.EXPO_PUBLIC_WORKOS_CLIENT_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brownbag-android-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

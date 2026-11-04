@@ -1,0 +1,314 @@
+@layer theme, polli-base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "./web/components";
+@theme inline {
+ --color-background: var(--background); --color-foreground: var(--foreground);
+ --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground);
+ --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
+ --color-accent: var(--accent); --color-accent-foreground: var(--foreground);
+ --color-border: var(--border); --color-ring: var(--ring);
+ --color-coral: var(--polli-coral); --color-butter: var(--polli-yellow);
+ --color-sky: var(--polli-blue); --color-mint: var(--polli-mint);
+ --color-coral-foreground: var(--coral-foreground); --color-butter-foreground: var(--butter-foreground);
+ --color-sky-foreground: var(--sky-foreground); --color-mint-foreground: var(--mint-foreground);
+ --color-destructive: var(--destructive); --radius-lg: var(--radius); --radius-xl: calc(var(--radius) + .5rem);
+}
+@layer polli-base {
+ /* Theme lives on html so body-mounted portals inherit the same values. */
+ :root {
+  color-scheme:light;
+  --polli-green:#016630; --polli-coral:#F3A6A0; --polli-yellow:#F8D978;
+  --polli-blue:#A8D5F2; --polli-white:#FAFBF6; --polli-mint:#D9EEDD; --polli-ink:#21352D;
+  --coral-foreground:var(--polli-ink); --butter-foreground:var(--polli-ink);
+  --sky-foreground:var(--polli-ink); --mint-foreground:var(--polli-ink);
+  --background:var(--polli-white); --foreground:var(--polli-ink);
+  --primary:var(--polli-green); --primary-foreground:var(--polli-white);
+  --muted:#EDF2EA; --muted-foreground:#52665A; --accent:var(--polli-mint);
+  --border:#829584; --ring:var(--polli-green); --destructive:#A02B28; --radius:1rem;
+ }
+ html.dark {
+  color-scheme:dark;
+  --background:#17251E; --foreground:#FAFBF6;
+  --primary:#A5D5AD; --primary-foreground:#17251E;
+  --muted:#26392D; --muted-foreground:#B3C5B8; --accent:#314C39;
+  --border:#809989; --ring:#A5D5AD; --destructive:#FFA6A0;
+ }
+ [data-polli] { box-sizing:border-box; font-family:inherit; }
+ /* Portal roots must keep their font after generic component inheritance. */
+ .polli-root { color:var(--foreground); background:var(--background); font-family:var(--polli-font-body,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif); line-height:1.5; }
+ .polli-root :is(h1,h2,h3,h4) { font-family:var(--polli-font-heading,Georgia,serif); }
+ button[data-polli],input[data-polli],textarea[data-polli],select[data-polli] { font:inherit; }
+ :is([data-polli="label"],[data-polli="alert-title"]) { font-family:var(--polli-font-heading,Georgia,serif); }
+ :is(input,textarea,select)[data-polli] { font-family:var(--polli-font-input,inherit); font-size:1.25rem; line-height:1.5; }
+ button[data-polli] { cursor:pointer; }
+ button[data-polli]:disabled { cursor:not-allowed; }
+ [data-polli="button"] { text-decoration:none; overflow-wrap:anywhere; }
+ [data-polli="button"][aria-disabled="true"] { cursor:not-allowed; }
+ :is([data-polli="field"],[data-polli="badge"],[data-polli="list-row"],[data-polli="empty-state"],[data-polli="alert"],[data-polli="dialog"],[data-polli="menu"],[data-polli="tooltip"]) { overflow-wrap:anywhere; }
+ [data-polli="dialog"][data-polli-close-button] > :first-child { padding-inline-end:2rem; }
+ [data-polli="dialog"] { overscroll-behavior:contain; }
+ [data-polli="dialog"] > * { flex-shrink:0; }
+ /* Pastel feedback stays light in either theme, including its nested actions. */
+ [data-polli="alert"] {
+  --background:var(--polli-white); --foreground:var(--mint-foreground);
+  --primary:var(--polli-green); --primary-foreground:var(--polli-white);
+  --muted:color-mix(in srgb,var(--mint-foreground) 10%,var(--polli-mint));
+  --muted-foreground:#52665A; --border:#627766;
+  --ring:var(--polli-green); --destructive:#A02B28;
+ }
+ [data-polli="select"] option { color:var(--foreground); background:var(--background); }
+ :is([data-polli="input"],[data-polli="textarea"],[data-polli="select"],[data-polli="checkbox"],[data-polli="switch"])[aria-invalid="true"] { border-color:var(--destructive); }
+ :is([data-polli="checkbox"],[data-polli="switch"])[aria-invalid="true"] { outline:1px solid var(--destructive); outline-offset:2px; }
+}
+
+@layer polli-base {
+ :root {
+  --polli-motion-press:90ms;
+  --polli-motion-state:160ms;
+  --polli-motion-ink:180ms;
+  --polli-motion-reveal:220ms;
+  --polli-motion-settle:240ms;
+  --polli-motion-icon:280ms;
+  --polli-motion-underline:640ms;
+  --polli-ease-pen:cubic-bezier(.12,.78,.3,1);
+  --polli-ease:cubic-bezier(.2,.75,.25,1);
+  --polli-ease-settle:cubic-bezier(.2,.8,.3,1.06);
+  --polli-pressure:color-mix(in srgb,var(--foreground) 12%,transparent);
+ }
+
+ /* Bones hold the page together; personal content supplies the handwriting. */
+ .polli-handwritten,[data-polli="list-title"] {
+  font-family:var(--polli-font-input,var(--polli-font-body,inherit));
+  font-weight:400;
+ }
+
+ .polli-handwritten { font-size:1.25rem; line-height:1.5; }
+
+ /* Pressure stays inside the control. Nothing lifts or changes overall size. */
+ :is([data-polli="button"],[data-polli="dialog-close"],[data-polli="tabs-trigger"],[data-polli="accordion-trigger"],[data-polli="menu-item"],[data-polli="checkbox"],[data-polli="switch"]) {
+  transition:background-color var(--polli-motion-state) var(--polli-ease),color var(--polli-motion-state) var(--polli-ease),border-color var(--polli-motion-state) var(--polli-ease),filter var(--polli-motion-state) var(--polli-ease),box-shadow var(--polli-motion-state) var(--polli-ease);
+ }
+ :is([data-polli="button"],[data-polli="dialog-close"],[data-polli="tabs-trigger"],[data-polli="accordion-trigger"],[data-polli="menu-item"],[data-polli="checkbox"],[data-polli="switch"]):active:not(:disabled):not([aria-disabled="true"]):not([data-disabled]) {
+  box-shadow:inset 0 1px 3px var(--polli-pressure);
+  transition-duration:var(--polli-motion-press);
+ }
+ :is([data-polli="button"],[data-polli="dialog-close"]) > svg {
+  transition:transform var(--polli-motion-state) var(--polli-ease);
+ }
+ :is([data-polli="button"],[data-polli="dialog-close"]):active:not(:disabled):not([aria-disabled="true"]) > svg {
+  transform:translateY(1px);
+  transition-duration:var(--polli-motion-press);
+ }
+
+ /* A focused baseline takes ink without moving the field or its label. */
+ :is([data-polli="input"],[data-polli="textarea"],[data-polli="select"]) {
+  transition:border-color var(--polli-motion-ink) var(--polli-ease),box-shadow var(--polli-motion-ink) var(--polli-ease);
+ }
+ :is([data-polli="input"],[data-polli="textarea"],[data-polli="select"]):focus:not(:disabled) {
+  border-color:var(--primary);
+  box-shadow:0 1px 0 var(--primary);
+ }
+ :is([data-polli="input"],[data-polli="textarea"],[data-polli="select"])[aria-invalid="true"] {
+  border-color:var(--destructive);
+ }
+ :is([data-polli="input"],[data-polli="textarea"],[data-polli="select"])[aria-invalid="true"]:focus {
+  box-shadow:0 1px 0 var(--destructive);
+ }
+
+ /* Focus follows the printed rules rather than framing the whole component. */
+ [data-polli="tabs-content"]:focus-visible { box-shadow:-3px 0 0 var(--ring); }
+
+ /* Both strokes stay mounted: initial checked states never animate on load. */
+ [data-polli="checkbox-mark"] { display:grid; place-items:center; }
+ [data-polli-stroke] {
+  stroke-dasharray:1;
+  stroke-dashoffset:1;
+  opacity:0;
+  transition:stroke-dashoffset var(--polli-motion-ink) var(--polli-ease-pen),opacity var(--polli-motion-press) linear;
+ }
+ [data-polli="checkbox"][data-state="checked"] [data-polli-stroke="check"],
+ [data-polli="checkbox"][data-state="indeterminate"] [data-polli-stroke="minus"] {
+  stroke-dashoffset:0;
+  opacity:1;
+ }
+ [data-polli="switch-thumb"] {
+  transform:translateX(0);
+  transition:transform var(--polli-motion-settle) var(--polli-ease-settle),box-shadow var(--polli-motion-state) var(--polli-ease);
+ }
+ [data-polli="switch-thumb"][data-state="checked"] { transform:translateX(1.25rem); }
+ [data-polli="switch-thumb"]:dir(rtl)[data-state="checked"] { transform:translateX(-1.25rem); }
+ [data-polli="switch"]:active:not(:disabled) [data-polli="switch-thumb"] { box-shadow:inset 0 1px 2px var(--polli-pressure); }
+ [data-polli="accordion-chevron"] { flex-shrink:0; transition:transform var(--polli-motion-reveal) var(--polli-ease); }
+ [data-polli="accordion-trigger"][data-state="open"] [data-polli="accordion-chevron"] { transform:rotate(180deg); }
+
+ /* The material stretches a hair; the thumb's track and final position stay exact. */
+ [data-polli="switch-material"] { transform-origin:center; }
+ [data-polli="switch-material"][data-polli-motion="interaction"][data-state="checked"] { animation:polli-switch-on var(--polli-motion-settle) var(--polli-ease); }
+ [data-polli="switch-material"][data-polli-motion="interaction"][data-state="unchecked"] { animation:polli-switch-off var(--polli-motion-settle) var(--polli-ease); }
+
+ /* Icon gestures are explicitly keyed by an action. Their SVG box stays still. */
+ [data-polli="animated-icon"] { flex-shrink:0; }
+ [data-icon-part="ribbon-fill"] { opacity:0; }
+ [data-polli="animated-icon"][data-active] [data-icon-part="ribbon-fill"] { opacity:.18; }
+ [data-polli="icon-gesture"][data-polli-motion="interaction"] [data-icon-part="sheet"] { animation:polli-copy-sheet var(--polli-motion-icon) var(--polli-ease-settle); }
+ [data-polli="icon-gesture"][data-polli-motion="interaction"] [data-icon-part="back-sheet"] { animation:polli-copy-back var(--polli-motion-icon) var(--polli-ease-settle); }
+ [data-polli="icon-gesture"][data-polli-motion="interaction"] [data-icon-part="ribbon-tip"] { animation:polli-ribbon-tuck var(--polli-motion-icon) var(--polli-ease-settle); }
+ [data-polli="animated-icon"][data-active] [data-polli="icon-gesture"][data-polli-motion="interaction"] [data-icon-part="ribbon-fill"] { animation:polli-ribbon-ink var(--polli-motion-icon) var(--polli-ease-pen); }
+ [data-icon-part="bell"] { transform-origin:12px 3px; }
+ [data-polli="icon-gesture"][data-polli-motion="interaction"] [data-icon-part="bell"] { animation:polli-bell-ring 320ms var(--polli-ease); }
+ [data-icon-part="pencil"] { transform-origin:4px 20px; }
+ [data-icon-part="pencil-line"] { opacity:0; }
+ [data-polli="icon-gesture"][data-polli-motion="interaction"] [data-icon-part="pencil"] { animation:polli-pencil-write var(--polli-motion-icon) var(--polli-ease); }
+ [data-polli="icon-gesture"][data-polli-motion="interaction"] [data-icon-part="pencil-line"] { animation:polli-pencil-line var(--polli-motion-icon) var(--polli-ease-pen); }
+ [data-polli="icon-gesture"][data-polli-motion="interaction"] [data-icon-part="check"] { stroke-dasharray:1; animation:polli-check-write var(--polli-motion-ink) var(--polli-ease-pen); }
+
+ /* A mark belongs to the handwriting, including each line of a wrapped note. */
+ [data-polli="ink-text"] { position:relative; display:inline-block; max-width:100%; }
+ [data-polli="ink-words"] {
+  box-decoration-break:clone;
+  -webkit-box-decoration-break:clone;
+  background-image:linear-gradient(177deg,transparent 46%,currentColor 48%,currentColor 52%,transparent 54%);
+  background-repeat:no-repeat;
+  background-size:0% 100%;
+  transition:background-size var(--polli-motion-ink) var(--polli-ease-pen),color var(--polli-motion-state) var(--polli-ease);
+ }
+ [data-polli="ink-text"][data-crossed-out] > [data-polli="ink-words"],
+ [data-polli="ink-removal"][data-removed] [data-polli="ink-words"] { background-size:100% 100%; color:var(--muted-foreground); }
+ [data-polli="ink-underline"] { position:absolute; pointer-events:none; inset-inline-start:0; bottom:-2px; width:min(100%,3.5rem); height:2px; border-radius:60% 30% 50% 40%; background:var(--primary); opacity:0; transform:scaleX(0) rotate(-1deg); transform-origin:left; }
+ /* Save feedback belongs to the action label and uses the button's own ink. */
+ [data-polli="button"] [data-polli="ink-text"] { font-family:inherit; font-weight:inherit; font-size:inherit; line-height:inherit; }
+ [data-polli="button"] [data-polli="ink-underline"] { width:100%; bottom:-1px; background:currentColor; }
+ [data-polli="ink-underline"]:dir(rtl) { transform-origin:right; }
+ [data-polli="ink-underline"][data-polli-motion="interaction"] { animation:polli-finishing-line var(--polli-motion-underline) var(--polli-ease-pen); }
+ [data-polli="ink-removal"] { display:grid; grid-template-rows:1fr; }
+ [data-polli="ink-removal-content"] { min-height:0; overflow:hidden; }
+ [data-polli="ink-removal"][data-removed] { grid-template-rows:0fr; opacity:0; }
+ [data-polli="ink-removal"][data-removed][data-polli-motion="interaction"] { animation:polli-close-gap var(--polli-motion-settle) var(--polli-ease) var(--polli-motion-ink) both; }
+
+ /* Roots arm reveals after a state change, never for default or hydrated content. */
+ [data-polli="accordion-content"][data-polli-motion="interaction"][data-state="open"] { animation:polli-unfold var(--polli-motion-reveal) var(--polli-ease); }
+ [data-polli="accordion-content"][data-polli-motion="interaction"][data-state="closed"] { animation:polli-fold var(--polli-motion-reveal) var(--polli-ease); }
+ [data-polli="tabs-content"][data-polli-motion="interaction"][data-state="active"] { animation:polli-ink-in var(--polli-motion-state) var(--polli-ease); }
+ [data-polli="dialog"][data-polli-motion="interaction"][data-state="open"],
+ [data-polli="menu"][data-polli-motion="interaction"][data-state="open"] { animation:polli-reveal var(--polli-motion-reveal) var(--polli-ease); }
+ [data-polli="dialog"][data-polli-motion="interaction"][data-state="closed"],
+ [data-polli="menu"][data-polli-motion="interaction"][data-state="closed"] { animation:polli-dismiss var(--polli-motion-state) var(--polli-ease); }
+ [data-polli="dialog"] { --polli-reveal-y:3px; }
+ [data-polli="menu"][data-side="bottom"] { --polli-reveal-y:-3px; }
+ [data-polli="menu"][data-side="top"] { --polli-reveal-y:3px; }
+ [data-polli="menu"][data-side="right"] { --polli-reveal-x:-3px; }
+ [data-polli="menu"][data-side="left"] { --polli-reveal-x:3px; }
+ [data-polli="dialog-overlay"][data-polli-motion="interaction"][data-state="open"],
+ [data-polli="tooltip"][data-polli-motion="interaction"]:is([data-state="delayed-open"],[data-state="instant-open"]) { animation:polli-fade-in var(--polli-motion-state) var(--polli-ease); }
+ [data-polli="dialog-overlay"][data-polli-motion="interaction"][data-state="closed"],
+ [data-polli="tooltip"][data-polli-motion="interaction"][data-state="closed"] { animation:polli-fade-out var(--polli-motion-state) var(--polli-ease); }
+
+ /* Static content stays still. Opt in only when the element is an actual action. */
+ :is([data-polli="badge"],[data-polli="avatar"],[data-polli="surface"],[data-polli="list-row"]):is(button,a[href],[role="button"],[role="link"]) {
+  transition:background-color var(--polli-motion-state) var(--polli-ease),box-shadow var(--polli-motion-state) var(--polli-ease);
+ }
+ :is([data-polli="badge"],[data-polli="avatar"],[data-polli="surface"],[data-polli="list-row"]):is(button,a[href],[role="button"],[role="link"]):focus-visible { outline:2px solid var(--ring); outline-offset:4px; }
+ :is([data-polli="badge"],[data-polli="avatar"],[data-polli="surface"],[data-polli="list-row"]):is(button,a[href],[role="button"],[role="link"]):active:not(:disabled):not([aria-disabled="true"]) { box-shadow:inset 0 1px 3px var(--polli-pressure); }
+ :is([data-polli="surface"],[data-polli="list-row"]):is(button,a[href]) { color:inherit; text-decoration:none; }
+ [data-polli="alert"][data-polli-motion="interaction"],
+ [data-polli="empty-state"][data-polli-motion="interaction"] { animation:polli-ink-in var(--polli-motion-state) var(--polli-ease); }
+
+ @media (prefers-reduced-motion:reduce) {
+  [data-polli],[data-polli]::before,[data-polli]::after,[data-polli] *,[data-polli] *::before,[data-polli] *::after { animation:none!important; transition:none!important; }
+  :is([data-polli="button"],[data-polli="dialog-close"]) > svg { transform:none!important; }
+ }
+}
+
+@keyframes polli-unfold { from { height:0; } to { height:var(--radix-accordion-content-height); } }
+@keyframes polli-fold { from { height:var(--radix-accordion-content-height); } to { height:0; } }
+@keyframes polli-ink-in { from { opacity:.65; } to { opacity:1; } }
+@keyframes polli-reveal { from { opacity:0; transform:translate(var(--polli-reveal-x,0),var(--polli-reveal-y,0)); } to { opacity:1; transform:translate(0,0); } }
+@keyframes polli-dismiss { from { opacity:1; } to { opacity:0; } }
+@keyframes polli-fade-in { from { opacity:0; } to { opacity:1; } }
+@keyframes polli-fade-out { from { opacity:1; } to { opacity:0; } }
+
+@keyframes polli-switch-on { 0%,100% { transform:scaleX(1); } 40% { transform:scaleX(1.1); } 78% { transform:scaleX(.99); } }
+@keyframes polli-switch-off { 0%,100% { transform:scaleX(1); } 40% { transform:scaleX(1.1); } 78% { transform:scaleX(.99); } }
+@keyframes polli-copy-sheet { 0%,100% { transform:translate(0,0); } 45% { transform:translate(-2px,-2px); } }
+@keyframes polli-copy-back { 0%,100% { transform:translate(0,0); } 45% { transform:translate(1px,1px); } }
+@keyframes polli-ribbon-tuck { 0%,100% { transform:translateY(0); } 45% { transform:translateY(-1px); } 78% { transform:translateY(.2px); } }
+@keyframes polli-ribbon-ink { from { clip-path:inset(100% 0 0); } to { clip-path:inset(0); } }
+@keyframes polli-bell-ring { 0%,100% { transform:rotate(0); } 25% { transform:rotate(-8deg); } 55% { transform:rotate(5deg); } 80% { transform:rotate(-2deg); } }
+@keyframes polli-pencil-write { 0%,100% { transform:translate(0,0) rotate(0); } 35% { transform:translate(.6px,-.4px) rotate(-5deg); } 70% { transform:translate(1px,0) rotate(-2deg); } }
+@keyframes polli-pencil-line { 0% { opacity:0; stroke-dasharray:1; stroke-dashoffset:1; } 20% { opacity:.5; } 75% { opacity:.5; stroke-dasharray:1; stroke-dashoffset:0; } 100% { opacity:0; stroke-dasharray:1; stroke-dashoffset:0; } }
+@keyframes polli-check-write { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
+@keyframes polli-finishing-line { 0% { opacity:0; transform:scaleX(0) rotate(-1deg); } 15% { opacity:.7; } 35%,65% { opacity:.7; transform:scaleX(1) rotate(-1deg); } 100% { opacity:0; transform:scaleX(1) rotate(-1deg); } }
+@keyframes polli-close-gap { from { grid-template-rows:1fr; opacity:1; } to { grid-template-rows:0fr; opacity:0; } }
+
+/* System outlines remain visible when forced colours replace custom ink. */
+@media (forced-colors:active) {
+ :is([data-polli="input"],[data-polli="textarea"],[data-polli="select"],[data-polli="tabs-trigger"],[data-polli="tabs-content"]):focus-visible { outline:2px solid Highlight; outline-offset:2px; }
+}
+
+
+/* Essential / Organic Ink: the viewport is the page, not a pile of surfaces. */
+@layer components {
+ /* Compact printed labels with a quiet, coloured selection mark. */
+ [data-polli="tabs-list"] {
+  background:transparent;
+  border:0;
+  border-radius:0;
+  padding:0;
+  gap:1rem;
+  scrollbar-width:none;
+ }
+ [data-polli="tabs-list"]::-webkit-scrollbar { display:none; }
+ [data-polli="tabs-list"][data-orientation="vertical"] { flex-direction:column; align-items:stretch; }
+ [data-polli="tabs-trigger"] {
+  --polli-tab-ink:color-mix(in srgb,var(--polli-yellow) 50%,var(--foreground));
+  min-height:2rem;
+  background:transparent;
+  border-radius:3px;
+  white-space:nowrap;
+ }
+ [data-polli="tabs-trigger"][data-polli-ink-tone="green"] { --polli-tab-ink:var(--primary); }
+ [data-polli="tabs-trigger"][data-polli-ink-tone="coral"] { --polli-tab-ink:color-mix(in srgb,var(--polli-coral) 50%,var(--foreground)); }
+ [data-polli="tabs-trigger"][data-polli-ink-tone="sky"] { --polli-tab-ink:color-mix(in srgb,var(--polli-blue) 50%,var(--foreground)); }
+ [data-polli="tabs-trigger"][data-polli-ink-tone="mint"] { --polli-tab-ink:color-mix(in srgb,var(--polli-mint) 50%,var(--foreground)); }
+ [data-polli="tabs-trigger"]:hover:not(:disabled) { color:var(--primary); }
+ [data-polli="tabs-trigger"][data-state="active"] { color:var(--primary); }
+ [data-polli="tabs-trigger"]::after {
+  content:"";
+  position:absolute;
+  inset-inline:0;
+  margin-inline:auto;
+  bottom:1px;
+  width:1.5rem;
+  max-width:calc(100% - .5rem);
+  height:2px;
+  border-radius:1px;
+  background:var(--polli-tab-ink);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity var(--polli-motion-state) var(--polli-ease);
+ }
+ [data-polli="tabs-trigger"][data-state="active"]::after,
+ [data-polli="tabs-trigger"]:focus-visible::after { opacity:1; }
+ [data-polli="tabs-trigger"]:focus-visible { outline:2px solid var(--ring); outline-offset:-2px; }
+ [data-polli="checkbox"] { position:relative; isolation:isolate; overflow:hidden; border-radius:7px; width:1.5rem; height:1.5rem; padding:0; transition:border-radius var(--polli-motion-settle) var(--polli-ease),border-color var(--polli-motion-state) var(--polli-ease); }
+ [data-polli="checkbox"][data-state="checked"] { border-radius:50%; }
+ [data-polli="checkbox"][data-state="indeterminate"] { border-radius:7px; }
+ [data-polli="checkbox-fill"] { position:absolute; inset:-1px; z-index:-1; pointer-events:none; background:var(--primary); border-radius:45% 55% 49% 51%; transform:scale(0); transition:transform var(--polli-motion-ink) var(--polli-ease-pen); }
+ [data-polli="checkbox"]:is([data-state="checked"],[data-state="indeterminate"]) [data-polli="checkbox-fill"] { transform:scale(1); }
+ [data-polli="checkbox-mark"] { position:relative; z-index:1; }
+ [data-polli="list-row"] { border-color:color-mix(in srgb,var(--foreground) 12%,transparent); }
+}
+
+@media (forced-colors:active) {
+ [data-polli="checkbox"] { border-color:ButtonText; }
+ [data-polli="checkbox"]:is([data-state="checked"],[data-state="indeterminate"]) { color:HighlightText; border-color:Highlight; forced-color-adjust:none; }
+ [data-polli="checkbox-fill"] { background:Highlight; }
+ [data-polli="switch"] { border:1px solid ButtonText; background:Canvas; }
+ [data-polli="switch"][data-state="checked"] { background:Highlight; forced-color-adjust:none; }
+ [data-polli="switch-material"] { background:ButtonText; }
+ [data-polli="switch"][data-state="checked"] [data-polli="switch-material"] { background:HighlightText; }
+ [data-polli="tabs-trigger"][data-state="active"]::after,
+ [data-polli="tabs-trigger"]:focus-visible::after { background:Highlight; forced-color-adjust:none; }
+ [data-polli="tabs-trigger"]:focus-visible { outline-color:Highlight; }
+}
